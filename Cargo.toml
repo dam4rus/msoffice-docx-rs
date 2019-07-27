@@ -1,0 +1,15 @@
+[package]
+name = "msoffice_docx"
+version = "0.1.0"
+authors = ["Kalmár Róbert <rfrostkalmar@gmail.com>"]
+edition = "2018"
+description = "docx file format deserializer"
+keywords = ["office", "docx", "doc"]
+license = "MIT"
+repository = "https://github.com/dam4rus/msoffice-docx-rs.git"
+homepage = "https://github.com/dam4rus/msoffice-docx-rs"
+readme = "README.md"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
