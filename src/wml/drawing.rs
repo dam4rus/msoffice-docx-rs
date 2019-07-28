@@ -1,4 +1,7 @@
-use msoffice_shared::drawingml;
+use msoffice_shared::{
+    drawingml,
+    relationship::RelationshipId
+};
 
 type PositionOffset = i32;
 type WrapDistance = u32;
@@ -158,6 +161,18 @@ pub enum RelFromV {
     OutsideMargin,
 }
 
+#[derive(Debug, Copy, Clone, Eq)]
+pub enum PosHChoice {
+    Align(AlignH),
+    PositionOffset(PositionOffset),
+}
+
+#[derive(Debug, Copy, Clone, Eq)]
+pub struct PosH {
+    pub choice: PosHChoice,
+    pub relative_from: RelFromH,
+}
+
 #[derive(Debug, Clone, Eq)]
 pub enum PosVChoice {
     Align(AlignV),
@@ -168,6 +183,32 @@ pub enum PosVChoice {
 pub struct PosV {
     pub choice: PosVChoice,
     pub relative_from: RelFromV,
+}
+
+
+#[derive(Debug, Clone, Eq)]
+pub struct Anchor {
+    pub simple_position: drawingml::Point2D,
+    pub horizontal_position: PosH,
+    pub vertical_position: PosV,
+    pub extent: drawingml::PositiveSize2D,
+    pub effect_extent: Option<EffectExtent>,
+    pub wrap_type: WrapType,
+    pub document_properties: drawingml::NonVisualDrawingProps,
+    pub graphic_frame_properties: Option<drawingml::NonVisualGraphicFrameProperties>,
+    pub graphic: drawingml::GraphicalObject,
+
+    pub distance_top: Option<WrapDistance>,
+    pub distance_bottom: Option<WrapDistance>,
+    pub distance_left: Option<WrapDistance>,
+    pub distance_right: Option<WrapDistance>,
+    pub use_simple_position: bool,
+    pub relative_height: u32,
+    pub behind_document_text: bool,
+    pub locked: bool,
+    pub layout_in_cell: bool,
+    pub hidden: Option<bool>,
+    pub allow_overlap: bool,
 }
 
 #[derive(Debug, Clone, Eq)]
@@ -210,97 +251,56 @@ pub struct WordprocessingShape {
 
     pub normal_east_asian_flow: Option<bool>, // default=false
 }
-/*
-  <xsd:complexType name="CT_GraphicFrame">
-    <xsd:sequence>
-      <xsd:element name="cNvPr" type="a:CT_NonVisualDrawingProps" minOccurs="1" maxOccurs="1"/>
-      <xsd:element name="cNvFrPr" type="a:CT_NonVisualGraphicFrameProperties" minOccurs="1"
-        maxOccurs="1"/>
-      <xsd:element name="xfrm" type="a:CT_Transform2D" minOccurs="1" maxOccurs="1"/>
-      <xsd:element ref="a:graphic" minOccurs="1" maxOccurs="1"/>
-      <xsd:element name="extLst" type="a:CT_OfficeArtExtensionList" minOccurs="0" maxOccurs="1"/>
-    </xsd:sequence>
-  </xsd:complexType>
-  <xsd:complexType name="CT_WordprocessingContentPartNonVisual">
-    <xsd:sequence>
-      <xsd:element name="cNvPr" type="a:CT_NonVisualDrawingProps" minOccurs="0" maxOccurs="1"/>
-      <xsd:element name="cNvContentPartPr" type="a:CT_NonVisualContentPartProperties" minOccurs="0" maxOccurs="1"/>
-    </xsd:sequence>
-  </xsd:complexType>
-  <xsd:complexType name="CT_WordprocessingContentPart">
-    <xsd:sequence>
-      <xsd:element name="nvContentPartPr" type="CT_WordprocessingContentPartNonVisual" minOccurs="0" maxOccurs="1"/>
-      <xsd:element name="xfrm" type="a:CT_Transform2D" minOccurs="0" maxOccurs="1"/>
-      <xsd:element name="extLst" type="a:CT_OfficeArtExtensionList" minOccurs="0" maxOccurs="1"/>
-    </xsd:sequence>
-    <xsd:attribute name="bwMode" type="a:ST_BlackWhiteMode" use="optional"/>
-    <xsd:attribute ref="r:id" use="required"/>
-  </xsd:complexType>
-  <xsd:complexType name="CT_WordprocessingGroup">
-    <xsd:sequence minOccurs="1" maxOccurs="1">
-      <xsd:element name="cNvPr" type="a:CT_NonVisualDrawingProps" minOccurs="0" maxOccurs="1"/>
-      <xsd:element name="cNvGrpSpPr" type="a:CT_NonVisualGroupDrawingShapeProps" minOccurs="1"
-        maxOccurs="1"/>
-      <xsd:element name="grpSpPr" type="a:CT_GroupShapeProperties" minOccurs="1" maxOccurs="1"/>
-      <xsd:choice minOccurs="0" maxOccurs="unbounded">
-        <xsd:element ref="wsp"/>
-        <xsd:element name="grpSp" type="CT_WordprocessingGroup"/>
-        <xsd:element name="graphicFrame" type="CT_GraphicFrame"/>
-        <xsd:element ref="dpct:pic"/>
-        <xsd:element name="contentPart" type="CT_WordprocessingContentPart"/>
-      </xsd:choice>
-      <xsd:element name="extLst" type="a:CT_OfficeArtExtensionList" minOccurs="0" maxOccurs="1"/>
-    </xsd:sequence>
-  </xsd:complexType>
-  <xsd:complexType name="CT_WordprocessingCanvas">
-    <xsd:sequence minOccurs="1" maxOccurs="1">
-      <xsd:element name="bg" type="a:CT_BackgroundFormatting" minOccurs="0" maxOccurs="1"/>
-      <xsd:element name="whole" type="a:CT_WholeE2oFormatting" minOccurs="0" maxOccurs="1"/>
-      <xsd:choice minOccurs="0" maxOccurs="unbounded">
-        <xsd:element ref="wsp"/>
-        <xsd:element ref="dpct:pic"/>
-        <xsd:element name="contentPart" type="CT_WordprocessingContentPart"/>
-        <xsd:element ref="wgp"/>
-        <xsd:element name="graphicFrame" type="CT_GraphicFrame"/>
-      </xsd:choice>
-      <xsd:element name="extLst" type="a:CT_OfficeArtExtensionList" minOccurs="0" maxOccurs="1"/>
-    </xsd:sequence>
-  </xsd:complexType>
-*/
 
-#[derive(Debug, Copy, Clone, Eq)]
-pub enum PosHChoice {
-    Align(AlignH),
-    PositionOffset(PositionOffset),
-}
-
-#[derive(Debug, Copy, Clone, Eq)]
-pub struct PosH {
-    pub choice: PosHChoice,
-    pub relative_from: RelFromH,
+#[derive(Debug, Clone, Eq)]
+pub struct GraphicFrame {
+    pub non_visual_drawing_props: drawingml::NonVisualDrawingProps,
+    pub non_visual_props: drawingml::NonVisualGraphicFrameProperties,
+    pub transform: drawingml::Transform2D,
+    pub graphic: drawingml::GraphicalObject,
 }
 
 #[derive(Debug, Clone, Eq)]
-pub struct Anchor {
-    pub simple_position: drawingml::Point2D,
-    pub horizontal_position: PosH,
-    pub vertical_position: PosV,
-    pub extent: drawingml::PositiveSize2D,
-    pub effect_extent: Option<EffectExtent>,
-    pub wrap_type: WrapType,
-    pub document_properties: drawingml::NonVisualDrawingProps,
-    pub graphic_frame_properties: Option<drawingml::NonVisualGraphicFrameProperties>,
-    pub graphic: drawingml::GraphicalObject,
+pub struct WordprocessingContentPartNonVisual {
+    pub non_visual_drawing_props: Option<drawingml::NonVisualDrawingProps>,
+    pub non_visual_props: Option<drawingml::NonVisualContentPartProperties>,
+}
 
-    pub distance_top: Option<WrapDistance>,
-    pub distance_bottom: Option<WrapDistance>,
-    pub distance_left: Option<WrapDistance>,
-    pub distance_right: Option<WrapDistance>,
-    pub use_simple_position: bool,
-    pub relative_height: u32,
-    pub behind_document_text: bool,
-    pub locked: bool,
-    pub layout_in_cell: bool,
-    pub hidden: Option<bool>,
-    pub allow_overlap: bool,
+#[derive(Debug, Clone, Eq)]
+pub struct WordprocessingContentPart {
+    pub properties: Option<WordprocessingContentPartNonVisual>,
+    pub transform: Option<drawingml::Transform2D>,
+
+    pub black_and_white_mode: Option<drawingml::BlackWhiteMode>,
+    pub relationship_id: Option<RelationshipId>,
+}
+
+pub enum WordprocessingGroupChoice {
+    Shape(WordprocessingShape),
+    Group(WordprocessingGroup),
+    GraphicFrame(GraphicFrame),
+    Picture(drawingml::Picture),
+    ContentPart(WordprocessingContentPart),
+}
+
+#[derive(Debug, Clone, Eq)]
+pub struct WordprocessingGroup {
+    pub non_visual_drawing_props: Option<drawingml::NonVisualDrawingProps>,
+    pub non_visual_drawing_shape_props: drawingml::NonVisualDrawingShapeProps,
+    pub group_shape_props: drawingml::GroupShapeProperties,
+    pub shapes: Vec<WordprocessingGroupChoice>,
+}
+
+pub enum WordprocessingCanvasChoice {
+    Shape(WordprocessingShape),
+    Picture(drawingml::Picture),
+    ContentPart(WordprocessingContentPart),
+    Group(WordprocessingGroup),
+    GraphicFrame(GraphicFrame),
+}
+
+pub struct WordprocessingCanvas {
+    pub background_formatting: Option<drawingml::BackgrounFormatting>,
+    pub whole_formatting: Option<WholeE2oFormatting>,
+    pub shapes: Vec<WordprocessingCanvasChoice>,
 }
