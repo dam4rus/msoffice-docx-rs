@@ -6,6 +6,7 @@ use msoffice_shared::{
 type PositionOffset = i32;
 type WrapDistance = u32;
 
+#[derive(Debug, Clone)]
 pub struct EffectExtent {
     pub left: drawingml::Coordinate,
     pub top: drawingml::Coordinate,
@@ -13,7 +14,7 @@ pub struct EffectExtent {
     pub bottom: drawingml::Coordinate,
 }
 
-#[derive(Debug, Clone, Eq)]
+#[derive(Debug, Clone)]
 pub struct Inline {
     pub extent: drawingml::PositiveSize2D,
     pub effect_extent: Option<EffectExtent>,
@@ -27,7 +28,7 @@ pub struct Inline {
     pub distance_right: Option<WrapDistance>,
 }
 
-#[derive(Debug, Clone, Eq, EnumString)]
+#[derive(Debug, Clone, EnumString)]
 pub enum WrapText {
     #[strum(serialize="bothSides")]
     BothSides,
@@ -39,7 +40,7 @@ pub enum WrapText {
     Largest,
 }
 
-#[derive(Debug, Clone, Eq)]
+#[derive(Debug, Clone)]
 pub struct WrapPath {
     pub start: drawingml::Point2D,
     pub line_to: Vec<drawingml::Point2D>,
@@ -47,7 +48,7 @@ pub struct WrapPath {
     pub edited: Option<bool>,
 }
 
-#[derive(Debug, Clone, Eq)]
+#[derive(Debug, Clone)]
 pub struct WrapSquare {
     pub effect_extent: Option<EffectExtent>,
 
@@ -58,7 +59,7 @@ pub struct WrapSquare {
     pub distance_right: Option<WrapDistance>,
 }
 
-#[derive(Debug, Clone, Eq)]
+#[derive(Debug, Clone)]
 pub struct WrapTight {
     pub wrap_polygon: WrapPath,
 
@@ -67,7 +68,7 @@ pub struct WrapTight {
     pub distance_right: Option<WrapDistance>,
 }
 
-#[derive(Debug, Clone, Eq)]
+#[derive(Debug, Clone)]
 pub struct WrapThrough {
     pub wrap_polygon: WrapPath,
 
@@ -76,7 +77,7 @@ pub struct WrapThrough {
     pub distance_right: Option<WrapDistance>,
 }
 
-#[derive(Debug, Clone, Eq, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct WrapTopBottom {
     pub effect_extent: Option<EffectExtent>,
 
@@ -84,7 +85,7 @@ pub struct WrapTopBottom {
     pub distance_bottom: Option<WrapDistance>,
 }
 
-#[derive(Debug, Eq, Clone)]
+#[derive(Debug, Clone)]
 pub enum WrapType {
     None,
     Square(WrapSquare),
@@ -93,7 +94,7 @@ pub enum WrapType {
     TopAndBottom(WrapTopBottom),
 }
 
-#[derive(Debug, Clone, Eq, EnumString)]
+#[derive(Debug, Clone, EnumString)]
 pub enum AlignH {
     #[strum(serialize="left")]
     Left,
@@ -107,7 +108,7 @@ pub enum AlignH {
     Outside,
 }
 
-#[derive(Debug, Clone, Eq, EnumString)]
+#[derive(Debug, Clone, EnumString)]
 pub enum RelFromH {
     #[strum(serialize="margin")]
     Margin,
@@ -127,7 +128,7 @@ pub enum RelFromH {
     OutsideMargin,
 }
 
-#[derive(Debug, Clone, Eq, EnumString)]
+#[derive(Debug, Clone, EnumString)]
 pub enum AlignV {
     #[strum(serialize="top")]
     Top,
@@ -141,7 +142,7 @@ pub enum AlignV {
     Outside,
 }
 
-#[derive(Debug, Clone, Eq, EnumString)]
+#[derive(Debug, Clone, EnumString)]
 pub enum RelFromV {
     #[strum(serialize="margin")]
     Margin,
@@ -161,32 +162,32 @@ pub enum RelFromV {
     OutsideMargin,
 }
 
-#[derive(Debug, Copy, Clone, Eq)]
+#[derive(Debug, Clone)]
 pub enum PosHChoice {
     Align(AlignH),
     PositionOffset(PositionOffset),
 }
 
-#[derive(Debug, Copy, Clone, Eq)]
+#[derive(Debug, Clone)]
 pub struct PosH {
     pub choice: PosHChoice,
     pub relative_from: RelFromH,
 }
 
-#[derive(Debug, Clone, Eq)]
+#[derive(Debug, Clone)]
 pub enum PosVChoice {
     Align(AlignV),
     PositionOffset(PositionOffset),
 }
 
-#[derive(Debug, Clone, Eq)]
+#[derive(Debug, Clone)]
 pub struct PosV {
     pub choice: PosVChoice,
     pub relative_from: RelFromV,
 }
 
 
-#[derive(Debug, Clone, Eq)]
+#[derive(Debug, Clone)]
 pub struct Anchor {
     pub simple_position: drawingml::Point2D,
     pub horizontal_position: PosH,
@@ -211,36 +212,36 @@ pub struct Anchor {
     pub allow_overlap: bool,
 }
 
-#[derive(Debug, Clone, Eq)]
+#[derive(Debug, Clone)]
 pub struct TxbxContent {
     pub block_level_elements: Vec<super::BlockLevelElts>, // minOccurs=1
 }
 
-#[derive(Debug, Clone, Eq)]
+#[derive(Debug, Clone)]
 pub struct TextboxInfo {
     pub textbox_content: TxbxContent,
     pub id: Option<u16>, // default=0,
 }
 
-#[derive(Debug, Clone, Eq)]
+#[derive(Debug, Clone)]
 pub struct LinkedTextboxInformation {
     pub id: u16,
     pub sequence: u16,
 }
 
-#[derive(Debug, Clone, Eq)]
+#[derive(Debug, Clone,)]
 enum WordprocessingShapePropertiesChoice {
     ShapeProperties(drawingml::NonVisualDrawingShapeProps),
     Connector(drawingml::NonVisualConnectorProperties),
 }
 
-#[derive(Debug, Clone, Eq)]
+#[derive(Debug, Clone)]
 enum WordprocessingShapeTextboxInfoChoice {
-    Textbox(TextBoxInfo),
+    Textbox(TextboxInfo),
     LinkedTextbox(LinkedTextboxInformation),
 }
 
-#[derive(Debug, Clone, Eq)]
+#[derive(Debug, Clone)]
 pub struct WordprocessingShape {
     pub non_visual_drawing_props: Option<drawingml::NonVisualDrawingProps>,
     pub properties: WordprocessingShapePropertiesChoice,
@@ -252,7 +253,7 @@ pub struct WordprocessingShape {
     pub normal_east_asian_flow: Option<bool>, // default=false
 }
 
-#[derive(Debug, Clone, Eq)]
+#[derive(Debug, Clone)]
 pub struct GraphicFrame {
     pub non_visual_drawing_props: drawingml::NonVisualDrawingProps,
     pub non_visual_props: drawingml::NonVisualGraphicFrameProperties,
@@ -260,13 +261,13 @@ pub struct GraphicFrame {
     pub graphic: drawingml::GraphicalObject,
 }
 
-#[derive(Debug, Clone, Eq)]
+#[derive(Debug, Clone)]
 pub struct WordprocessingContentPartNonVisual {
     pub non_visual_drawing_props: Option<drawingml::NonVisualDrawingProps>,
     pub non_visual_props: Option<drawingml::NonVisualContentPartProperties>,
 }
 
-#[derive(Debug, Clone, Eq)]
+#[derive(Debug, Clone)]
 pub struct WordprocessingContentPart {
     pub properties: Option<WordprocessingContentPartNonVisual>,
     pub transform: Option<drawingml::Transform2D>,
@@ -275,6 +276,7 @@ pub struct WordprocessingContentPart {
     pub relationship_id: Option<RelationshipId>,
 }
 
+#[derive(Debug, Clone)]
 pub enum WordprocessingGroupChoice {
     Shape(WordprocessingShape),
     Group(WordprocessingGroup),
@@ -283,7 +285,7 @@ pub enum WordprocessingGroupChoice {
     ContentPart(WordprocessingContentPart),
 }
 
-#[derive(Debug, Clone, Eq)]
+#[derive(Debug, Clone)]
 pub struct WordprocessingGroup {
     pub non_visual_drawing_props: Option<drawingml::NonVisualDrawingProps>,
     pub non_visual_drawing_shape_props: drawingml::NonVisualDrawingShapeProps,
@@ -300,7 +302,7 @@ pub enum WordprocessingCanvasChoice {
 }
 
 pub struct WordprocessingCanvas {
-    pub background_formatting: Option<drawingml::BackgrounFormatting>,
-    pub whole_formatting: Option<WholeE2oFormatting>,
+    pub background_formatting: Option<drawingml::BackgroundFormatting>,
+    pub whole_formatting: Option<drawingml::WholeE2oFormatting>,
     pub shapes: Vec<WordprocessingCanvasChoice>,
 }
