@@ -1,4 +1,8 @@
-use msoffice_shared::{drawingml, xml::XmlNode};
+use msoffice_shared::{
+    drawingml::HexColorRGB,
+    error::{MissingAttributeError, MissingChildNodeError},
+    xml::XmlNode,
+};
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -84,6 +88,545 @@ pub enum HighlightColor {
     #[strum(serialize = "none")]
     None,
 }
+
+#[derive(Debug, Clone, PartialEq, EnumString)]
+enum ProofErrType {
+    #[strum(serialize = "spellStart")]
+    SpellingStart,
+    #[strum(serialize = "spellEnd")]
+    SpellingEnd,
+    #[strum(serialize = "gramStart")]
+    GrammarStart,
+    #[strum(serialize = "gramEnd")]
+    GrammarEnd,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ProofErr {
+    pub error_type: ProofErrType,
+}
+
+impl ProofErr {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let type_attr = xml_node
+            .attributes
+            .get("type")
+            .ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "type"))?;
+
+        Ok(Self {
+            error_type: type_attr.parse()?,
+        })
+    }
+}
+
+#[cfg(test)]
+impl ProofErr {
+    pub fn test_xml(node_name: &'static str) -> String {
+        format!(
+            r#"<{node_name} type="spellStart"></{node_name}>"#,
+            node_name = node_name
+        )
+    }
+
+    pub fn test_instance() -> Self {
+        Self {
+            error_type: ProofErrType::SpellingStart,
+        }
+    }
+}
+
+#[cfg(test)]
+#[test]
+pub fn test_proof_err_from_xml() {
+    let xml = ProofErr::test_xml("proofErr");
+    let proof_err = ProofErr::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+    assert_eq!(proof_err, ProofErr::test_instance());
+}
+
+#[derive(Debug, Clone, PartialEq, EnumString)]
+pub enum EdGrp {
+    #[strum(serialize = "none")]
+    None,
+    #[strum(serialize = "everyone")]
+    Everyone,
+    #[strum(serialize = "administrators")]
+    Administrators,
+    #[strum(serialize = "contributors")]
+    Contributors,
+    #[strum(serialize = "editors")]
+    Editors,
+    #[strum(serialize = "owners")]
+    Owners,
+    #[strum(serialize = "current")]
+    Current,
+}
+
+#[derive(Debug, Clone, PartialEq, EnumString)]
+pub enum DisplacedByCustomXml {
+    #[strum(serialize = "next")]
+    Next,
+    #[strum(serialize = "prev")]
+    Prev,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Perm {
+    pub id: String,
+    pub displaced_by_custom_xml: Option<DisplacedByCustomXml>,
+}
+
+impl Perm {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut id = None;
+        let mut displaced_by_custom_xml = None;
+        for (attr, value) in &xml_node.attributes {
+            match attr.as_ref() {
+                "id" => id = Some(value.clone()),
+                "displacedByCustomXml" => displaced_by_custom_xml = Some(value.parse()?),
+                _ => (),
+            }
+        }
+
+        Ok(Self {
+            id: id.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "id"))?,
+            displaced_by_custom_xml,
+        })
+    }
+}
+
+#[cfg(test)]
+impl Perm {
+    pub fn test_xml(node_name: &'static str) -> String {
+        format!(
+            r#"<{node_name} id="Some id", displacedByCustomXml="next"></{node_name}>"#,
+            node_name = node_name
+        )
+    }
+
+    pub fn test_instance() -> Self {
+        Self {
+            id: String::from("Some id"),
+            displaced_by_custom_xml: Some(DisplacedByCustomXml::Next),
+        }
+    }
+}
+
+#[cfg(test)]
+#[test]
+pub fn test_perm_from_xml() {
+    let xml = Perm::test_xml("perm");
+    let perm = Perm::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+    assert_eq!(perm, Perm::test_instance());
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PermStart {
+    pub permission: Perm,
+    pub editor_group: Option<EdGrp>,
+    pub editor: Option<String>,
+    pub first_column: Option<DecimalNumber>,
+    pub last_column: Option<DecimalNumber>,
+}
+
+impl PermStart {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let permission = Perm::from_xml_element(xml_node)?;
+        let mut editor_group = None;
+        let mut editor = None;
+        let mut first_column = None;
+        let mut last_column = None;
+        for (attr, value) in &xml_node.attributes {
+            match attr.as_ref() {
+                "edGrp" => editor_group = Some(value.parse()?),
+                "ed" => editor = Some(value.clone()),
+                "colFirst" => first_column = Some(value.parse()?),
+                "colLast" => last_column = Some(value.parse()?),
+                _ => (),
+            }
+        }
+
+        Ok(Self {
+            permission,
+            editor_group,
+            editor,
+            first_column,
+            last_column,
+        })
+    }
+}
+
+#[cfg(test)]
+impl PermStart {
+    pub fn test_xml(node_name: &'static str) -> String {
+        format!(r#"<{node_name} id="Some id" displacedByCustomXml="next" edGrp="everyone" ed="rfrostkalmar@gmail.com" colFirst="0" colLast="1">
+        </{node_name}>"#, node_name=node_name)
+    }
+
+    pub fn test_instance() -> Self {
+        Self {
+            permission: Perm::test_instance(),
+            editor_group: Some(EdGrp::Everyone),
+            editor: Some(String::from("rfrostkalmar@gmail.com")),
+            first_column: Some(0),
+            last_column: Some(1),
+        }
+    }
+}
+
+#[cfg(test)]
+#[test]
+pub fn test_perm_start_from_xml() {
+    let xml = PermStart::test_xml("permStart");
+    let perm_start = PermStart::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+    assert_eq!(perm_start, PermStart::test_instance());
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Markup {
+    pub id: DecimalNumber,
+}
+
+impl Markup {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let id_attr = xml_node
+            .attributes
+            .get("id")
+            .ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "id"))?;
+
+        Ok(Self { id: id_attr.parse()? })
+    }
+}
+
+#[cfg(test)]
+impl Markup {
+    pub fn test_xml(node_name: &'static str) -> String {
+        format!(r#"<{node_name} id="0"></{node_name}>"#, node_name = node_name)
+    }
+
+    pub fn test_instance() -> Self {
+        Self { id: 0 }
+    }
+}
+
+#[cfg(test)]
+#[test]
+pub fn test_markup_from_xml() {
+    let xml = Markup::test_xml("markup");
+    let markup = Markup::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+    assert_eq!(markup, Markup::test_instance());
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct MarkupRange {
+    pub base: Markup,
+    pub displaced_by_custom_xml: Option<DisplacedByCustomXml>,
+}
+
+impl MarkupRange {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let base = Markup::from_xml_element(xml_node)?;
+        let displaced_by_custom_xml = xml_node
+            .attributes
+            .get("displacedByCustomXml")
+            .map(|value| value.parse())
+            .transpose()?;
+
+        Ok(Self {
+            base,
+            displaced_by_custom_xml,
+        })
+    }
+}
+
+#[cfg(test)]
+impl MarkupRange {
+    pub fn test_xml(node_name: &'static str) -> String {
+        format!(
+            r#"<{node_name} id="0" displacedByCustomXml="next"></{node_name}>"#,
+            node_name = node_name
+        )
+    }
+
+    pub fn test_instance() -> Self {
+        Self {
+            base: Markup::test_instance(),
+            displaced_by_custom_xml: Some(DisplacedByCustomXml::Next),
+        }
+    }
+}
+
+#[cfg(test)]
+#[test]
+pub fn test_markup_range_from_xml() {
+    let xml = MarkupRange::test_xml("markupRange");
+    let markup_range = MarkupRange::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+    assert_eq!(markup_range, MarkupRange::test_instance());
+}
+#[derive(Debug, Clone, PartialEq)]
+pub struct BookmarkRange {
+    pub base: MarkupRange,
+    pub first_column: Option<DecimalNumber>,
+    pub last_column: Option<DecimalNumber>,
+}
+
+impl BookmarkRange {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let base = MarkupRange::from_xml_element(xml_node)?;
+        let mut first_column = xml_node
+            .attributes
+            .get("colFirst")
+            .map(|value| value.parse())
+            .transpose()?;
+
+        let mut last_column = xml_node
+            .attributes
+            .get("colLast")
+            .map(|value| value.parse())
+            .transpose()?;
+
+        Ok(Self {
+            base,
+            first_column,
+            last_column,
+        })
+    }
+}
+
+#[cfg(test)]
+impl BookmarkRange {
+    pub fn test_xml(node_name: &'static str) -> String {
+        format!(
+            r#"<{node_name} id="0" displacedByCustomXml="next" colFirst="0" colLast="1">
+        </{node_name}>"#,
+            node_name = node_name
+        )
+    }
+
+    pub fn test_instance() -> Self {
+        Self {
+            base: MarkupRange::test_instance(),
+            first_column: Some(0),
+            last_column: Some(1),
+        }
+    }
+}
+
+#[cfg(test)]
+#[test]
+pub fn test_bookmark_range_from_xml() {
+    let xml = BookmarkRange::test_xml("bookmarkRange");
+    let bookmark_range = BookmarkRange::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+    assert_eq!(bookmark_range, BookmarkRange::test_instance());
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Bookmark {
+    pub base: BookmarkRange,
+    pub name: String,
+}
+
+impl Bookmark {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let base = BookmarkRange::from_xml_element(xml_node)?;
+        let name = xml_node
+            .attributes
+            .get("name")
+            .cloned()
+            .ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "name"))?;
+
+        Ok(Self { base, name })
+    }
+}
+
+#[cfg(test)]
+impl Bookmark {
+    pub fn test_xml(node_name: &'static str) -> String {
+        format!(
+            r#"<{node_name} id="0" displacedByCustomXml="next" colFirst="0" colLast="1" name="Some name">
+        </{node_name}>"#,
+            node_name = node_name
+        )
+    }
+
+    pub fn test_instance() -> Self {
+        Self {
+            base: BookmarkRange::test_instance(),
+            name: String::from("Some name"),
+        }
+    }
+}
+
+#[cfg(test)]
+#[test]
+fn test_bookmark_from_xml() {
+    let xml = Bookmark::test_xml("bookmark");
+    let bookmark = Bookmark::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+    assert_eq!(bookmark, Bookmark::test_instance());
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct MoveBookmark {
+    pub base: Bookmark,
+    pub author: String,
+    pub date: DateTime,
+}
+
+impl MoveBookmark {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let base = Bookmark::from_xml_element(xml_node)?;
+        let author = xml_node
+            .attributes
+            .get("author")
+            .cloned()
+            .ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "author"))?;
+
+        let date = xml_node
+            .attributes
+            .get("date")
+            .cloned()
+            .ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "date"))?;
+
+        Ok(Self { base, author, date })
+    }
+}
+
+#[cfg(test)]
+impl MoveBookmark {
+    pub fn test_xml(node_name: &'static str) -> String {
+        format!(r#"<{node_name} id="0" displacedByCustomXml="next" colFirst="0" colLast="1" name="Some name" author="John Smith" date="2001-10-26T21:32:52">
+        </{node_name}>"#, node_name=node_name)
+    }
+
+    pub fn test_instance() -> Self {
+        Self {
+            base: Bookmark::test_instance(),
+            author: String::from("John Smith"),
+            date: DateTime::from("2001-10-26T21:32:52"),
+        }
+    }
+}
+
+#[cfg(test)]
+#[test]
+fn test_move_bookmark_from_xml() {
+    let xml = MoveBookmark::test_xml("moveBookmark");
+    let move_bookmark = MoveBookmark::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+    assert_eq!(move_bookmark, MoveBookmark::test_instance());
+}
+
+/*
+<xsd:group name="EG_RangeMarkupElements">
+    <xsd:choice>
+      <xsd:element name="bookmarkStart" type="CT_Bookmark"/>
+      <xsd:element name="bookmarkEnd" type="CT_MarkupRange"/>
+      <xsd:element name="moveFromRangeStart" type="CT_MoveBookmark"/>
+      <xsd:element name="moveFromRangeEnd" type="CT_MarkupRange"/>
+      <xsd:element name="moveToRangeStart" type="CT_MoveBookmark"/>
+      <xsd:element name="moveToRangeEnd" type="CT_MarkupRange"/>
+      <xsd:element name="commentRangeStart" type="CT_MarkupRange"/>
+      <xsd:element name="commentRangeEnd" type="CT_MarkupRange"/>
+      <xsd:element name="customXmlInsRangeStart" type="CT_TrackChange"/>
+      <xsd:element name="customXmlInsRangeEnd" type="CT_Markup"/>
+      <xsd:element name="customXmlDelRangeStart" type="CT_TrackChange"/>
+      <xsd:element name="customXmlDelRangeEnd" type="CT_Markup"/>
+      <xsd:element name="customXmlMoveFromRangeStart" type="CT_TrackChange"/>
+      <xsd:element name="customXmlMoveFromRangeEnd" type="CT_Markup"/>
+      <xsd:element name="customXmlMoveToRangeStart" type="CT_TrackChange"/>
+      <xsd:element name="customXmlMoveToRangeEnd" type="CT_Markup"/>
+    </xsd:choice>
+  </xsd:group>
+*/
+#[derive(Debug, Clone, PartialEq)]
+pub enum RangeMarkupElements {
+    BookmarkStart(Bookmark),
+    BookmarkEnd(MarkupRange),
+    MoveFromRangeStart(MoveBookmark),
+    MoveFromRangeEnd(MarkupRange),
+    MoveToRangeStart(MoveBookmark),
+    MoveToRangeEnd(MarkupRange),
+    CommentRangeStart(MarkupRange),
+    CommentRangeEnd(MarkupRange),
+    CustomXmlInsertRangeStart(TrackChange),
+    CustomXmlInsertRangeEnd(Markup),
+    CustomXmlDeleteRangeStart(TrackChange),
+    CustomXmlDeleteRangeEnd(Markup),
+    CustomXmlMoveFromRangeStart(TrackChange),
+    CustomXmlMoveFromRangeEnd(Markup),
+    CustomXmlMoveToRangeStart(TrackChange),
+    CustomXmlMoveToRangeEnd(Markup),
+}
+
+/*
+<xsd:group name="EG_RunLevelElts">
+    <xsd:choice>
+      <xsd:element name="proofErr" minOccurs="0" type="CT_ProofErr"/>
+      <xsd:element name="permStart" minOccurs="0" type="CT_PermStart"/>
+      <xsd:element name="permEnd" minOccurs="0" type="CT_Perm"/>
+      <xsd:group ref="EG_RangeMarkupElements" minOccurs="0" maxOccurs="unbounded"/>
+      <xsd:element name="ins" type="CT_RunTrackChange" minOccurs="0"/>
+      <xsd:element name="del" type="CT_RunTrackChange" minOccurs="0"/>
+      <xsd:element name="moveFrom" type="CT_RunTrackChange"/>
+      <xsd:element name="moveTo" type="CT_RunTrackChange"/>
+      <xsd:group ref="EG_MathContent" minOccurs="0" maxOccurs="unbounded"/>
+    </xsd:choice>
+  </xsd:group>
+*/
+#[derive(Debug, Clone, PartialEq)]
+pub enum RunLevelElts {
+    ProofError(Option<ProofErr>),
+    PermissionStart(Option<PermStart>),
+    PermissionEnd(Option<Perm>),
+    RangeMarkupElements(Vec<RangeMarkupElements>),
+    Insert(Option<RunTrackChange>),
+    Delete(Option<RunTrackChange>),
+    MoveFrom(RunTrackChange),
+    MoveTo(RunTrackChange),
+    MathContent(Vec<MathContent>),
+}
+
+/*
+<xsd:group name="EG_ContentBlockContent">
+    <xsd:choice>
+      <xsd:element name="customXml" type="CT_CustomXmlBlock"/>
+      <xsd:element name="sdt" type="CT_SdtBlock"/>
+      <xsd:element name="p" type="CT_P" minOccurs="0" maxOccurs="unbounded"/>
+      <xsd:element name="tbl" type="CT_Tbl" minOccurs="0" maxOccurs="unbounded"/>
+      <xsd:group ref="EG_RunLevelElts" minOccurs="0" maxOccurs="unbounded"/>
+    </xsd:choice>
+  </xsd:group>
+*/
+#[derive(Debug, Clone, PartialEq)]
+pub enum ContentBlockContent {
+    CustomXml(CustomXmlBlock),
+    Sdt(SdtBlock),
+    Paragraph(Vec<P>),
+    Table(Vec<Tbl>),
+    RunLevelElement(Vec<RunLevelElts>),
+}
+
+/*
+<xsd:group name="EG_BlockLevelChunkElts">
+    <xsd:choice>
+      <xsd:group ref="EG_ContentBlockContent" minOccurs="0" maxOccurs="unbounded"/>
+    </xsd:choice>
+  </xsd:group>
+*/
+#[derive(Debug, Clone, PartialEq)]
+pub enum BlockLevelChunkElts {
+    Content(Vec<ContentBlockContent>),
+}
+// <xsd:group name="EG_BlockLevelElts">
+//     <xsd:choice>
+//       <xsd:group ref="EG_BlockLevelChunkElts" minOccurs="0" maxOccurs="unbounded"/>
+//       <xsd:element name="altChunk" type="CT_AltChunk" minOccurs="0" maxOccurs="unbounded"/>
+//     </xsd:choice>
+//   </xsd:group>
+#[derive(Debug, Clone, PartialEq)]
+pub enum BlockLevelElts {
+    Chunks(Vec<BlockLevelChunkElts>),
+    AltChunks(Vec<AltChunk>),
+}
+
 /*
   <xsd:simpleType name="ST_HexColorAuto">
     <xsd:restriction base="xsd:string">
@@ -3619,7 +4162,7 @@ enum ThemeColor {
 #[derive(Debug, Clone)]
 enum HexColor {
     Auto,
-    RGB(drawingml::HexColorRGB),
+    RGB(HexColorRGB),
 }
 
 // #[derive(Debug, Clone, Default)]

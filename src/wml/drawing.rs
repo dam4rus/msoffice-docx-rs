@@ -5,9 +5,9 @@ use msoffice_shared::{
         NonVisualDrawingShapeProps, NonVisualGraphicFrameProperties, Picture, Point2D, PositiveSize2D, ShapeProperties,
         ShapeStyle, TextBodyProperties, Transform2D,
     },
-    error::{Limit, LimitViolationError, MissingAttributeError, MissingChildNodeError},
+    error::{Limit, LimitViolationError, MissingAttributeError, MissingChildNodeError, NotGroupMemberError},
     relationship::RelationshipId,
-    xml::XmlNode,
+    xml::{parse_xml_bool, XmlNode},
 };
 
 type Result<T> = ::std::result::Result<T, Box<dyn std::error::Error>>;
@@ -59,19 +59,30 @@ impl EffectExtent {
 }
 
 #[cfg(test)]
-#[test]
-pub fn effect_extent_from_xml_node_test() {
-    let xml = r#"<effect l="0" t="0" r="100" b="100"></effect>"#;
-    let effect_extent = EffectExtent::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
-    assert_eq!(
-        effect_extent,
-        EffectExtent {
+impl EffectExtent {
+    pub fn test_xml(node_name: &'static str) -> String {
+        format!(
+            r#"<{node_name} l="0" t="0" r="100" b="100"></{node_name}>"#,
+            node_name = node_name
+        )
+    }
+
+    pub fn test_instance() -> Self {
+        Self {
             left: 0,
             top: 0,
             right: 100,
-            bottom: 100
+            bottom: 100,
         }
-    );
+    }
+}
+
+#[cfg(test)]
+#[test]
+pub fn effect_extent_from_xml_node_test() {
+    let xml = EffectExtent::test_xml("effectExtent");
+    let effect_extent = EffectExtent::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+    assert_eq!(effect_extent, EffectExtent::test_instance());
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -143,9 +154,10 @@ impl Inline {
 pub fn test_inline_from_xml_element() {
     use msoffice_shared::drawingml::Hyperlink;
 
-    let xml = r#"<inline distT="0" distB="100" distL="0" distR="100">
+    let xml = format!(
+        r#"<inline distT="0" distB="100" distL="0" distR="100">
         <extent cx="10000" cy="10000" />
-        <effectExtent l="0" t="0" r="1000" b="1000" />
+        {}
         <docPr id="1" name="Object name" descr="Some description" title="Title of the object">
             <a:hlinkClick r:id="rId2" tooltip="Some Sample Text"/>
             <a:hlinkHover r:id="rId2" tooltip="Some Sample Text"/>
@@ -153,12 +165,14 @@ pub fn test_inline_from_xml_element() {
         <graphic>
             <graphicData uri="http://some/url" />
         </graphic>
-    </inline>"#;
+    </inline>"#,
+        EffectExtent::test_xml("effectExtent")
+    );
 
     let inline = Inline::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
     let inline_rhs = Inline {
         extent: PositiveSize2D::new(10000, 10000),
-        effect_extent: Some(EffectExtent::new(0, 0, 1000, 1000)),
+        effect_extent: Some(EffectExtent::test_instance()),
         doc_properties: NonVisualDrawingProps {
             id: 1,
             name: String::from("Object name"),
@@ -202,15 +216,6 @@ pub enum WrapText {
     Largest,
 }
 
-/*
-<xsd:complexType name="CT_WrapPath">
-    <xsd:sequence>
-      <xsd:element name="start" type="a:CT_Point2D" minOccurs="1" maxOccurs="1"/>
-      <xsd:element name="lineTo" type="a:CT_Point2D" minOccurs="2" maxOccurs="unbounded"/>
-    </xsd:sequence>
-    <xsd:attribute name="edited" type="xsd:boolean" use="optional"/>
-  </xsd:complexType>
-*/
 #[derive(Debug, Clone, PartialEq)]
 pub struct WrapPath {
     pub start: Point2D,
@@ -250,21 +255,34 @@ impl WrapPath {
 }
 
 #[cfg(test)]
+impl WrapPath {
+    pub fn test_xml(node_name: &'static str) -> String {
+        format!(
+            r#"<{node_name} edited="true">
+            <start x="0" y="0" />
+            <lineTo x="50" y="50" />
+            <lineTo x="100" y="100" />
+        </{node_name}>"#,
+            node_name = node_name
+        )
+    }
+
+    pub fn test_instance() -> Self {
+        Self {
+            start: Point2D::new(0, 0),
+            line_to: vec![Point2D::new(50, 50), Point2D::new(100, 100)],
+            edited: Some(true),
+        }
+    }
+}
+
+#[cfg(test)]
 #[test]
 pub fn test_wrap_path_from_xml() {
-    let xml = r#"<wrap_path edited="true">
-        <start x="0" y="0" />
-        <lineTo x="50" y="50" />
-        <lineTo x="100" y="100" />
-    </wrap_path>"#;
+    let xml = WrapPath::test_xml("wrapPath");
 
     let wrap_path = WrapPath::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
-    let wrap_path_rhs = WrapPath {
-        start: Point2D::new(0, 0),
-        line_to: vec![Point2D::new(50, 50), Point2D::new(100, 100)],
-        edited: Some(true),
-    };
-    assert_eq!(wrap_path, wrap_path_rhs);
+    assert_eq!(wrap_path, WrapPath::test_instance());
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -302,6 +320,7 @@ impl WrapSquare {
             .first()
             .map(|child_node| EffectExtent::from_xml_element(child_node))
             .transpose()?;
+
         Ok(Self {
             effect_extent,
             wrap_text: wrap_text.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "wrapText"))?,
@@ -314,26 +333,39 @@ impl WrapSquare {
 }
 
 #[cfg(test)]
-#[test]
-pub fn test_wrap_square_from_xml() {
-    let xml = r#"<wrap_square wrapText="bothSides" distT="0" distB="100" distL="0" distR="100">
-        <effectExtent l="0" t="0" r="100" b="100" />
-    </wrap_square>"#;
+impl WrapSquare {
+    pub fn test_xml(node_name: &'static str) -> String {
+        format!(
+            r#"<{node_name} wrapText="bothSides" distT="0" distB="100" distL="0" distR="100">
+            {}
+        </{node_name}>"#,
+            EffectExtent::test_xml("effectExtent"),
+            node_name = node_name
+        )
+    }
 
-    let wrap_square = WrapSquare::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
-    let wrap_square_rhs = WrapSquare {
-        effect_extent: Some(EffectExtent::new(0, 0, 100, 100)),
-        wrap_text: WrapText::BothSides,
-        distance_top: Some(0),
-        distance_bottom: Some(100),
-        distance_left: Some(0),
-        distance_right: Some(100),
-    };
-
-    assert_eq!(wrap_square, wrap_square_rhs);
+    pub fn test_instance() -> Self {
+        WrapSquare {
+            effect_extent: Some(EffectExtent::test_instance()),
+            wrap_text: WrapText::BothSides,
+            distance_top: Some(0),
+            distance_bottom: Some(100),
+            distance_left: Some(0),
+            distance_right: Some(100),
+        }
+    }
 }
 
-#[derive(Debug, Clone)]
+#[cfg(test)]
+#[test]
+pub fn test_wrap_square_from_xml() {
+    let xml = WrapSquare::test_xml("wrapSquare");
+    let wrap_square = WrapSquare::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+
+    assert_eq!(wrap_square, WrapSquare::test_instance());
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct WrapTight {
     pub wrap_polygon: WrapPath,
 
@@ -342,7 +374,66 @@ pub struct WrapTight {
     pub distance_right: Option<WrapDistance>,
 }
 
-#[derive(Debug, Clone)]
+impl WrapTight {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut wrap_text = None;
+        let mut distance_left = None;
+        let mut distance_right = None;
+
+        for (attr, value) in &xml_node.attributes {
+            match attr.as_ref() {
+                "wrapText" => wrap_text = Some(value.parse()?),
+                "distL" => distance_left = Some(value.parse()?),
+                "distR" => distance_right = Some(value.parse()?),
+                _ => (),
+            }
+        }
+
+        let wrap_polygon_node = xml_node
+            .child_nodes
+            .first()
+            .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "wrapPolygon"))?;
+
+        Ok(Self {
+            wrap_polygon: WrapPath::from_xml_element(wrap_polygon_node)?,
+            wrap_text: wrap_text.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "wrapText"))?,
+            distance_left,
+            distance_right,
+        })
+    }
+}
+
+#[cfg(test)]
+impl WrapTight {
+    pub fn test_xml(node_name: &'static str) -> String {
+        format!(
+            r#"<{node_name} wrapText="bothSides", distL="0" distR="0">
+            {}
+        </{node_name}>"#,
+            WrapPath::test_xml("wrapPolygon"),
+            node_name = node_name
+        )
+    }
+
+    pub fn test_instance() -> Self {
+        Self {
+            wrap_polygon: WrapPath::test_instance(),
+            wrap_text: WrapText::BothSides,
+            distance_left: Some(0),
+            distance_right: Some(0),
+        }
+    }
+}
+
+#[cfg(test)]
+#[test]
+pub fn test_wrap_tight_from_xml() {
+    let xml = WrapTight::test_xml("wrapTight");
+    let wrap_tight = WrapTight::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+    assert_eq!(wrap_tight, WrapTight::test_instance());
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct WrapThrough {
     pub wrap_polygon: WrapPath,
 
@@ -351,7 +442,66 @@ pub struct WrapThrough {
     pub distance_right: Option<WrapDistance>,
 }
 
-#[derive(Debug, Clone, Default)]
+impl WrapThrough {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut wrap_text = None;
+        let mut distance_left = None;
+        let mut distance_right = None;
+
+        for (attr, value) in &xml_node.attributes {
+            match attr.as_ref() {
+                "wrapText" => wrap_text = Some(value.parse()?),
+                "distL" => distance_left = Some(value.parse()?),
+                "distR" => distance_right = Some(value.parse()?),
+                _ => (),
+            }
+        }
+
+        let wrap_polygon_node = xml_node
+            .child_nodes
+            .first()
+            .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "wrapPolygon"))?;
+
+        Ok(Self {
+            wrap_polygon: WrapPath::from_xml_element(wrap_polygon_node)?,
+            wrap_text: wrap_text.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "wrapText"))?,
+            distance_left,
+            distance_right,
+        })
+    }
+}
+
+#[cfg(test)]
+impl WrapThrough {
+    pub fn test_xml(node_name: &'static str) -> String {
+        format!(
+            r#"<{node_name} wrapText="bothSides" distL="0" distR="0">
+            {}
+        </{node_name}>"#,
+            WrapPath::test_xml("wrapPolygon"),
+            node_name = node_name
+        )
+    }
+
+    pub fn test_instance() -> Self {
+        Self {
+            wrap_polygon: WrapPath::test_instance(),
+            wrap_text: WrapText::BothSides,
+            distance_left: Some(0),
+            distance_right: Some(0),
+        }
+    }
+}
+
+#[cfg(test)]
+#[test]
+pub fn test_wrap_through_from_xml() {
+    let xml = WrapThrough::test_xml("wrapThrough");
+    let wrap_through = WrapThrough::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+    assert_eq!(wrap_through, WrapThrough::test_instance());
+}
+
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct WrapTopBottom {
     pub effect_extent: Option<EffectExtent>,
 
@@ -359,7 +509,62 @@ pub struct WrapTopBottom {
     pub distance_bottom: Option<WrapDistance>,
 }
 
-#[derive(Debug, Clone)]
+impl WrapTopBottom {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut distance_top = None;
+        let mut distance_bottom = None;
+        for (attr, value) in &xml_node.attributes {
+            match attr.as_ref() {
+                "distT" => distance_top = Some(value.parse()?),
+                "distB" => distance_bottom = Some(value.parse()?),
+                _ => (),
+            }
+        }
+
+        let effect_extent = xml_node
+            .child_nodes
+            .first()
+            .map(|child_node| EffectExtent::from_xml_element(child_node))
+            .transpose()?;
+
+        Ok(Self {
+            effect_extent,
+            distance_top,
+            distance_bottom,
+        })
+    }
+}
+
+#[cfg(test)]
+impl WrapTopBottom {
+    pub fn test_xml(node_name: &'static str) -> String {
+        format!(
+            r#"<{node_name} distT="0" distB="0">
+            {}
+        </{node_name}>"#,
+            EffectExtent::test_xml("effectExtent"),
+            node_name = node_name
+        )
+    }
+
+    pub fn test_instance() -> Self {
+        Self {
+            effect_extent: Some(EffectExtent::test_instance()),
+            distance_top: Some(0),
+            distance_bottom: Some(0),
+        }
+    }
+}
+
+#[cfg(test)]
+#[test]
+pub fn test_wrap_top_bottom_from_xml() {
+    let xml = WrapTopBottom::test_xml("wrapTopAndBottom");
+    let wrap_top_bottom = WrapTopBottom::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+    assert_eq!(wrap_top_bottom, WrapTopBottom::test_instance());
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum WrapType {
     None,
     Square(WrapSquare),
@@ -368,7 +573,67 @@ pub enum WrapType {
     TopAndBottom(WrapTopBottom),
 }
 
-#[derive(Debug, Clone, EnumString)]
+impl WrapType {
+    pub fn is_choice_member<T: AsRef<str>>(name: T) -> bool {
+        match name.as_ref() {
+            "wrapNone" | "wrapSquare" | "wrapTight" | "wrapThrough" | "wrapTopAndBottom" => true,
+            _ => false,
+        }
+    }
+
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        match xml_node.local_name() {
+            "wrapNone" => Ok(WrapType::None),
+            "wrapSquare" => Ok(WrapType::Square(WrapSquare::from_xml_element(xml_node)?)),
+            "wrapTight" => Ok(WrapType::Tight(WrapTight::from_xml_element(xml_node)?)),
+            "wrapThrough" => Ok(WrapType::Through(WrapThrough::from_xml_element(xml_node)?)),
+            "wrapTopAndBottom" => Ok(WrapType::TopAndBottom(WrapTopBottom::from_xml_element(xml_node)?)),
+            _ => Err(Box::new(NotGroupMemberError::new(xml_node.name.clone(), "WrapType"))),
+        }
+    }
+}
+
+#[cfg(test)]
+#[test]
+pub fn test_wrap_type_none_from_xml() {
+    let xml = r#"<wrapNone></wrapNone>"#;
+    let wrap_type = WrapType::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+    assert_eq!(wrap_type, WrapType::None);
+}
+
+#[cfg(test)]
+#[test]
+pub fn test_wrap_type_square() {
+    let xml = WrapSquare::test_xml("wrapSquare");
+    let wrap_type = WrapType::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+    assert_eq!(wrap_type, WrapType::Square(WrapSquare::test_instance()));
+}
+
+#[cfg(test)]
+#[test]
+pub fn test_wrap_type_tight() {
+    let xml = WrapTight::test_xml("wrapTight");
+    let wrap_type = WrapType::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+    assert_eq!(wrap_type, WrapType::Tight(WrapTight::test_instance()));
+}
+
+#[cfg(test)]
+#[test]
+pub fn test_wrap_type_through() {
+    let xml = WrapThrough::test_xml("wrapThrough");
+    let wrap_type = WrapType::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+    assert_eq!(wrap_type, WrapType::Through(WrapThrough::test_instance()));
+}
+
+#[cfg(test)]
+#[test]
+pub fn test_wrap_type_top_and_bottom() {
+    let xml = WrapTopBottom::test_xml("wrapTopAndBottom");
+    let wrap_type = WrapType::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+    assert_eq!(wrap_type, WrapType::TopAndBottom(WrapTopBottom::test_instance()));
+}
+
+#[derive(Debug, Clone, EnumString, PartialEq)]
 pub enum AlignH {
     #[strum(serialize = "left")]
     Left,
@@ -382,7 +647,7 @@ pub enum AlignH {
     Outside,
 }
 
-#[derive(Debug, Clone, EnumString)]
+#[derive(Debug, Clone, EnumString, PartialEq)]
 pub enum RelFromH {
     #[strum(serialize = "margin")]
     Margin,
@@ -402,7 +667,105 @@ pub enum RelFromH {
     OutsideMargin,
 }
 
-#[derive(Debug, Clone, EnumString)]
+#[derive(Debug, Clone, PartialEq)]
+pub enum PosHChoice {
+    Align(AlignH),
+    PositionOffset(PositionOffset),
+}
+
+impl PosHChoice {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        match xml_node.local_name() {
+            "align" => match &xml_node.text {
+                Some(text) => Ok(PosHChoice::Align(text.parse()?)),
+                None => Err(Box::new(MissingChildNodeError::new(xml_node.name.clone(), "Text node"))),
+            },
+            "posOffset" => match &xml_node.text {
+                Some(text) => Ok(PosHChoice::PositionOffset(text.parse()?)),
+                None => Err(Box::new(MissingChildNodeError::new(xml_node.name.clone(), "Text node"))),
+            },
+            _ => Err(Box::new(NotGroupMemberError::new(xml_node.name.clone(), "PosHChoice"))),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PosH {
+    pub align_or_offset: PosHChoice,
+    pub relative_from: RelFromH,
+}
+
+impl PosH {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let relative_from_attr = xml_node
+            .attributes
+            .get("relativeFrom")
+            .ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "relativeFrom"))?;
+
+        let align_or_offset_node = xml_node
+            .child_nodes
+            .first()
+            .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "align|posOffset"))?;
+
+        Ok(Self {
+            align_or_offset: PosHChoice::from_xml_element(align_or_offset_node)?,
+            relative_from: relative_from_attr.parse()?,
+        })
+    }
+}
+
+#[cfg(test)]
+impl PosH {
+    pub fn test_xml_with_align(node_name: &'static str) -> String {
+        format!(
+            r#"<{node_name} relativeFrom="margin">
+            <align>left</align>
+        </{node_name}>"#,
+            node_name = node_name
+        )
+    }
+
+    pub fn test_xml_with_offset(node_name: &'static str) -> String {
+        format!(
+            r#"<{node_name} relativeFrom="margin">
+            <posOffset>50</posOffset>
+        </{node_name}>"#,
+            node_name = node_name
+        )
+    }
+
+    pub fn test_instance_with_align() -> Self {
+        Self {
+            align_or_offset: PosHChoice::Align(AlignH::Left),
+            relative_from: RelFromH::Margin,
+        }
+    }
+
+    pub fn test_instance_with_offset() -> Self {
+        Self {
+            align_or_offset: PosHChoice::PositionOffset(50),
+            relative_from: RelFromH::Margin,
+        }
+    }
+}
+
+#[cfg(test)]
+#[test]
+pub fn test_pos_h_with_align_from_xml() {
+    let xml = PosH::test_xml_with_align("posH");
+    let pos_h = PosH::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+    assert_eq!(pos_h, PosH::test_instance_with_align());
+}
+
+#[cfg(test)]
+#[test]
+pub fn test_pos_h_with_offset_from_xml() {
+    let xml = PosH::test_xml_with_offset("posH");
+    let pos_h = PosH::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+    assert_eq!(pos_h, PosH::test_instance_with_offset());
+}
+
+#[derive(Debug, Clone, EnumString, PartialEq)]
 pub enum AlignV {
     #[strum(serialize = "top")]
     Top,
@@ -416,7 +779,7 @@ pub enum AlignV {
     Outside,
 }
 
-#[derive(Debug, Clone, EnumString)]
+#[derive(Debug, Clone, EnumString, PartialEq)]
 pub enum RelFromV {
     #[strum(serialize = "margin")]
     Margin,
@@ -436,31 +799,105 @@ pub enum RelFromV {
     OutsideMargin,
 }
 
-#[derive(Debug, Clone)]
-pub enum PosHChoice {
-    Align(AlignH),
-    PositionOffset(PositionOffset),
-}
-
-#[derive(Debug, Clone)]
-pub struct PosH {
-    pub choice: PosHChoice,
-    pub relative_from: RelFromH,
-}
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum PosVChoice {
     Align(AlignV),
     PositionOffset(PositionOffset),
 }
 
-#[derive(Debug, Clone)]
+impl PosVChoice {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        match xml_node.local_name() {
+            "align" => match &xml_node.text {
+                Some(text) => Ok(PosVChoice::Align(text.parse()?)),
+                None => Err(Box::new(MissingChildNodeError::new(xml_node.name.clone(), "Text node"))),
+            },
+            "posOffset" => match &xml_node.text {
+                Some(text) => Ok(PosVChoice::PositionOffset(text.parse()?)),
+                None => Err(Box::new(MissingChildNodeError::new(xml_node.name.clone(), "Text node"))),
+            },
+            _ => Err(Box::new(NotGroupMemberError::new(xml_node.name.clone(), "PosVChoice"))),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct PosV {
-    pub choice: PosVChoice,
+    pub align_or_offset: PosVChoice,
     pub relative_from: RelFromV,
 }
 
-#[derive(Debug, Clone)]
+impl PosV {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let relative_from_attr = xml_node
+            .attributes
+            .get("relativeFrom")
+            .ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "relativeFrom"))?;
+
+        let align_or_offset_node = xml_node
+            .child_nodes
+            .first()
+            .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "align|posOffset"))?;
+
+        Ok(Self {
+            align_or_offset: PosVChoice::from_xml_element(align_or_offset_node)?,
+            relative_from: relative_from_attr.parse()?,
+        })
+    }
+}
+
+#[cfg(test)]
+impl PosV {
+    pub fn test_xml_with_align(node_name: &'static str) -> String {
+        format!(
+            r#"<{node_name} relativeFrom="margin">
+            <align>top</align>
+        </{node_name}>"#,
+            node_name = node_name
+        )
+    }
+
+    pub fn test_xml_with_offset(node_name: &'static str) -> String {
+        format!(
+            r#"<{node_name} relativeFrom="margin">
+            <posOffset>50</posOffset>
+        </{node_name}>"#,
+            node_name = node_name
+        )
+    }
+
+    pub fn test_instance_with_align() -> Self {
+        Self {
+            align_or_offset: PosVChoice::Align(AlignV::Top),
+            relative_from: RelFromV::Margin,
+        }
+    }
+
+    pub fn test_instance_with_offset() -> Self {
+        Self {
+            align_or_offset: PosVChoice::PositionOffset(50),
+            relative_from: RelFromV::Margin,
+        }
+    }
+}
+
+#[cfg(test)]
+#[test]
+pub fn test_pos_v_with_align_from_xml() {
+    let xml = PosV::test_xml_with_align("posV");
+    let pos_v = PosV::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+    assert_eq!(pos_v, PosV::test_instance_with_align());
+}
+
+#[cfg(test)]
+#[test]
+pub fn test_pos_v_with_offset_from_xml() {
+    let xml = PosV::test_xml_with_offset("posV");
+    let pos_h = PosV::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+    assert_eq!(pos_h, PosV::test_instance_with_offset());
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct Anchor {
     pub simple_position: Point2D,
     pub horizontal_position: PosH,
@@ -485,9 +922,199 @@ pub struct Anchor {
     pub allow_overlap: bool,
 }
 
-#[derive(Debug, Clone)]
+impl Anchor {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut distance_top = None;
+        let mut distance_bottom = None;
+        let mut distance_left = None;
+        let mut distance_right = None;
+        let mut use_simple_position = None;
+        let mut relative_height = None;
+        let mut behind_document_text = None;
+        let mut locked = None;
+        let mut layout_in_cell = None;
+        let mut hidden = None;
+        let mut allow_overlap = None;
+
+        for (attr, value) in &xml_node.attributes {
+            match attr.as_ref() {
+                "distT" => distance_top = Some(value.parse()?),
+                "distB" => distance_bottom = Some(value.parse()?),
+                "distL" => distance_left = Some(value.parse()?),
+                "distR" => distance_right = Some(value.parse()?),
+                "simplePos" => use_simple_position = Some(parse_xml_bool(value)?),
+                "relativeHeight" => relative_height = Some(value.parse()?),
+                "behindDoc" => behind_document_text = Some(parse_xml_bool(value)?),
+                "locked" => locked = Some(parse_xml_bool(value)?),
+                "layoutInCell" => layout_in_cell = Some(parse_xml_bool(value)?),
+                "hidden" => hidden = Some(parse_xml_bool(value)?),
+                "allowOverlap" => allow_overlap = Some(parse_xml_bool(value)?),
+                _ => (),
+            }
+        }
+
+        let mut simple_position = None;
+        let mut horizontal_position = None;
+        let mut vertical_position = None;
+        let mut extent = None;
+        let mut effect_extent = None;
+        let mut wrap_type = None;
+        let mut document_properties = None;
+        let mut graphic_frame_properties = None;
+        let mut graphic = None;
+
+        for child_node in &xml_node.child_nodes {
+            match child_node.local_name() {
+                "simplePos" => simple_position = Some(Point2D::from_xml_element(child_node)?),
+                "positionH" => horizontal_position = Some(PosH::from_xml_element(child_node)?),
+                "positionV" => vertical_position = Some(PosV::from_xml_element(child_node)?),
+                "extent" => extent = Some(PositiveSize2D::from_xml_element(child_node)?),
+                "effectExtent" => effect_extent = Some(EffectExtent::from_xml_element(child_node)?),
+                node_name @ _ if WrapType::is_choice_member(node_name) => {
+                    wrap_type = Some(WrapType::from_xml_element(child_node)?)
+                }
+                "docPr" => document_properties = Some(NonVisualDrawingProps::from_xml_element(child_node)?),
+                "cNvGraphicFramePr" => {
+                    graphic_frame_properties = Some(NonVisualGraphicFrameProperties::from_xml_element(child_node)?)
+                }
+                "graphic" => graphic = Some(GraphicalObject::from_xml_element(child_node)?),
+                _ => (),
+            }
+        }
+
+        let simple_position =
+            simple_position.ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "simplePos"))?;
+        let horizontal_position =
+            horizontal_position.ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "positionH"))?;
+        let vertical_position =
+            vertical_position.ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "positionV"))?;
+        let extent = extent.ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "extent"))?;
+        let wrap_type = wrap_type.ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "WrapType"))?;
+        let document_properties =
+            document_properties.ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "docPr"))?;
+        let graphic = graphic.ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "graphic"))?;
+        let use_simple_position =
+            use_simple_position.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "simplePos"))?;
+        let relative_height =
+            relative_height.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "relativeHeight"))?;
+        let behind_document_text =
+            behind_document_text.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "behindDoc"))?;
+        let locked = locked.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "locked"))?;
+        let layout_in_cell =
+            layout_in_cell.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "layoutInCell"))?;
+        let allow_overlap =
+            allow_overlap.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "allowOverlap"))?;
+
+        Ok(Self {
+            simple_position,
+            horizontal_position,
+            vertical_position,
+            extent,
+            effect_extent,
+            wrap_type,
+            document_properties,
+            graphic_frame_properties,
+            graphic,
+            distance_top,
+            distance_bottom,
+            distance_left,
+            distance_right,
+            use_simple_position,
+            relative_height,
+            behind_document_text,
+            locked,
+            layout_in_cell,
+            hidden,
+            allow_overlap,
+        })
+    }
+}
+
+#[cfg(test)]
+impl Anchor {
+    pub fn test_xml(node_name: &'static str) -> String {
+        format!(r#"<{node_name} distT="0" distB="100" distL="0" distR="100" simplePos="false" relativeHeight="100" behindDoc="false" locked="false" layoutInCell="false" hidden="false" allowOverlap="false">
+            <simplePos x="0" y="0" />
+            {}
+            {}
+            <extent cx="100" cy="100" />
+            {}
+            {}
+            <docPr id="1" name="Object name" descr="Some description" title="Title of the object">
+                <a:hlinkClick r:id="rId2" tooltip="Some Sample Text"/>
+                <a:hlinkHover r:id="rId2" tooltip="Some Sample Text"/>
+            </docPr>
+            <graphic>
+                <graphicData uri="http://some/url" />
+            </graphic>
+        </{node_name}>"#,
+            PosH::test_xml_with_align("positionH"),
+            PosV::test_xml_with_align("positionV"),
+            EffectExtent::test_xml("effectExtent"),
+            WrapSquare::test_xml("wrapSquare"),
+            node_name=node_name
+        )
+    }
+
+    pub fn test_instance() -> Self {
+        use msoffice_shared::drawingml::Hyperlink;
+
+        Self {
+            simple_position: Point2D::new(0, 0),
+            horizontal_position: PosH::test_instance_with_align(),
+            vertical_position: PosV::test_instance_with_align(),
+            extent: PositiveSize2D::new(100, 100),
+            effect_extent: Some(EffectExtent::test_instance()),
+            wrap_type: WrapType::Square(WrapSquare::test_instance()),
+            document_properties: NonVisualDrawingProps {
+                id: 1,
+                name: String::from("Object name"),
+                description: Some(String::from("Some description")),
+                hidden: None,
+                title: Some(String::from("Title of the object")),
+                hyperlink_click: Some(Box::new(Hyperlink {
+                    relationship_id: Some(String::from("rId2")),
+                    tooltip: Some(String::from("Some Sample Text")),
+                    ..Default::default()
+                })),
+                hyperlink_hover: Some(Box::new(Hyperlink {
+                    relationship_id: Some(String::from("rId2")),
+                    tooltip: Some(String::from("Some Sample Text")),
+                    ..Default::default()
+                })),
+            },
+            graphic_frame_properties: None,
+            graphic: GraphicalObject {
+                graphic_data: GraphicalObjectData {
+                    uri: String::from("http://some/url"),
+                },
+            },
+            distance_top: Some(0),
+            distance_bottom: Some(100),
+            distance_left: Some(0),
+            distance_right: Some(100),
+            use_simple_position: false,
+            relative_height: 100,
+            behind_document_text: false,
+            locked: false,
+            layout_in_cell: false,
+            hidden: Some(false),
+            allow_overlap: false,
+        }
+    }
+}
+
+#[cfg(test)]
+#[test]
+pub fn test_anchor_from_xml() {
+    let xml = Anchor::test_xml("anchor");
+    let anchor = Anchor::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+    assert_eq!(anchor, Anchor::test_instance());
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct TxbxContent {
-    //pub block_level_elements: Vec<super::BlockLevelElts>, // minOccurs=1
+    pub block_level_elements: Vec<super::BlockLevelElts>, // minOccurs=1
 }
 
 #[derive(Debug, Clone)]

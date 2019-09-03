@@ -10,8 +10,6 @@ repository = "https://github.com/dam4rus/msoffice-docx-rs.git"
 homepage = "https://github.com/dam4rus/msoffice-docx-rs"
 readme = "README.md"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 strum = "0.15.0"
 strum_macros = "0.15.0"
