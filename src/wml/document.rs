@@ -1,14 +1,17 @@
+use super::error::ParseHexColorError;
 use msoffice_shared::{
-    drawingml::HexColorRGB,
-    error::{MissingAttributeError, MissingChildNodeError, NotGroupMemberError},
+    drawingml::{parse_hex_color_rgb, HexColorRGB},
+    error::{MissingAttributeError, MissingChildNodeError, NotGroupMemberError, PatternRestrictionError},
     relationship::RelationshipId,
-    sharedtypes::OnOff,
+    sharedtypes::{OnOff, PositiveUniversalMeasure, UniversalMeasure},
     xml::{parse_xml_bool, XmlNode},
 };
+use regex::Regex;
+use std::str::FromStr;
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
-pub type UcharHexNumber = String;
+pub type UcharHexNumber = u8;
 pub type LongHexNumber = String; // length=4
 pub type ShortHexNumber = String; // length=2
 pub type UnqualifiedPercentage = i32;
@@ -16,12 +19,28 @@ pub type DecimalNumber = i32;
 pub type UnsignedDecimalNumber = u32;
 pub type DateTime = String;
 pub type MacroName = String; // maxLength=33
-pub type EightPointMeasure = u32;
-pub type PointMeasure = u32;
-pub type TextScalePercent = String; // pattern=0*(600|([0-5]?[0-9]?[0-9]))%
+pub type EightPointMeasure = u64;
+pub type PointMeasure = u64;
+pub type TextScalePercent = f64; // pattern=0*(600|([0-5]?[0-9]?[0-9]))%
 pub type TextScaleDecimal = i32; // 0 <= n <= 600
+pub type TextScale = TextScalePercent;
 
-#[derive(Default, Debug, Clone)]
+fn parse_text_scale_percent(s: &str) -> Result<f64> {
+    let re = Regex::new("^0*(600|([0-5]?[0-9]?[0-9]))%$").expect("valid regexp should be provided");
+    let captures = re.captures(s).ok_or_else(|| PatternRestrictionError::NoMatch)?;
+    Ok(captures[1].parse::<i32>()? as f64 / 100.0)
+}
+
+#[cfg(test)]
+#[test]
+pub fn test_parse_text_scale_percent() {
+    assert_eq!(parse_text_scale_percent("100%").unwrap(), 1.0);
+    assert_eq!(parse_text_scale_percent("600%").unwrap(), 6.0);
+    assert_eq!(parse_text_scale_percent("333%").unwrap(), 3.33);
+    assert_eq!(parse_text_scale_percent("0%").unwrap(), 0.0);
+}
+
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct Charset {
     pub value: Option<UcharHexNumber>,
     pub character_set: Option<String>,
@@ -33,7 +52,7 @@ impl Charset {
 
         for (attr, value) in &xml_node.attributes {
             match attr.as_ref() {
-                "val" => instance.value = Some(value.clone()),
+                "val" => instance.value = Some(UcharHexNumber::from_str_radix(value, 16)?),
                 "characterSet" => instance.character_set = Some(value.clone()),
                 _ => (),
             }
@@ -43,18 +62,56 @@ impl Charset {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum DecimalNumberOrPercent {
     Int(UnqualifiedPercentage),
     Percentage(String),
 }
 
-pub enum TextScale {
-    Percent(TextScalePercent),
-    Decimal(TextScaleDecimal),
+// pub enum TextScale {
+//     Percent(TextScalePercent),
+//     Decimal(TextScaleDecimal),
+// }
+
+#[derive(Debug, Clone, EnumString, PartialEq)]
+pub enum ThemeColor {
+    #[strum(serialize = "dark1")]
+    Dark1,
+    #[strum(serialize = "light1")]
+    Light1,
+    #[strum(serialize = "dark2")]
+    Dark2,
+    #[strum(serialize = "light2")]
+    Light2,
+    #[strum(serialize = "accent1")]
+    Accent1,
+    #[strum(serialize = "accent2")]
+    Accent2,
+    #[strum(serialize = "accent3")]
+    Accent3,
+    #[strum(serialize = "accent4")]
+    Accent4,
+    #[strum(serialize = "accent5")]
+    Accent5,
+    #[strum(serialize = "accent6")]
+    Accent6,
+    #[strum(serialize = "hyperlink")]
+    Hyperlink,
+    #[strum(serialize = "followedHyperlink")]
+    FollowedHyperlink,
+    #[strum(serialize = "none")]
+    None,
+    #[strum(serialize = "background1")]
+    Background1,
+    #[strum(serialize = "text1")]
+    Text1,
+    #[strum(serialize = "background2")]
+    Background2,
+    #[strum(serialize = "text2")]
+    Text2,
 }
 
-#[derive(Debug, Clone, EnumString)]
+#[derive(Debug, Clone, EnumString, PartialEq)]
 pub enum HighlightColor {
     #[strum(serialize = "black")]
     Black,
@@ -90,6 +147,199 @@ pub enum HighlightColor {
     LightGray,
     #[strum(serialize = "none")]
     None,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum HexColor {
+    Auto,
+    RGB(HexColorRGB),
+}
+
+impl FromStr for HexColor {
+    type Err = ParseHexColorError;
+
+    fn from_str(s: &str) -> ::std::result::Result<Self, Self::Err> {
+        match s {
+            "auto" => Ok(HexColor::Auto),
+            _ => Ok(HexColor::RGB(parse_hex_color_rgb(s)?)),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum SignedTwipsMeasure {
+    Decimal(i32),
+    UniversalMeasure(UniversalMeasure),
+}
+
+impl FromStr for SignedTwipsMeasure {
+    // TODO custom error type
+    type Err = Box<dyn std::error::Error>;
+
+    fn from_str(s: &str) -> ::std::result::Result<Self, Self::Err> {
+        // TODO maybe use TryFrom instead?
+        if let Ok(value) = s.parse::<i32>() {
+            Ok(SignedTwipsMeasure::Decimal(value))
+        } else {
+            Ok(SignedTwipsMeasure::UniversalMeasure(s.parse()?))
+        }
+    }
+}
+
+#[cfg(test)]
+#[test]
+pub fn test_signed_twips_measure_from_str() {
+    use msoffice_shared::sharedtypes::UniversalMeasureUnit;
+
+    assert_eq!(
+        SignedTwipsMeasure::from_str("-123").unwrap(),
+        SignedTwipsMeasure::Decimal(-123),
+    );
+
+    assert_eq!(
+        SignedTwipsMeasure::from_str("123").unwrap(),
+        SignedTwipsMeasure::Decimal(123),
+    );
+
+    assert_eq!(
+        SignedTwipsMeasure::from_str("123mm").unwrap(),
+        SignedTwipsMeasure::UniversalMeasure(UniversalMeasure::new(123.0, UniversalMeasureUnit::Millimeter)),
+    );
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum HpsMeasure {
+    Decimal(u64),
+    UniversalMeasure(PositiveUniversalMeasure),
+}
+
+impl FromStr for HpsMeasure {
+    type Err = Box<dyn ::std::error::Error>;
+
+    fn from_str(s: &str) -> Result<Self> {
+        if let Ok(value) = s.parse::<u64>() {
+            Ok(HpsMeasure::Decimal(value))
+        } else {
+            Ok(HpsMeasure::UniversalMeasure(s.parse()?))
+        }
+    }
+}
+
+#[cfg(test)]
+#[test]
+pub fn test_hps_measure_from_str() {
+    use msoffice_shared::sharedtypes::UniversalMeasureUnit;
+
+    assert_eq!("123".parse::<HpsMeasure>().unwrap(), HpsMeasure::Decimal(123));
+    assert_eq!(
+        "123.456mm".parse::<HpsMeasure>().unwrap(),
+        HpsMeasure::UniversalMeasure(PositiveUniversalMeasure::new(123.456, UniversalMeasureUnit::Millimeter)),
+    );
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum SignedHpsMeasure {
+    Decimal(i32),
+    UniversalMeasure(UniversalMeasure),
+}
+
+impl FromStr for SignedHpsMeasure {
+    // TODO custom error type
+    type Err = Box<dyn std::error::Error>;
+
+    fn from_str(s: &str) -> ::std::result::Result<Self, Self::Err> {
+        // TODO maybe use TryFrom instead?
+        if let Ok(value) = s.parse::<i32>() {
+            Ok(SignedHpsMeasure::Decimal(value))
+        } else {
+            Ok(SignedHpsMeasure::UniversalMeasure(s.parse()?))
+        }
+    }
+}
+
+#[cfg(test)]
+#[test]
+pub fn test_signed_hps_measure_from_str() {
+    use msoffice_shared::sharedtypes::UniversalMeasureUnit;
+
+    assert_eq!(
+        SignedHpsMeasure::from_str("-123").unwrap(),
+        SignedHpsMeasure::Decimal(-123),
+    );
+
+    assert_eq!(
+        SignedHpsMeasure::from_str("123").unwrap(),
+        SignedHpsMeasure::Decimal(123),
+    );
+
+    assert_eq!(
+        SignedHpsMeasure::from_str("123mm").unwrap(),
+        SignedHpsMeasure::UniversalMeasure(UniversalMeasure::new(123.0, UniversalMeasureUnit::Millimeter)),
+    );
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Color {
+    pub value: HexColor,
+    pub theme_color: Option<ThemeColor>,
+    pub theme_tint: Option<UcharHexNumber>,
+    pub theme_shade: Option<UcharHexNumber>,
+}
+
+impl Color {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut value = None;
+        let mut theme_color = None;
+        let mut theme_tint = None;
+        let mut theme_shade = None;
+
+        for (attr, attr_value) in &xml_node.attributes {
+            match attr.as_ref() {
+                "val" => value = Some(attr_value.parse()?),
+                "themeColor" => theme_color = Some(attr_value.parse()?),
+                "themeTint" => theme_tint = Some(UcharHexNumber::from_str_radix(attr_value, 16)?),
+                "themeShade" => theme_shade = Some(UcharHexNumber::from_str_radix(attr_value, 16)?),
+                _ => (),
+            }
+        }
+
+        let value = value.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "val"))?;
+
+        Ok(Self {
+            value,
+            theme_color,
+            theme_tint,
+            theme_shade,
+        })
+    }
+}
+
+#[cfg(test)]
+impl Color {
+    pub fn test_xml(node_name: &'static str) -> String {
+        format!(
+            r#"<{node_name} val="ffffff" themeColor="accent1" themeTint="ff" themeShade="ff">
+        </{node_name}>"#,
+            node_name = node_name
+        )
+    }
+
+    pub fn test_instance() -> Self {
+        Self {
+            value: HexColor::RGB([0xff, 0xff, 0xff]),
+            theme_color: Some(ThemeColor::Accent1),
+            theme_tint: Some(0xff),
+            theme_shade: Some(0xff),
+        }
+    }
+}
+
+#[cfg(test)]
+#[test]
+pub fn test_color_from_xml() {
+    let xml = Color::test_xml("color");
+    let color = Color::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+    assert_eq!(color, Color::test_instance());
 }
 
 #[derive(Debug, Clone, PartialEq, EnumString)]
@@ -680,8 +930,8 @@ pub fn test_custom_xml_pr_from_xml() {
 pub struct SimpleField {
     pub paragraph_contents: Vec<PContent>,
     pub field_codes: String,
-    pub field_lock: OnOff,
-    pub dirty: OnOff,
+    pub field_lock: Option<OnOff>,
+    pub dirty: Option<OnOff>,
 }
 
 impl SimpleField {
@@ -707,8 +957,6 @@ impl SimpleField {
         }
 
         let field_codes = field_codes.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "instr"))?;
-        let field_lock = field_lock.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "fldLock"))?;
-        let dirty = dirty.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "dirty"))?;
 
         Ok(Self {
             field_codes,
@@ -742,8 +990,8 @@ impl SimpleField {
         Self {
             paragraph_contents: Vec::new(),
             field_codes: String::from("AUTHOR"),
-            field_lock: false,
-            dirty: false,
+            field_lock: Some(false),
+            dirty: Some(false),
         }
     }
 
@@ -1164,48 +1412,739 @@ pub fn test_smart_tag_run_from_xml() {
     assert_eq!(smart_tag_run, SmartTagRun::test_instance());
 }
 
+#[derive(Debug, Clone, PartialEq, EnumString)]
+pub enum Hint {
+    #[strum(serialize = "default")]
+    Default,
+    #[strum(serialize = "eastAsia")]
+    EastAsia,
+    #[strum(serialize = "cs")]
+    ComplexScript,
+}
+
+#[derive(Debug, Clone, PartialEq, EnumString)]
+pub enum Theme {
+    #[strum(serialize = "majorEastAsia")]
+    MajorEastAsia,
+    #[strum(serialize = "majorBidi")]
+    MajorBidirectional,
+    #[strum(serialize = "majorAscii")]
+    MajorAscii,
+    #[strum(serialize = "majorHAnsi")]
+    MajorHighAnsi,
+    #[strum(serialize = "minorEastAsia")]
+    MinorEastAsia,
+    #[strum(serialize = "minorBidi")]
+    MinorBidirectional,
+    #[strum(serialize = "minorAscii")]
+    MinorAscii,
+    #[strum(serialize = "minorHAnsi")]
+    MinorHighAnsi,
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct Fonts {
+    pub hint: Option<Hint>,
+    pub ascii: Option<String>,
+    pub high_ansi: Option<String>,
+    pub east_asia: Option<String>,
+    pub complex_script: Option<String>,
+    pub ascii_theme: Option<Theme>,
+    pub high_ansi_theme: Option<Theme>,
+    pub east_asia_theme: Option<Theme>,
+    pub complex_script_theme: Option<Theme>,
+}
+
+impl Fonts {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: Fonts = Default::default();
+        for (attr, value) in &xml_node.attributes {
+            match attr.as_ref() {
+                "hint" => instance.hint = Some(value.parse()?),
+                "ascii" => instance.ascii = Some(value.clone()),
+                "hAnsi" => instance.high_ansi = Some(value.clone()),
+                "eastAsia" => instance.east_asia = Some(value.clone()),
+                "cs" => instance.complex_script = Some(value.clone()),
+                "asciiTheme" => instance.ascii_theme = Some(value.parse()?),
+                "hAnsiTheme" => instance.high_ansi_theme = Some(value.parse()?),
+                "eastAsiaTheme" => instance.east_asia_theme = Some(value.parse()?),
+                "cstheme" => instance.complex_script_theme = Some(value.parse()?),
+                _ => (),
+            }
+        }
+
+        Ok(instance)
+    }
+}
+
+#[cfg(test)]
+impl Fonts {
+    pub fn test_xml(node_name: &'static str) -> String {
+        format!(
+            r#"<{node_name} hint="default" ascii="Arial" hAnsi="Arial" eastAsia="Arial" cs="Arial"
+            asciiTheme="majorAscii" hAnsiTheme="majorHAnsi" eastAsiaTheme="majorEastAsia" cstheme="majorBidi">
+        </{node_name}>"#,
+            node_name = node_name
+        )
+    }
+
+    pub fn test_instance() -> Self {
+        Self {
+            hint: Some(Hint::Default),
+            ascii: Some(String::from("Arial")),
+            high_ansi: Some(String::from("Arial")),
+            east_asia: Some(String::from("Arial")),
+            complex_script: Some(String::from("Arial")),
+            ascii_theme: Some(Theme::MajorAscii),
+            high_ansi_theme: Some(Theme::MajorHighAnsi),
+            east_asia_theme: Some(Theme::MajorEastAsia),
+            complex_script_theme: Some(Theme::MajorBidirectional),
+        }
+    }
+}
+
+#[cfg(test)]
+#[test]
+pub fn test_fonts_from_xml() {
+    let xml = Fonts::test_xml("fonts");
+    let fonts = Fonts::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+    assert_eq!(fonts, Fonts::test_instance());
+}
+
+#[derive(Debug, Clone, PartialEq, EnumString)]
+pub enum UnderlineType {
+    #[strum(serialize = "single")]
+    Single,
+    #[strum(serialize = "words")]
+    Words,
+    #[strum(serialize = "double")]
+    Double,
+    #[strum(serialize = "thick")]
+    Thick,
+    #[strum(serialize = "dotted")]
+    Dotted,
+    #[strum(serialize = "dottedHeavy")]
+    DottedHeavy,
+    #[strum(serialize = "dash")]
+    Dash,
+    #[strum(serialize = "dashedHeavy")]
+    DashedHeavy,
+    #[strum(serialize = "dashLong")]
+    DashLong,
+    #[strum(serialize = "dashLongHeavy")]
+    DashLongHeavy,
+    #[strum(serialize = "dotDash")]
+    DotDash,
+    #[strum(serialize = "dashDotHeavy")]
+    DashDotHeavy,
+    #[strum(serialize = "dotDotDash")]
+    DotDotDash,
+    #[strum(serialize = "dashDotDotHeavy")]
+    DashDotDotHeavy,
+    #[strum(serialize = "wave")]
+    Wave,
+    #[strum(serialize = "wavyHeavy")]
+    WavyHeavy,
+    #[strum(serialize = "wavyDouble")]
+    WavyDouble,
+    #[strum(serialize = "none")]
+    None,
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct Underline {
+    pub value: Option<UnderlineType>,
+    pub color: Option<HexColor>,
+    pub theme_color: Option<ThemeColor>,
+    pub theme_tint: Option<UcharHexNumber>,
+    pub theme_shade: Option<UcharHexNumber>,
+}
+
+impl Underline {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: Underline = Default::default();
+        for (attr, attr_value) in &xml_node.attributes {
+            match attr.as_ref() {
+                "val" => instance.value = Some(attr_value.parse()?),
+                "color" => instance.color = Some(attr_value.parse()?),
+                "themeColor" => instance.theme_color = Some(attr_value.parse()?),
+                "themeTint" => instance.theme_tint = Some(u8::from_str_radix(attr_value, 16)?),
+                "themeShade" => instance.theme_shade = Some(u8::from_str_radix(attr_value, 16)?),
+                _ => (),
+            }
+        }
+
+        Ok(instance)
+    }
+}
+
+#[cfg(test)]
+impl Underline {
+    pub fn test_xml(node_name: &'static str) -> String {
+        format!(
+            r#"<{node_name} val="single" color="ffffff" themeColor="accent1" themeTint="ff" themeShade="ff">
+        </{node_name}>"#,
+            node_name = node_name
+        )
+    }
+
+    pub fn test_instance() -> Self {
+        Self {
+            value: Some(UnderlineType::Single),
+            color: Some(HexColor::RGB([0xff, 0xff, 0xff])),
+            theme_color: Some(ThemeColor::Accent1),
+            theme_tint: Some(0xff),
+            theme_shade: Some(0xff),
+        }
+    }
+}
+
+#[cfg(test)]
+#[test]
+pub fn test_underline_from_xml() {
+    let xml = Underline::test_xml("underline");
+    let underline = Underline::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+    assert_eq!(underline, Underline::test_instance());
+}
+
+#[derive(Debug, Clone, PartialEq, EnumString)]
+pub enum TextEffect {
+    #[strum(serialize = "blinkBackground")]
+    BlinkBackground,
+    #[strum(serialize = "lights")]
+    Lights,
+    #[strum(serialize = "antsBlack")]
+    AntsBlack,
+    #[strum(serialize = "antsRed")]
+    AntsRed,
+    #[strum(serialize = "shimmer")]
+    Shimmer,
+    #[strum(serialize = "sparkle")]
+    Sparkle,
+    #[strum(serialize = "none")]
+    None,
+}
+
+#[derive(Debug, Clone, PartialEq, EnumString)]
+pub enum BorderType {
+    #[strum(serialize = "nil")]
+    Nil,
+    #[strum(serialize = "none")]
+    None,
+    #[strum(serialize = "single")]
+    Single,
+    #[strum(serialize = "thick")]
+    Thick,
+    #[strum(serialize = "double")]
+    Double,
+    #[strum(serialize = "dotted")]
+    Dotted,
+    #[strum(serialize = "dashed")]
+    Dashed,
+    #[strum(serialize = "dotDash")]
+    DotDash,
+    #[strum(serialize = "dotDotDash")]
+    DotDotDash,
+    #[strum(serialize = "triple")]
+    Triple,
+    #[strum(serialize = "thinThickSmallGap")]
+    ThinThickSmallGap,
+    #[strum(serialize = "thickThinSmallGap")]
+    ThickThinSmallGap,
+    #[strum(serialize = "thinThickThinSmallGap")]
+    ThinThickThinSmallGap,
+    #[strum(serialize = "thinThickMediumGap")]
+    ThinThickMediumGap,
+    #[strum(serialize = "thickThinMediumGap")]
+    ThickThinMediumGap,
+    #[strum(serialize = "thinThickThinMediumGap")]
+    ThinThickThinMediumGap,
+    #[strum(serialize = "thinThickLargeGap")]
+    ThinThickLargeGap,
+    #[strum(serialize = "thickThinLargeGap")]
+    ThickThinLargeGap,
+    #[strum(serialize = "thinThickThinLargeGap")]
+    ThinThickThinLargeGap,
+    #[strum(serialize = "wave")]
+    Wave,
+    #[strum(serialize = "doubleWave")]
+    DoubleWave,
+    #[strum(serialize = "dashSmallGap")]
+    DashSmallGap,
+    #[strum(serialize = "dashDotStroked")]
+    DashDotStroked,
+    #[strum(serialize = "threeDEmboss")]
+    ThreeDEmboss,
+    #[strum(serialize = "threeDEngrave")]
+    ThreeDEngrave,
+    #[strum(serialize = "outset")]
+    Outset,
+    #[strum(serialize = "inset")]
+    Inset,
+    #[strum(serialize = "apples")]
+    Apples,
+    #[strum(serialize = "archedScallops")]
+    ArchedScallops,
+    #[strum(serialize = "babyPacifier")]
+    BabyPacifier,
+    #[strum(serialize = "babyRattle")]
+    BabyRattle,
+    #[strum(serialize = "balloons3Colors")]
+    Balloons3Colors,
+    #[strum(serialize = "balloonsHotAir")]
+    BalloonsHotAir,
+    #[strum(serialize = "basicBlackDashes")]
+    BasicBlackDashes,
+    #[strum(serialize = "basicBlackDots")]
+    BasicBlackDots,
+    #[strum(serialize = "basicBlackSquares")]
+    BasicBlackSquares,
+    #[strum(serialize = "basicThinLines")]
+    BasicThinLines,
+    #[strum(serialize = "basicWhiteDashes")]
+    BasicWhiteDashes,
+    #[strum(serialize = "basicWhiteDots")]
+    BasicWhiteDots,
+    #[strum(serialize = "basicWhiteSquares")]
+    BasicWhiteSquares,
+    #[strum(serialize = "basicWideInline")]
+    BasicWideInline,
+    #[strum(serialize = "basicWideMidline")]
+    BasicWideMidline,
+    #[strum(serialize = "basicWideOutline")]
+    BasicWideOutline,
+    #[strum(serialize = "bats")]
+    Bats,
+    #[strum(serialize = "birds")]
+    Birds,
+    #[strum(serialize = "birdsFlight")]
+    BirdsFlight,
+    #[strum(serialize = "cabins")]
+    Cabins,
+    #[strum(serialize = "cakeSlice")]
+    CakeSlice,
+    #[strum(serialize = "candyCorn")]
+    CandyCorn,
+    #[strum(serialize = "celticKnotwork")]
+    CelticKnotwork,
+    #[strum(serialize = "certificateBanner")]
+    CertificateBanner,
+    #[strum(serialize = "chainLink")]
+    ChainLink,
+    #[strum(serialize = "champagneBottle")]
+    ChampagneBottle,
+    #[strum(serialize = "checkedBarBlack")]
+    CheckedBarBlack,
+    #[strum(serialize = "checkedBarColor")]
+    CheckedBarColor,
+    #[strum(serialize = "checkered")]
+    Checkered,
+    #[strum(serialize = "christmasTree")]
+    ChristmasTree,
+    #[strum(serialize = "circlesLines")]
+    CirclesLines,
+    #[strum(serialize = "circlesRectangles")]
+    CirclesRectangles,
+    #[strum(serialize = "classicalWave")]
+    ClassicalWave,
+    #[strum(serialize = "clocks")]
+    Clocks,
+    #[strum(serialize = "compass")]
+    Compass,
+    #[strum(serialize = "confetti")]
+    Confetti,
+    #[strum(serialize = "confettiGrays")]
+    ConfettiGrays,
+    #[strum(serialize = "confettiOutline")]
+    ConfettiOutline,
+    #[strum(serialize = "confettiStreamers")]
+    ConfettiStreamers,
+    #[strum(serialize = "confettiWhite")]
+    ConfettiWhite,
+    #[strum(serialize = "cornerTriangles")]
+    CornerTriangles,
+    #[strum(serialize = "couponCutoutDashes")]
+    CouponCutoutDashes,
+    #[strum(serialize = "couponCutoutDots")]
+    CouponCutoutDots,
+    #[strum(serialize = "crazyMaze")]
+    CrazyMaze,
+    #[strum(serialize = "creaturesButterfly")]
+    CreaturesButterfly,
+    #[strum(serialize = "creaturesFish")]
+    CreaturesFish,
+    #[strum(serialize = "creaturesInsects")]
+    CreaturesInsects,
+    #[strum(serialize = "creaturesLadyBug")]
+    CreaturesLadyBug,
+    #[strum(serialize = "crossStitch")]
+    CrossStitch,
+    #[strum(serialize = "cup")]
+    Cup,
+    #[strum(serialize = "decoArch")]
+    DecoArch,
+    #[strum(serialize = "decoArchColor")]
+    DecoArchColor,
+    #[strum(serialize = "decoBlocks")]
+    DecoBlocks,
+    #[strum(serialize = "diamondsGray")]
+    DiamondsGray,
+    #[strum(serialize = "doubleD")]
+    DoubleD,
+    #[strum(serialize = "doubleDiamonds")]
+    DoubleDiamonds,
+    #[strum(serialize = "earth1")]
+    Earth1,
+    #[strum(serialize = "earth2")]
+    Earth2,
+    #[strum(serialize = "earth3")]
+    Earth3,
+    #[strum(serialize = "eclipsingSquares1")]
+    EclipsingSquares1,
+    #[strum(serialize = "eclipsingSquares2")]
+    EclipsingSquares2,
+    #[strum(serialize = "eggsBlack")]
+    EggsBlack,
+    #[strum(serialize = "fans")]
+    Fans,
+    #[strum(serialize = "film")]
+    Film,
+    #[strum(serialize = "firecrackers")]
+    Firecrackers,
+    #[strum(serialize = "flowersBlockPrint")]
+    FlowersBlockPrint,
+    #[strum(serialize = "flowersDaisies")]
+    FlowersDaisies,
+    #[strum(serialize = "flowersModern1")]
+    FlowersModern1,
+    #[strum(serialize = "flowersModern2")]
+    FlowersModern2,
+    #[strum(serialize = "flowersPansy")]
+    FlowersPansy,
+    #[strum(serialize = "flowersRedRose")]
+    FlowersRedRose,
+    #[strum(serialize = "flowersRoses")]
+    FlowersRoses,
+    #[strum(serialize = "flowersTeacup")]
+    FlowersTeacup,
+    #[strum(serialize = "flowersTiny")]
+    FlowersTiny,
+    #[strum(serialize = "gems")]
+    Gems,
+    #[strum(serialize = "gingerbreadMan")]
+    GingerbreadMan,
+    #[strum(serialize = "gradient")]
+    Gradient,
+    #[strum(serialize = "handmade1")]
+    Handmade1,
+    #[strum(serialize = "handmade2")]
+    Handmade2,
+    #[strum(serialize = "heartBalloon")]
+    HeartBalloon,
+    #[strum(serialize = "heartGray")]
+    HeartGray,
+    #[strum(serialize = "hearts")]
+    Hearts,
+    #[strum(serialize = "heebieJeebies")]
+    HeebieJeebies,
+    #[strum(serialize = "holly")]
+    Holly,
+    #[strum(serialize = "houseFunky")]
+    HouseFunky,
+    #[strum(serialize = "hypnotic")]
+    Hypnotic,
+    #[strum(serialize = "iceCreamCones")]
+    IceCreamCones,
+    #[strum(serialize = "lightBulb")]
+    LightBulb,
+    #[strum(serialize = "lightning1")]
+    Lightning1,
+    #[strum(serialize = "lightning2")]
+    Lightning2,
+    #[strum(serialize = "mapPins")]
+    MapPins,
+    #[strum(serialize = "mapleLeaf")]
+    MapleLeaf,
+    #[strum(serialize = "mapleMuffins")]
+    MapleMuffins,
+    #[strum(serialize = "marquee")]
+    Marquee,
+    #[strum(serialize = "marqueeToothed")]
+    MarqueeToothed,
+    #[strum(serialize = "moons")]
+    Moons,
+    #[strum(serialize = "mosaic")]
+    Mosaic,
+    #[strum(serialize = "musicNotes")]
+    MusicNotes,
+    #[strum(serialize = "northwest")]
+    Northwest,
+    #[strum(serialize = "ovals")]
+    Ovals,
+    #[strum(serialize = "packages")]
+    Packages,
+    #[strum(serialize = "palmsBlack")]
+    PalmsBlack,
+    #[strum(serialize = "palmsColor")]
+    PalmsColor,
+    #[strum(serialize = "paperClips")]
+    PaperClips,
+    #[strum(serialize = "papyrus")]
+    Papyrus,
+    #[strum(serialize = "partyFavor")]
+    PartyFavor,
+    #[strum(serialize = "partyGlass")]
+    PartyGlass,
+    #[strum(serialize = "pencils")]
+    Pencils,
+    #[strum(serialize = "people")]
+    People,
+    #[strum(serialize = "peopleWaving")]
+    PeopleWaving,
+    #[strum(serialize = "peopleHats")]
+    PeopleHats,
+    #[strum(serialize = "poinsettias")]
+    Poinsettias,
+    #[strum(serialize = "postageStamp")]
+    PostageStamp,
+    #[strum(serialize = "pumpkin1")]
+    Pumpkin1,
+    #[strum(serialize = "pushPinNote2")]
+    PushPinNote2,
+    #[strum(serialize = "pushPinNote1")]
+    PushPinNote1,
+    #[strum(serialize = "pyramids")]
+    Pyramids,
+    #[strum(serialize = "pyramidsAbove")]
+    PyramidsAbove,
+    #[strum(serialize = "quadrants")]
+    Quadrants,
+    #[strum(serialize = "rings")]
+    Rings,
+    #[strum(serialize = "safari")]
+    Safari,
+    #[strum(serialize = "sawtooth")]
+    Sawtooth,
+    #[strum(serialize = "sawtoothGray")]
+    SawtoothGray,
+    #[strum(serialize = "scaredCat")]
+    ScaredCat,
+    #[strum(serialize = "seattle")]
+    Seattle,
+    #[strum(serialize = "shadowedSquares")]
+    ShadowedSquares,
+    #[strum(serialize = "sharksTeeth")]
+    SharksTeeth,
+    #[strum(serialize = "shorebirdTracks")]
+    ShorebirdTracks,
+    #[strum(serialize = "skyrocket")]
+    Skyrocket,
+    #[strum(serialize = "snowflakeFancy")]
+    SnowflakeFancy,
+    #[strum(serialize = "snowflakes")]
+    Snowflakes,
+    #[strum(serialize = "sombrero")]
+    Sombrero,
+    #[strum(serialize = "southwest")]
+    Southwest,
+    #[strum(serialize = "stars")]
+    Stars,
+    #[strum(serialize = "starsTop")]
+    StarsTop,
+    #[strum(serialize = "stars3d")]
+    Stars3d,
+    #[strum(serialize = "starsBlack")]
+    StarsBlack,
+    #[strum(serialize = "starsShadowed")]
+    StarsShadowed,
+    #[strum(serialize = "sun")]
+    Sun,
+    #[strum(serialize = "swirligig")]
+    Swirligig,
+    #[strum(serialize = "tornPaper")]
+    TornPaper,
+    #[strum(serialize = "tornPaperBlack")]
+    TornPaperBlack,
+    #[strum(serialize = "trees")]
+    Trees,
+    #[strum(serialize = "triangleParty")]
+    TriangleParty,
+    #[strum(serialize = "triangles")]
+    Triangles,
+    #[strum(serialize = "triangle1")]
+    Triangle1,
+    #[strum(serialize = "triangle2")]
+    Triangle2,
+    #[strum(serialize = "triangleCircle1")]
+    TriangleCircle1,
+    #[strum(serialize = "triangleCircle2")]
+    TriangleCircle2,
+    #[strum(serialize = "shapes1")]
+    Shapes1,
+    #[strum(serialize = "shapes2")]
+    Shapes2,
+    #[strum(serialize = "twistedLines1")]
+    TwistedLines1,
+    #[strum(serialize = "twistedLines2")]
+    TwistedLines2,
+    #[strum(serialize = "vine")]
+    Vine,
+    #[strum(serialize = "waveline")]
+    Waveline,
+    #[strum(serialize = "weavingAngles")]
+    WeavingAngles,
+    #[strum(serialize = "weavingBraid")]
+    WeavingBraid,
+    #[strum(serialize = "weavingRibbon")]
+    WeavingRibbon,
+    #[strum(serialize = "weavingStrips")]
+    WeavingStrips,
+    #[strum(serialize = "whiteFlowers")]
+    WhiteFlowers,
+    #[strum(serialize = "woodwork")]
+    Woodwork,
+    #[strum(serialize = "xIllusions")]
+    XIllusions,
+    #[strum(serialize = "zanyTriangles")]
+    ZanyTriangles,
+    #[strum(serialize = "zigZag")]
+    ZigZag,
+    #[strum(serialize = "zigZagStitch")]
+    ZigZagStitch,
+    #[strum(serialize = "custom")]
+    Custom,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Border {
+    pub value: BorderType,
+    pub color: Option<HexColor>,
+    pub theme_color: Option<ThemeColor>,
+    pub theme_tint: Option<UcharHexNumber>,
+    pub theme_shade: Option<UcharHexNumber>,
+    pub size: Option<EightPointMeasure>,
+    pub spacing: Option<PointMeasure>,
+    pub shadow: Option<OnOff>,
+    pub frame: Option<OnOff>,
+}
+
+impl Border {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut value = None;
+        let mut color = None;
+        let mut theme_color = None;
+        let mut theme_tint = None;
+        let mut theme_shade = None;
+        let mut size = None;
+        let mut spacing = None;
+        let mut shadow = None;
+        let mut frame = None;
+
+        for (attr, attr_value) in &xml_node.attributes {
+            match attr.as_ref() {
+                "val" => value = Some(attr_value.parse()?),
+                "color" => color = Some(attr_value.parse()?),
+                "themeColor" => theme_color = Some(attr_value.parse()?),
+                "themeTint" => theme_tint = Some(u8::from_str_radix(attr_value, 16)?),
+                "themeShade" => theme_shade = Some(u8::from_str_radix(attr_value, 16)?),
+                "sz" => size = Some(attr_value.parse()?),
+                "space" => spacing = Some(attr_value.parse()?),
+                "shadow" => shadow = Some(parse_xml_bool(attr_value)?),
+                "frame" => frame = Some(parse_xml_bool(attr_value)?),
+                _ => (),
+            }
+        }
+
+        let value = value.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "val"))?;
+
+        Ok(Self {
+            value,
+            color,
+            theme_color,
+            theme_tint,
+            theme_shade,
+            size,
+            spacing,
+            shadow,
+            frame,
+        })
+    }
+}
+
+#[cfg(test)]
+impl Border {
+    pub fn test_xml(node_name: &'static str) -> String {
+        format!(r#"<{node_name} val="single" color="ffffff" themeColor="accent1" themeTint="ff" themeShade="ff" sz="100" space="100" shadow="true" frame="true">
+        </{node_name}>"#,
+            node_name=node_name
+        )
+    }
+
+    pub fn test_instance() -> Self {
+        Self {
+            value: BorderType::Single,
+            color: Some(HexColor::RGB([0xff, 0xff, 0xff])),
+            theme_color: Some(ThemeColor::Accent1),
+            theme_tint: Some(0xff),
+            theme_shade: Some(0xff),
+            size: Some(100),
+            spacing: Some(100),
+            shadow: Some(true),
+            frame: Some(true),
+        }
+    }
+}
+
+#[cfg(test)]
+#[test]
+pub fn test_border_from_xml() {
+    let xml = Border::test_xml("border");
+    let border = Border::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+    assert_eq!(border, Border::test_instance());
+}
+
 // TODO
 #[derive(Debug, Clone, PartialEq)]
 pub enum RPrBase {
     RunStyle(String),
-    // RunFonts(Fonts),
-    // Bold(OnOff),
-    // ComplexScriptBold(OnOff),
-    // Italic(OnOff),
-    // ComplexScriptItalic(OnOff),
-    // Capitals(OnOff),
-    // SmallCapitals(OnOff),
-    // Strikethrough(OnOff),
-    // DoubleStrikethrough(OnOff),
-    // Outline(OnOff),
-    // Shadow(OnOff),
-    // Emboss(OnOff),
-    // Imprint(OnOff),
-    // NoProofing(OnOff),
-    // SnapToGrid(OnOff),
-    // Vanish(OnOff),
-    // WebHidden(OnOff),
-    // Color(Color),
-    // Spacing(SignedTwipsMeasure),
-    // Width(TextScale),
-    // Kerning(HpsMeasure),
-    // Position(SignedHpsMeasure),
-    // Size(HpsMeasure),
-    // ComplexScriptSize(HpsMeasure),
-    // Highlight(Highlight),
-    // Underline(Underline),
-    // Effect(TextEffect),
-    // Border(Border),
+    RunFonts(Fonts),
+    Bold(Option<OnOff>),
+    ComplexScriptBold(Option<OnOff>),
+    Italic(Option<OnOff>),
+    ComplexScriptItalic(Option<OnOff>),
+    Capitals(Option<OnOff>),
+    SmallCapitals(Option<OnOff>),
+    Strikethrough(Option<OnOff>),
+    DoubleStrikethrough(Option<OnOff>),
+    Outline(Option<OnOff>),
+    Shadow(Option<OnOff>),
+    Emboss(Option<OnOff>),
+    Imprint(Option<OnOff>),
+    NoProofing(Option<OnOff>),
+    SnapToGrid(Option<OnOff>),
+    Vanish(Option<OnOff>),
+    WebHidden(Option<OnOff>),
+    Color(Color),
+    Spacing(SignedTwipsMeasure),
+    Width(TextScale),
+    Kerning(HpsMeasure),
+    Position(SignedHpsMeasure),
+    Size(HpsMeasure),
+    ComplexScriptSize(HpsMeasure),
+    Highlight(HighlightColor),
+    Underline(Underline),
+    Effect(TextEffect),
+    Border(Border),
     // Shading(Shd),
     // FitText(FitText),
     // VertialAlignment(VerticalAlignRun),
-    // Rtl(OnOff),
-    // ComplexScript(OnOff),
+    Rtl(Option<OnOff>),
+    ComplexScript(Option<OnOff>),
     // EmphasisMark(Em),
     // Language(Language),
     // EastAsianLayout(EastAsianLayout),
-    // SpecialVanish(OnOff),
-    // OMath(OnOff),
+    SpecialVanish(Option<OnOff>),
+    OMath(Option<OnOff>),
 }
 
 /*
@@ -1387,30 +2326,56 @@ pub fn test_r_pr_change_from_xml() {
     assert_eq!(r_pr_change, RPrChange::test_instance());
 }
 
-/*
-<xsd:group name="EG_RPrContent">
-    <xsd:sequence>
-      <xsd:group ref="EG_RPrBase" minOccurs="0" maxOccurs="unbounded"/>
-      <xsd:element name="rPrChange" type="CT_RPrChange" minOccurs="0"/>
-    </xsd:sequence>
-  </xsd:group>
-*/
-#[derive(Debug, Clone, PartialEq)]
-pub struct RPrContent {
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct RPr {
     pub r_pr_bases: Vec<RPrBase>,
     pub run_properties_change: Option<RPrChange>,
 }
 
-/*
-<xsd:complexType name="CT_RPr">
-    <xsd:sequence>
-      <xsd:group ref="EG_RPrContent" minOccurs="0"/>
-    </xsd:sequence>
-  </xsd:complexType>
-*/
-#[derive(Debug, Clone, PartialEq)]
-pub struct RPr {
-    pub content: Option<RPrContent>,
+impl RPr {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: RPr = Default::default();
+        for child_node in &xml_node.child_nodes {
+            let child_node_name = child_node.local_name();
+            if RPrBase::is_choice_member(child_node_name) {
+                instance.r_pr_bases.push(RPrBase::from_xml_element(child_node)?);
+            } else if child_node_name == "rPrChange" {
+                instance.run_properties_change = Some(RPrChange::from_xml_element(child_node)?);
+            }
+        }
+
+        Ok(instance)
+    }
+}
+
+#[cfg(test)]
+impl RPr {
+    pub fn test_xml(node_name: &'static str) -> String {
+        format!(
+            r#"<{node_name}>
+            {}
+            {}
+        </{node_name}>"#,
+            RPrBase::test_run_style_xml(),
+            RPrChange::test_xml("rPrChange"),
+            node_name = node_name,
+        )
+    }
+
+    pub fn test_instance() -> Self {
+        Self {
+            r_pr_bases: vec![RPrBase::test_run_style_instance()],
+            run_properties_change: Some(RPrChange::test_instance()),
+        }
+    }
+}
+
+#[cfg(test)]
+#[test]
+pub fn test_r_pr_from_xml() {
+    let xml = RPr::test_xml("rPr");
+    let r_pr_content = RPr::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+    assert_eq!(r_pr_content, RPr::test_instance());
 }
 
 #[derive(Debug, Clone, PartialEq)]

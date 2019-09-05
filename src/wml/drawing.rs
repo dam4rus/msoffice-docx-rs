@@ -913,7 +913,7 @@ pub struct Anchor {
     pub distance_bottom: Option<WrapDistance>,
     pub distance_left: Option<WrapDistance>,
     pub distance_right: Option<WrapDistance>,
-    pub use_simple_position: bool,
+    pub use_simple_position: Option<bool>,
     pub relative_height: u32,
     pub behind_document_text: bool,
     pub locked: bool,
@@ -993,8 +993,6 @@ impl Anchor {
         let document_properties =
             document_properties.ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "docPr"))?;
         let graphic = graphic.ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "graphic"))?;
-        let use_simple_position =
-            use_simple_position.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "simplePos"))?;
         let relative_height =
             relative_height.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "relativeHeight"))?;
         let behind_document_text =
@@ -1093,7 +1091,7 @@ impl Anchor {
             distance_bottom: Some(100),
             distance_left: Some(0),
             distance_right: Some(100),
-            use_simple_position: false,
+            use_simple_position: Some(false),
             relative_height: 100,
             behind_document_text: false,
             locked: false,
