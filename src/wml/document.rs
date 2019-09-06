@@ -2642,7 +2642,7 @@ impl RPrBase {
             "color" => Ok(RPrBase::Color(Color::from_xml_element(xml_node)?)),
             "spacing" => Ok(RPrBase::Spacing(SignedTwipsMeasure::from_xml_element(xml_node)?)),
             "w" => {
-                let val = xml_node.attributes.get("val").map(|val| val.parse()).transpose()?;
+                let val = xml_node.attributes.get("val").map(|val| parse_text_scale_percent(val)).transpose()?;
                 Ok(RPrBase::Width(val))
             }
             "kern" => Ok(RPrBase::Kerning(HpsMeasure::from_xml_element(xml_node)?)),
