@@ -1,9 +1,14 @@
 use super::error::ParseHexColorError;
 use msoffice_shared::{
     drawingml::{parse_hex_color_rgb, HexColorRGB},
-    error::{MissingAttributeError, MissingChildNodeError, NotGroupMemberError, PatternRestrictionError},
+    error::{
+        MissingAttributeError, MissingChildNodeError, NotGroupMemberError, ParseBoolError, PatternRestrictionError,
+    },
     relationship::RelationshipId,
-    sharedtypes::{OnOff, PositiveUniversalMeasure, UniversalMeasure},
+    sharedtypes::{
+        CalendarType, Lang, OnOff, PositiveUniversalMeasure, TwipsMeasure, UniversalMeasure, UniversalMeasureUnit,
+        VerticalAlignRun,
+    },
     xml::{parse_xml_bool, XmlNode},
 };
 use regex::Regex;
@@ -38,6 +43,14 @@ pub fn test_parse_text_scale_percent() {
     assert_eq!(parse_text_scale_percent("600%").unwrap(), 6.0);
     assert_eq!(parse_text_scale_percent("333%").unwrap(), 3.33);
     assert_eq!(parse_text_scale_percent("0%").unwrap(), 0.0);
+}
+
+fn parse_on_off_xml_element(xml_node: &XmlNode) -> std::result::Result<Option<OnOff>, ParseBoolError> {
+    xml_node
+        .attributes
+        .get("val")
+        .map(|val| parse_xml_bool(val))
+        .transpose()
 }
 
 #[derive(Default, Debug, Clone, PartialEq)]
@@ -186,6 +199,27 @@ impl FromStr for SignedTwipsMeasure {
     }
 }
 
+impl SignedTwipsMeasure {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let val = xml_node
+            .attributes
+            .get("val")
+            .ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "val"))?;
+        Ok(val.parse()?)
+    }
+}
+
+#[cfg(test)]
+impl SignedTwipsMeasure {
+    pub fn test_xml(node_name: &'static str) -> String {
+        format!(r#"<{node_name} val="123.456mm"></{node_name}>"#, node_name = node_name)
+    }
+
+    pub fn test_instance() -> Self {
+        SignedTwipsMeasure::UniversalMeasure(UniversalMeasure::new(123.456, UniversalMeasureUnit::Millimeter))
+    }
+}
+
 #[cfg(test)]
 #[test]
 pub fn test_signed_twips_measure_from_str() {
@@ -207,6 +241,14 @@ pub fn test_signed_twips_measure_from_str() {
     );
 }
 
+#[cfg(test)]
+#[test]
+pub fn test_signed_twips_measure_from_xml() {
+    let xml = SignedTwipsMeasure::test_xml("signedTwipsMeasure");
+    let signed_twips_measure = SignedTwipsMeasure::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+    assert_eq!(signed_twips_measure, SignedTwipsMeasure::test_instance());
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum HpsMeasure {
     Decimal(u64),
@@ -225,6 +267,27 @@ impl FromStr for HpsMeasure {
     }
 }
 
+impl HpsMeasure {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let val = xml_node
+            .attributes
+            .get("val")
+            .ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "val"))?;
+        Ok(val.parse()?)
+    }
+}
+
+#[cfg(test)]
+impl HpsMeasure {
+    pub fn test_xml(node_name: &'static str) -> String {
+        format!(r#"<{node_name} val="123.456mm"></{node_name}>"#, node_name = node_name)
+    }
+
+    pub fn test_instance() -> Self {
+        HpsMeasure::UniversalMeasure(PositiveUniversalMeasure::new(123.456, UniversalMeasureUnit::Millimeter))
+    }
+}
+
 #[cfg(test)]
 #[test]
 pub fn test_hps_measure_from_str() {
@@ -235,6 +298,14 @@ pub fn test_hps_measure_from_str() {
         "123.456mm".parse::<HpsMeasure>().unwrap(),
         HpsMeasure::UniversalMeasure(PositiveUniversalMeasure::new(123.456, UniversalMeasureUnit::Millimeter)),
     );
+}
+
+#[cfg(test)]
+#[test]
+pub fn test_hps_measure_from_xml() {
+    let xml = HpsMeasure::test_xml("hpsMeasure");
+    let hps_measure = HpsMeasure::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+    assert_eq!(hps_measure, HpsMeasure::test_instance());
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -257,6 +328,27 @@ impl FromStr for SignedHpsMeasure {
     }
 }
 
+impl SignedHpsMeasure {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let val = xml_node
+            .attributes
+            .get("val")
+            .ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "val"))?;
+        Ok(val.parse()?)
+    }
+}
+
+#[cfg(test)]
+impl SignedHpsMeasure {
+    pub fn test_xml(node_name: &'static str) -> String {
+        format!(r#"<{node_name} val="123.456mm"></{node_name}>"#, node_name = node_name)
+    }
+
+    pub fn test_instance() -> Self {
+        SignedHpsMeasure::UniversalMeasure(UniversalMeasure::new(123.456, UniversalMeasureUnit::Millimeter))
+    }
+}
+
 #[cfg(test)]
 #[test]
 pub fn test_signed_hps_measure_from_str() {
@@ -276,6 +368,14 @@ pub fn test_signed_hps_measure_from_str() {
         SignedHpsMeasure::from_str("123mm").unwrap(),
         SignedHpsMeasure::UniversalMeasure(UniversalMeasure::new(123.0, UniversalMeasureUnit::Millimeter)),
     );
+}
+
+#[cfg(test)]
+#[test]
+pub fn test_signed_hps_measure_from_xml() {
+    let xml = SignedHpsMeasure::test_xml("signedHpsMeasure");
+    let hps_measure = SignedHpsMeasure::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+    assert_eq!(hps_measure, SignedHpsMeasure::test_instance());
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -884,7 +984,7 @@ impl CustomXmlPr {
 
         for child_node in &xml_node.child_nodes {
             match child_node.local_name() {
-                "placeholder" => placeholder = child_node.text.clone(),
+                "placeholder" => placeholder = child_node.attributes.get("val").cloned(),
                 "attr" => attributes.push(Attr::from_xml_element(child_node)?),
                 _ => (),
             }
@@ -902,7 +1002,7 @@ impl CustomXmlPr {
     pub fn test_xml(node_name: &'static str) -> String {
         format!(
             r#"<{node_name}>
-            <placeholder>Placeholder</placeholder>
+            <placeholder val="Placeholder" />
             {}
         </{node_name}>"#,
             Attr::test_xml("attr"),
@@ -2103,7 +2203,360 @@ pub fn test_border_from_xml() {
     assert_eq!(border, Border::test_instance());
 }
 
-// TODO
+#[derive(Debug, Clone, PartialEq, EnumString)]
+pub enum ShdType {
+    #[strum(serialize = "nil")]
+    Nil,
+    #[strum(serialize = "clear")]
+    Clear,
+    #[strum(serialize = "solid")]
+    Solid,
+    #[strum(serialize = "horzStripe")]
+    HorizontalStripe,
+    #[strum(serialize = "vertStripe")]
+    VerticalStripe,
+    #[strum(serialize = "reverseDiagStripe")]
+    ReverseDiagonalStripe,
+    #[strum(serialize = "diagStripe")]
+    DiagonalStripe,
+    #[strum(serialize = "horzCross")]
+    HorizontalCross,
+    #[strum(serialize = "diagCross")]
+    DiagonalCross,
+    #[strum(serialize = "thinHorzStripe")]
+    ThinHorizontalStripe,
+    #[strum(serialize = "thinVertStripe")]
+    ThinVerticalStripe,
+    #[strum(serialize = "thinReverseDiagStripe")]
+    ThinReverseDiagonalStripe,
+    #[strum(serialize = "thinDiagStripe")]
+    ThinDiagonalStripe,
+    #[strum(serialize = "thinHorzCross")]
+    ThinHorizontalCross,
+    #[strum(serialize = "thinDiagCross")]
+    ThinDiagonalCross,
+    #[strum(serialize = "pct5")]
+    Percent5,
+    #[strum(serialize = "pct10")]
+    Percent10,
+    #[strum(serialize = "pct12")]
+    Percent12,
+    #[strum(serialize = "pct15")]
+    Percent15,
+    #[strum(serialize = "pct20")]
+    Percent20,
+    #[strum(serialize = "pct25")]
+    Percent25,
+    #[strum(serialize = "pct30")]
+    Percent30,
+    #[strum(serialize = "pct35")]
+    Percent35,
+    #[strum(serialize = "pct37")]
+    Percent37,
+    #[strum(serialize = "pct40")]
+    Percent40,
+    #[strum(serialize = "pct45")]
+    Percent45,
+    #[strum(serialize = "pct50")]
+    Percent50,
+    #[strum(serialize = "pct55")]
+    Percent55,
+    #[strum(serialize = "pct60")]
+    Percent60,
+    #[strum(serialize = "pct62")]
+    Percent62,
+    #[strum(serialize = "pct65")]
+    Percent65,
+    #[strum(serialize = "pct70")]
+    Percent70,
+    #[strum(serialize = "pct75")]
+    Percent75,
+    #[strum(serialize = "pct80")]
+    Percent80,
+    #[strum(serialize = "pct85")]
+    Percent85,
+    #[strum(serialize = "pct87")]
+    Percent87,
+    #[strum(serialize = "pct90")]
+    Percent90,
+    #[strum(serialize = "pct95")]
+    Percent95,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Shd {
+    pub value: ShdType,
+    pub color: Option<HexColor>,
+    pub theme_color: Option<ThemeColor>,
+    pub theme_tint: Option<UcharHexNumber>,
+    pub theme_shade: Option<UcharHexNumber>,
+    pub fill: Option<HexColor>,
+    pub theme_fill: Option<ThemeColor>,
+    pub theme_fill_tint: Option<UcharHexNumber>,
+    pub theme_fill_shade: Option<UcharHexNumber>,
+}
+
+impl Shd {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut value = None;
+        let mut color = None;
+        let mut theme_color = None;
+        let mut theme_tint = None;
+        let mut theme_shade = None;
+        let mut fill = None;
+        let mut theme_fill = None;
+        let mut theme_fill_tint = None;
+        let mut theme_fill_shade = None;
+
+        for (attr, attr_value) in &xml_node.attributes {
+            match attr.as_ref() {
+                "val" => value = Some(attr_value.parse()?),
+                "color" => color = Some(attr_value.parse()?),
+                "themeColor" => theme_color = Some(attr_value.parse()?),
+                "themeTint" => theme_tint = Some(UcharHexNumber::from_str_radix(attr_value, 16)?),
+                "themeShade" => theme_shade = Some(UcharHexNumber::from_str_radix(attr_value, 16)?),
+                "fill" => fill = Some(attr_value.parse()?),
+                "themeFill" => theme_fill = Some(attr_value.parse()?),
+                "themeFillTint" => theme_fill_tint = Some(UcharHexNumber::from_str_radix(attr_value, 16)?),
+                "themeFillShade" => theme_fill_shade = Some(UcharHexNumber::from_str_radix(attr_value, 16)?),
+                _ => (),
+            }
+        }
+
+        let value = value.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "value"))?;
+        Ok(Self {
+            value,
+            color,
+            theme_color,
+            theme_tint,
+            theme_shade,
+            fill,
+            theme_fill,
+            theme_fill_tint,
+            theme_fill_shade,
+        })
+    }
+}
+
+#[cfg(test)]
+impl Shd {
+    pub fn test_xml(node_name: &'static str) -> String {
+        format!(r#"<{node_name} val="solid" color="ffffff" themeColor="accent1" themeTint="ff" themeShade="ff" fill="ffffff" themeFill="accent1" themeFillTint="ff" themeFillShade="ff">
+        </{node_name}>"#,
+            node_name=node_name
+        )
+    }
+
+    pub fn test_instance() -> Self {
+        Self {
+            value: ShdType::Solid,
+            color: Some(HexColor::RGB([0xff, 0xff, 0xff])),
+            theme_color: Some(ThemeColor::Accent1),
+            theme_tint: Some(0xff),
+            theme_shade: Some(0xff),
+            fill: Some(HexColor::RGB([0xff, 0xff, 0xff])),
+            theme_fill: Some(ThemeColor::Accent1),
+            theme_fill_tint: Some(0xff),
+            theme_fill_shade: Some(0xff),
+        }
+    }
+}
+
+#[cfg(test)]
+#[test]
+pub fn test_shd_from_xml() {
+    let xml = Shd::test_xml("shd");
+    let shd = Shd::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+    assert_eq!(shd, Shd::test_instance());
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct FitText {
+    pub value: TwipsMeasure,
+    pub id: Option<DecimalNumber>,
+}
+
+impl FitText {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut value = None;
+        let mut id = None;
+
+        for (attr, attr_value) in &xml_node.attributes {
+            match attr.as_ref() {
+                "val" => value = Some(attr_value.parse()?),
+                "id" => id = Some(attr_value.parse()?),
+                _ => (),
+            }
+        }
+
+        let value = value.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "val"))?;
+
+        Ok(Self { value, id })
+    }
+}
+
+#[cfg(test)]
+impl FitText {
+    pub fn test_xml(node_name: &'static str) -> String {
+        format!(
+            r#"<{node_name} val="123.456mm" id="1"></{node_name}>"#,
+            node_name = node_name
+        )
+    }
+
+    pub fn test_instance() -> Self {
+        Self {
+            value: TwipsMeasure::UniversalMeasure(PositiveUniversalMeasure::new(
+                123.456,
+                UniversalMeasureUnit::Millimeter,
+            )),
+            id: Some(1),
+        }
+    }
+}
+
+#[cfg(test)]
+#[test]
+pub fn test_fit_text_from_xml() {
+    let xml = FitText::test_xml("fitText");
+    let fit_text = FitText::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+    assert_eq!(fit_text, FitText::test_instance());
+}
+
+#[derive(Debug, Clone, PartialEq, EnumString)]
+pub enum Em {
+    #[strum(serialize = "none")]
+    None,
+    #[strum(serialize = "dot")]
+    Dot,
+    #[strum(serialize = "comma")]
+    Comma,
+    #[strum(serialize = "circle")]
+    Circle,
+    #[strum(serialize = "underDot")]
+    UnderDot,
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct Language {
+    pub value: Option<Lang>,
+    pub east_asia: Option<Lang>,
+    pub bidirectional: Option<Lang>,
+}
+
+impl Language {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Self {
+        let mut instance: Self = Default::default();
+        for (attr, value) in &xml_node.attributes {
+            match attr.as_ref() {
+                "val" => instance.value = Some(value.clone()),
+                "eastAsia" => instance.east_asia = Some(value.clone()),
+                "bidi" => instance.bidirectional = Some(value.clone()),
+                _ => (),
+            }
+        }
+
+        instance
+    }
+}
+
+#[cfg(test)]
+impl Language {
+    pub fn test_xml(node_name: &'static str) -> String {
+        format!(
+            r#"<{node_name} val="en" eastAsia="jp" bidi="fa"></{node_name}>"#,
+            node_name = node_name
+        )
+    }
+
+    pub fn test_instance() -> Self {
+        Self {
+            value: Some(Lang::from("en")),
+            east_asia: Some(Lang::from("jp")),
+            bidirectional: Some(Lang::from("fa")),
+        }
+    }
+}
+
+#[cfg(test)]
+#[test]
+pub fn test_language_from_xml() {
+    let xml = Language::test_xml("language");
+    let language = Language::from_xml_element(&XmlNode::from_str(xml).unwrap());
+    assert_eq!(language, Language::test_instance());
+}
+
+#[derive(Debug, Clone, PartialEq, EnumString)]
+pub enum CombineBrackets {
+    #[strum(serialize = "none")]
+    None,
+    #[strum(serialize = "round")]
+    Round,
+    #[strum(serialize = "square")]
+    Square,
+    #[strum(serialize = "angle")]
+    Angle,
+    #[strum(serialize = "curly")]
+    Curly,
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct EastAsianLayout {
+    pub id: Option<DecimalNumber>,
+    pub combine: Option<OnOff>,
+    pub combine_brackets: Option<CombineBrackets>,
+    pub vertical: Option<OnOff>,
+    pub vertical_compress: Option<OnOff>,
+}
+
+impl EastAsianLayout {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: Self = Default::default();
+
+        for (attr, value) in &xml_node.attributes {
+            match attr.as_ref() {
+                "id" => instance.id = Some(value.parse()?),
+                "combine" => instance.combine = Some(parse_xml_bool(value)?),
+                "combineBrackets" => instance.combine_brackets = Some(value.parse()?),
+                "vert" => instance.vertical = Some(parse_xml_bool(value)?),
+                "vertCompress" => instance.vertical_compress = Some(parse_xml_bool(value)?),
+                _ => (),
+            }
+        }
+
+        Ok(instance)
+    }
+}
+
+#[cfg(test)]
+impl EastAsianLayout {
+    pub fn test_xml(node_name: &'static str) -> String {
+        format!(
+            r#"<{node_name} id="1" combine="true" combineBrackets="square" vert="true" vertCompress="true">
+        </{node_name}>"#,
+            node_name = node_name
+        )
+    }
+
+    pub fn test_instance() -> Self {
+        Self {
+            id: Some(1),
+            combine: Some(true),
+            combine_brackets: Some(CombineBrackets::Square),
+            vertical: Some(true),
+            vertical_compress: Some(true),
+        }
+    }
+}
+
+#[cfg(test)]
+#[test]
+pub fn test_east_asian_layout_from_xml() {
+    let xml = EastAsianLayout::test_xml("eastAsianLayout");
+    let east_asian_layout = EastAsianLayout::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+    assert_eq!(east_asian_layout, EastAsianLayout::test_instance());
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum RPrBase {
     RunStyle(String),
@@ -2126,7 +2579,7 @@ pub enum RPrBase {
     WebHidden(Option<OnOff>),
     Color(Color),
     Spacing(SignedTwipsMeasure),
-    Width(TextScale),
+    Width(Option<TextScale>),
     Kerning(HpsMeasure),
     Position(SignedHpsMeasure),
     Size(HpsMeasure),
@@ -2135,63 +2588,18 @@ pub enum RPrBase {
     Underline(Underline),
     Effect(TextEffect),
     Border(Border),
-    // Shading(Shd),
-    // FitText(FitText),
-    // VertialAlignment(VerticalAlignRun),
+    Shading(Shd),
+    FitText(FitText),
+    VerticalAlignment(VerticalAlignRun),
     Rtl(Option<OnOff>),
     ComplexScript(Option<OnOff>),
-    // EmphasisMark(Em),
-    // Language(Language),
-    // EastAsianLayout(EastAsianLayout),
+    EmphasisMark(Em),
+    Language(Language),
+    EastAsianLayout(EastAsianLayout),
     SpecialVanish(Option<OnOff>),
     OMath(Option<OnOff>),
 }
 
-/*
-<xsd:group name="EG_RPrBase">
-    <xsd:choice>
-        <xsd:element name="rStyle" type="CT_String"/>
-        <xsd:element name="rFonts" type="CT_Fonts"/>
-        <xsd:element name="b" type="CT_OnOff"/>
-        <xsd:element name="bCs" type="CT_OnOff"/>
-        <xsd:element name="i" type="CT_OnOff"/>
-        <xsd:element name="iCs" type="CT_OnOff"/>
-        <xsd:element name="caps" type="CT_OnOff"/>
-        <xsd:element name="smallCaps" type="CT_OnOff"/>
-        <xsd:element name="strike" type="CT_OnOff"/>
-        <xsd:element name="dstrike" type="CT_OnOff"/>
-        <xsd:element name="outline" type="CT_OnOff"/>
-        <xsd:element name="shadow" type="CT_OnOff"/>
-        <xsd:element name="emboss" type="CT_OnOff"/>
-        <xsd:element name="imprint" type="CT_OnOff"/>
-        <xsd:element name="noProof" type="CT_OnOff"/>
-        <xsd:element name="snapToGrid" type="CT_OnOff"/>
-        <xsd:element name="vanish" type="CT_OnOff"/>
-        <xsd:element name="webHidden" type="CT_OnOff"/>
-        <xsd:element name="color" type="CT_Color"/>
-        <xsd:element name="spacing" type="CT_SignedTwipsMeasure"/>
-        <xsd:element name="w" type="CT_TextScale"/>
-        <xsd:element name="kern" type="CT_HpsMeasure"/>
-        <xsd:element name="position" type="CT_SignedHpsMeasure"/>
-        <xsd:element name="sz" type="CT_HpsMeasure"/>
-        <xsd:element name="szCs" type="CT_HpsMeasure"/>
-        <xsd:element name="highlight" type="CT_Highlight"/>
-        <xsd:element name="u" type="CT_Underline"/>
-        <xsd:element name="effect" type="CT_TextEffect"/>
-        <xsd:element name="bdr" type="CT_Border"/>
-        <xsd:element name="shd" type="CT_Shd"/>
-        <xsd:element name="fitText" type="CT_FitText"/>
-        <xsd:element name="vertAlign" type="CT_VerticalAlignRun"/>
-        <xsd:element name="rtl" type="CT_OnOff"/>
-        <xsd:element name="cs" type="CT_OnOff"/>
-        <xsd:element name="em" type="CT_Em"/>
-        <xsd:element name="lang" type="CT_Language"/>
-        <xsd:element name="eastAsianLayout" type="CT_EastAsianLayout"/>
-        <xsd:element name="specVanish" type="CT_OnOff"/>
-        <xsd:element name="oMath" type="CT_OnOff"/>
-    </xsd:choice>
-</xsd:group>
-*/
 impl RPrBase {
     pub fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
         match node_name.as_ref() {
@@ -2207,10 +2615,78 @@ impl RPrBase {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
         match xml_node.local_name() {
             "rStyle" => {
-                Ok(RPrBase::RunStyle(xml_node.text.as_ref().cloned().ok_or_else(|| {
-                    MissingChildNodeError::new(xml_node.name.clone(), "Text node")
-                })?))
+                let val = xml_node
+                    .attributes
+                    .get("val")
+                    .cloned()
+                    .ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "val"))?;
+                Ok(RPrBase::RunStyle(val))
             }
+            "rFonts" => Ok(RPrBase::RunFonts(Fonts::from_xml_element(xml_node)?)),
+            "b" => Ok(RPrBase::Bold(parse_on_off_xml_element(xml_node)?)),
+            "bCs" => Ok(RPrBase::ComplexScriptBold(parse_on_off_xml_element(xml_node)?)),
+            "i" => Ok(RPrBase::Italic(parse_on_off_xml_element(xml_node)?)),
+            "iCs" => Ok(RPrBase::ComplexScriptItalic(parse_on_off_xml_element(xml_node)?)),
+            "caps" => Ok(RPrBase::Capitals(parse_on_off_xml_element(xml_node)?)),
+            "smallCaps" => Ok(RPrBase::SmallCapitals(parse_on_off_xml_element(xml_node)?)),
+            "strike" => Ok(RPrBase::Strikethrough(parse_on_off_xml_element(xml_node)?)),
+            "dstrike" => Ok(RPrBase::DoubleStrikethrough(parse_on_off_xml_element(xml_node)?)),
+            "outline" => Ok(RPrBase::Outline(parse_on_off_xml_element(xml_node)?)),
+            "shadow" => Ok(RPrBase::Shadow(parse_on_off_xml_element(xml_node)?)),
+            "emboss" => Ok(RPrBase::Emboss(parse_on_off_xml_element(xml_node)?)),
+            "imprint" => Ok(RPrBase::Imprint(parse_on_off_xml_element(xml_node)?)),
+            "noProof" => Ok(RPrBase::NoProofing(parse_on_off_xml_element(xml_node)?)),
+            "snapToGrid" => Ok(RPrBase::SnapToGrid(parse_on_off_xml_element(xml_node)?)),
+            "vanish" => Ok(RPrBase::Vanish(parse_on_off_xml_element(xml_node)?)),
+            "webHidden" => Ok(RPrBase::WebHidden(parse_on_off_xml_element(xml_node)?)),
+            "color" => Ok(RPrBase::Color(Color::from_xml_element(xml_node)?)),
+            "spacing" => Ok(RPrBase::Spacing(SignedTwipsMeasure::from_xml_element(xml_node)?)),
+            "w" => {
+                let val = xml_node.attributes.get("val").map(|val| val.parse()).transpose()?;
+                Ok(RPrBase::Width(val))
+            }
+            "kern" => Ok(RPrBase::Kerning(HpsMeasure::from_xml_element(xml_node)?)),
+            "position" => Ok(RPrBase::Position(SignedHpsMeasure::from_xml_element(xml_node)?)),
+            "sz" => Ok(RPrBase::Size(HpsMeasure::from_xml_element(xml_node)?)),
+            "szCs" => Ok(RPrBase::ComplexScriptSize(HpsMeasure::from_xml_element(xml_node)?)),
+            "highlight" => {
+                let val_attr = xml_node
+                    .attributes
+                    .get("val")
+                    .ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "val"))?;
+                Ok(RPrBase::Highlight(val_attr.parse()?))
+            }
+            "u" => Ok(RPrBase::Underline(Underline::from_xml_element(xml_node)?)),
+            "effect" => {
+                let val_attr = xml_node
+                    .attributes
+                    .get("val")
+                    .ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "val"))?;
+                Ok(RPrBase::Effect(val_attr.parse()?))
+            }
+            "bdr" => Ok(RPrBase::Border(Border::from_xml_element(xml_node)?)),
+            "shd" => Ok(RPrBase::Shading(Shd::from_xml_element(xml_node)?)),
+            "fitText" => Ok(RPrBase::FitText(FitText::from_xml_element(xml_node)?)),
+            "vertAlign" => {
+                let val_attr = xml_node
+                    .attributes
+                    .get("val")
+                    .ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "val"))?;
+                Ok(RPrBase::VerticalAlignment(val_attr.parse()?))
+            }
+            "rtl" => Ok(RPrBase::Rtl(parse_on_off_xml_element(xml_node)?)),
+            "cs" => Ok(RPrBase::ComplexScript(parse_on_off_xml_element(xml_node)?)),
+            "em" => {
+                let val_attr = xml_node
+                    .attributes
+                    .get("val")
+                    .ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "val"))?;
+                Ok(RPrBase::EmphasisMark(val_attr.parse()?))
+            }
+            "lang" => Ok(RPrBase::Language(Language::from_xml_element(xml_node))),
+            "eastAsianLayout" => Ok(RPrBase::EastAsianLayout(EastAsianLayout::from_xml_element(xml_node)?)),
+            "specVanish" => Ok(RPrBase::SpecialVanish(parse_on_off_xml_element(xml_node)?)),
+            "oMath" => Ok(RPrBase::OMath(parse_on_off_xml_element(xml_node)?)),
             _ => Err(Box::new(NotGroupMemberError::new(xml_node.name.clone(), "RPrBase"))),
         }
     }
@@ -2219,7 +2695,7 @@ impl RPrBase {
 #[cfg(test)]
 impl RPrBase {
     pub fn test_run_style_xml() -> &'static str {
-        r#"<rStyle>Arial</rStyle>"#
+        r#"<rStyle val="Arial"></rStyle>"#
     }
 
     pub fn test_run_style_instance() -> Self {
@@ -2227,6 +2703,7 @@ impl RPrBase {
     }
 }
 
+// TODO Write some more unit tests
 #[cfg(test)]
 #[test]
 pub fn test_r_pr_base_run_style_from_xml() {
@@ -2379,19 +2856,564 @@ pub fn test_r_pr_from_xml() {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum SdtPrControlChoice {
-    // Equation,
-// ComboBox(SdtComboBox),
-// Date(SdtDate),
-// DocumentPartObject(SdtDocPart),
-// DocumentPartList(SdtDocPart),
-// DropDownList(SdtDropDownList),
-// Picture,
-// RichText,
-// Text(SdtText),
-// Citation,
-// Group,
-// Bibliography,
+pub struct SdtListItem {
+    pub display_text: String,
+    pub value: String,
+}
+
+impl SdtListItem {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let display_text = xml_node
+            .attributes
+            .get("displayText")
+            .cloned()
+            .ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "displayText"))?;
+
+        let value = xml_node
+            .attributes
+            .get("value")
+            .cloned()
+            .ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "value"))?;
+
+        Ok(Self { display_text, value })
+    }
+}
+
+#[cfg(test)]
+impl SdtListItem {
+    pub fn test_xml(node_name: &'static str) -> String {
+        format!(
+            r#"<{node_name} displayText="Displayed" value="Some value"></{node_name}>"#,
+            node_name = node_name
+        )
+    }
+
+    pub fn test_instance() -> Self {
+        Self {
+            display_text: String::from("Displayed"),
+            value: String::from("Some value"),
+        }
+    }
+}
+
+#[cfg(test)]
+#[test]
+pub fn test_sdt_list_item_from_xml() {
+    let xml = SdtListItem::test_xml("sdtListItem");
+    let sdt_list_item = SdtListItem::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+    assert_eq!(sdt_list_item, SdtListItem::test_instance());
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct SdtComboBox {
+    pub list_items: Vec<SdtListItem>,
+    pub last_value: Option<String>,
+}
+
+impl SdtComboBox {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let last_value = xml_node.attributes.get("lastValue").cloned();
+
+        let list_items = xml_node
+            .child_nodes
+            .iter()
+            .filter_map(|child_node| {
+                if child_node.local_name() == "listItem" {
+                    Some(SdtListItem::from_xml_element(child_node))
+                } else {
+                    None
+                }
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        Ok(Self { list_items, last_value })
+    }
+}
+
+#[cfg(test)]
+impl SdtComboBox {
+    pub fn test_xml(node_name: &'static str) -> String {
+        format!(
+            r#"<{node_name} lastValue="Some value">
+            {}
+            {}
+        </{node_name}>"#,
+            SdtListItem::test_xml("listItem"),
+            SdtListItem::test_xml("listItem"),
+            node_name = node_name
+        )
+    }
+
+    pub fn test_instance() -> Self {
+        Self {
+            list_items: vec![SdtListItem::test_instance(), SdtListItem::test_instance()],
+            last_value: Some(String::from("Some value")),
+        }
+    }
+}
+
+#[cfg(test)]
+#[test]
+pub fn test_sdt_combo_box_from_xml() {
+    let xml = SdtComboBox::test_xml("sdtComboBox");
+    let sdt_combo_box = SdtComboBox::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+    assert_eq!(sdt_combo_box, SdtComboBox::test_instance());
+}
+
+#[derive(Debug, Clone, PartialEq, EnumString)]
+pub enum SdtDateMappingType {
+    #[strum(serialize = "text")]
+    Text,
+    #[strum(serialize = "date")]
+    Date,
+    #[strum(serialize = "dateTime")]
+    DateTime,
+}
+
+impl SdtDateMappingType {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Option<Self>> {
+        Ok(xml_node.attributes.get("val").map(|val| val.parse()).transpose()?)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct SdtDate {
+    pub date_format: Option<String>,
+    pub language_id: Option<Lang>,
+    pub store_mapped_data_as: Option<SdtDateMappingType>,
+    pub calendar: Option<CalendarType>,
+
+    pub full_date: Option<DateTime>,
+}
+
+impl SdtDate {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: Self = Default::default();
+        instance.full_date = xml_node.attributes.get("fullDate").cloned();
+
+        for child_node in &xml_node.child_nodes {
+            match child_node.local_name() {
+                "dateFormat" => instance.date_format = child_node.attributes.get("val").cloned(),
+                "lid" => instance.language_id = child_node.attributes.get("val").cloned(),
+                "storeMappedDataAs" => {
+                    instance.store_mapped_data_as = SdtDateMappingType::from_xml_element(child_node)?
+                }
+                "calendar" => {
+                    instance.calendar = child_node.attributes.get("val").map(|val| val.parse()).transpose()?;
+                }
+                _ => (),
+            }
+        }
+
+        Ok(instance)
+    }
+}
+
+#[cfg(test)]
+impl SdtDate {
+    pub fn test_xml(node_name: &'static str) -> String {
+        format!(
+            r#"<{node_name} fullDate="2001-10-26T21:32:52">
+            <dateFormat val="MM-YYYY" />
+            <lid val="ja-JP" />
+            <storeMappedDataAs val="dateTime" />
+            <calendar val="gregorian" />
+        </{node_name}>"#,
+            node_name = node_name
+        )
+    }
+
+    pub fn test_instance() -> Self {
+        Self {
+            date_format: Some(String::from("MM-YYYY")),
+            language_id: Some(Lang::from("ja-JP")),
+            store_mapped_data_as: Some(SdtDateMappingType::DateTime),
+            calendar: Some(CalendarType::Gregorian),
+            full_date: Some(DateTime::from("2001-10-26T21:32:52")),
+        }
+    }
+}
+
+#[cfg(test)]
+#[test]
+pub fn test_sdt_date_from_xml() {
+    let xml = SdtDate::test_xml("sdtDate");
+    let sdt_date = SdtDate::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+    assert_eq!(sdt_date, SdtDate::test_instance());
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct SdtDocPart {
+    pub doc_part_gallery: Option<String>,
+    pub doc_part_category: Option<String>,
+    pub doc_part_unique: Option<OnOff>,
+}
+
+impl SdtDocPart {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: Self = Default::default();
+
+        for child_node in &xml_node.child_nodes {
+            match child_node.local_name() {
+                "docPartGallery" => instance.doc_part_gallery = child_node.attributes.get("val").cloned(),
+                "docPartCategory" => instance.doc_part_category = child_node.attributes.get("val").cloned(),
+                "docPartUnique" => instance.doc_part_unique = parse_on_off_xml_element(child_node)?,
+                _ => (),
+            }
+        }
+
+        Ok(instance)
+    }
+}
+
+#[cfg(test)]
+impl SdtDocPart {
+    pub fn test_xml(node_name: &'static str) -> String {
+        format!(
+            r#"<{node_name}>
+            <docPartGallery val="Some string" />
+            <docPartCategory val="Some string" />
+            <docPartUnique val="true" />
+        </{node_name}>"#,
+            node_name = node_name
+        )
+    }
+
+    pub fn test_instance() -> Self {
+        Self {
+            doc_part_gallery: Some(String::from("Some string")),
+            doc_part_category: Some(String::from("Some string")),
+            doc_part_unique: Some(true),
+        }
+    }
+}
+
+#[cfg(test)]
+#[test]
+pub fn test_sdt_doc_part_from_xml() {
+    let xml = SdtDocPart::test_xml("sdtDocPart");
+    let sdt_doc_part = SdtDocPart::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+    assert_eq!(sdt_doc_part, SdtDocPart::test_instance());
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct SdtDropDownList {
+    pub list_items: Vec<SdtListItem>,
+    pub last_value: Option<String>,
+}
+
+impl SdtDropDownList {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let last_value = xml_node.attributes.get("lastValue").cloned();
+
+        let list_items = xml_node
+            .child_nodes
+            .iter()
+            .filter_map(|child_node| {
+                if child_node.local_name() == "listItem" {
+                    Some(SdtListItem::from_xml_element(child_node))
+                } else {
+                    None
+                }
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        Ok(Self { list_items, last_value })
+    }
+}
+
+#[cfg(test)]
+impl SdtDropDownList {
+    pub fn test_xml(node_name: &'static str) -> String {
+        format!(
+            r#"<{node_name} lastValue="Some value">
+            {}
+            {}
+        </{node_name}>"#,
+            SdtListItem::test_xml("listItem"),
+            SdtListItem::test_xml("listItem"),
+            node_name = node_name
+        )
+    }
+
+    pub fn test_instance() -> Self {
+        Self {
+            list_items: vec![SdtListItem::test_instance(), SdtListItem::test_instance()],
+            last_value: Some(String::from("Some value")),
+        }
+    }
+}
+
+#[cfg(test)]
+#[test]
+pub fn test_sdt_drop_down_list_from_xml() {
+    let xml = SdtDropDownList::test_xml("sdtDropDownList");
+    let sdt_combo_box = SdtDropDownList::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+    assert_eq!(sdt_combo_box, SdtDropDownList::test_instance());
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SdtText {
+    pub is_multi_line: OnOff,
+}
+
+impl SdtText {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let is_multi_line_attr = xml_node
+            .attributes
+            .get("multiLine")
+            .ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "multiLine"))?;
+
+        Ok(Self {
+            is_multi_line: parse_xml_bool(is_multi_line_attr)?,
+        })
+    }
+}
+
+#[cfg(test)]
+impl SdtText {
+    pub fn test_xml(node_name: &'static str) -> String {
+        format!(r#"<{node_name} multiLine="true"></{node_name}>"#, node_name = node_name)
+    }
+
+    pub fn test_instance() -> Self {
+        Self { is_multi_line: true }
+    }
+}
+
+#[cfg(test)]
+#[test]
+pub fn test_sdt_text_from_xml() {
+    let xml = SdtText::test_xml("sdtText");
+    let sdt_text = SdtText::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+    assert_eq!(sdt_text, SdtText::test_instance());
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum SdtPrChoice {
+    Equation,
+    ComboBox(SdtComboBox),
+    Date(SdtDate),
+    DocumentPartObject(SdtDocPart),
+    DocumentPartList(SdtDocPart),
+    DropDownList(SdtDropDownList),
+    Picture,
+    RichText,
+    Text(SdtText),
+    Citation,
+    Group,
+    Bibliography,
+}
+
+impl SdtPrChoice {
+    pub fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
+        match node_name.as_ref() {
+            "equation" | "comboBox" | "date" | "docPartObj" | "docPartList" | "dropDownList" | "picture"
+            | "richText" | "text" | "citation" | "group" | "bibliography" => true,
+            _ => false,
+        }
+    }
+
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        match xml_node.local_name() {
+            "equation" => Ok(SdtPrChoice::Equation),
+            "comboBox" => Ok(SdtPrChoice::ComboBox(SdtComboBox::from_xml_element(xml_node)?)),
+            "date" => Ok(SdtPrChoice::Date(SdtDate::from_xml_element(xml_node)?)),
+            "docPartObj" => Ok(SdtPrChoice::DocumentPartObject(SdtDocPart::from_xml_element(xml_node)?)),
+            "docPartList" => Ok(SdtPrChoice::DocumentPartList(SdtDocPart::from_xml_element(xml_node)?)),
+            "dropDownList" => Ok(SdtPrChoice::DropDownList(SdtDropDownList::from_xml_element(xml_node)?)),
+            "picture" => Ok(SdtPrChoice::Picture),
+            "richText" => Ok(SdtPrChoice::RichText),
+            "text" => Ok(SdtPrChoice::Text(SdtText::from_xml_element(xml_node)?)),
+            "citation" => Ok(SdtPrChoice::Citation),
+            "group" => Ok(SdtPrChoice::Group),
+            "bibliography" => Ok(SdtPrChoice::Bibliography),
+            _ => Err(Box::new(NotGroupMemberError::new(xml_node.name.clone(), "SdtPrChoice"))),
+        }
+    }
+}
+
+#[cfg(test)]
+#[test]
+pub fn test_sdt_pr_control_choice_from_xml() {
+    assert_eq!(
+        SdtPrChoice::from_xml_element(&XmlNode::from_str("<equation></equation>").unwrap()).unwrap(),
+        SdtPrChoice::Equation,
+    );
+    assert_eq!(
+        SdtPrChoice::from_xml_element(&XmlNode::from_str(SdtComboBox::test_xml("comboBox")).unwrap()).unwrap(),
+        SdtPrChoice::ComboBox(SdtComboBox::test_instance()),
+    );
+    assert_eq!(
+        SdtPrChoice::from_xml_element(&XmlNode::from_str(SdtDate::test_xml("date")).unwrap()).unwrap(),
+        SdtPrChoice::Date(SdtDate::test_instance()),
+    );
+    assert_eq!(
+        SdtPrChoice::from_xml_element(&XmlNode::from_str(SdtDocPart::test_xml("docPartObj")).unwrap()).unwrap(),
+        SdtPrChoice::DocumentPartObject(SdtDocPart::test_instance()),
+    );
+    assert_eq!(
+        SdtPrChoice::from_xml_element(&XmlNode::from_str(SdtDocPart::test_xml("docPartList")).unwrap()).unwrap(),
+        SdtPrChoice::DocumentPartList(SdtDocPart::test_instance()),
+    );
+    assert_eq!(
+        SdtPrChoice::from_xml_element(&XmlNode::from_str(SdtDropDownList::test_xml("dropDownList")).unwrap()).unwrap(),
+        SdtPrChoice::DropDownList(SdtDropDownList::test_instance()),
+    );
+    assert_eq!(
+        SdtPrChoice::from_xml_element(&XmlNode::from_str("<picture></picture>").unwrap()).unwrap(),
+        SdtPrChoice::Picture,
+    );
+    assert_eq!(
+        SdtPrChoice::from_xml_element(&XmlNode::from_str("<richText></richText>").unwrap()).unwrap(),
+        SdtPrChoice::RichText,
+    );
+    assert_eq!(
+        SdtPrChoice::from_xml_element(&XmlNode::from_str(SdtText::test_xml("text")).unwrap()).unwrap(),
+        SdtPrChoice::Text(SdtText::test_instance()),
+    );
+    assert_eq!(
+        SdtPrChoice::from_xml_element(&XmlNode::from_str("<citation></citation>").unwrap()).unwrap(),
+        SdtPrChoice::Citation,
+    );
+    assert_eq!(
+        SdtPrChoice::from_xml_element(&XmlNode::from_str("<group></group>").unwrap()).unwrap(),
+        SdtPrChoice::Group,
+    );
+    assert_eq!(
+        SdtPrChoice::from_xml_element(&XmlNode::from_str("<bibliography></bibliography>").unwrap()).unwrap(),
+        SdtPrChoice::Bibliography,
+    );
+}
+
+#[derive(Debug, Clone, PartialEq, EnumString)]
+pub enum Lock {
+    #[strum(serialize = "sdtLocked")]
+    SdtLocked,
+    #[strum(serialize = "contentLocked")]
+    ContentLocked,
+    #[strum(serialize = "unlocked")]
+    Unlocked,
+    #[strum(serialize = "sdtContentLocked")]
+    SdtContentLocked,
+}
+
+impl Lock {
+    pub fn from_xml_element(xml_node: &XmlNode) -> std::result::Result<Option<Self>, strum::ParseError> {
+        xml_node.attributes.get("val").map(|val| val.parse()).transpose()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Placeholder {
+    pub document_part: String,
+}
+
+impl Placeholder {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let document_part_node = xml_node
+            .child_nodes
+            .first()
+            .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "docPart"))?;
+
+        let document_part = document_part_node
+            .attributes
+            .get("val")
+            .cloned()
+            .ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "val"))?;
+
+        Ok(Self { document_part })
+    }
+}
+
+#[cfg(test)]
+impl Placeholder {
+    pub fn test_xml(node_name: &'static str) -> String {
+        format!(
+            r#"<{node_name}>
+            <docPart val="title" />
+        </{node_name}>"#,
+            node_name = node_name
+        )
+    }
+
+    pub fn test_instance() -> Self {
+        Self {
+            document_part: String::from("title"),
+        }
+    }
+}
+
+#[cfg(test)]
+#[test]
+pub fn test_placeholder_from_xml() {
+    let xml = Placeholder::test_xml("placeholder");
+    assert_eq!(
+        Placeholder::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+        Placeholder::test_instance()
+    );
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct DataBinding {
+    pub prefix_mappings: Option<String>,
+    pub xpath: String,
+    pub store_item_id: String,
+}
+
+impl DataBinding {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut prefix_mappings = None;
+        let mut xpath = None;
+        let mut store_item_id = None;
+
+        for (attr, value) in &xml_node.attributes {
+            match attr.as_ref() {
+                "prefixMappings" => prefix_mappings = Some(value.clone()),
+                "xpath" => xpath = Some(value.clone()),
+                "storeItemID" => store_item_id = Some(value.clone()),
+                _ => (),
+            }
+        }
+
+        let xpath = xpath.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "xpath"))?;
+        let store_item_id =
+            store_item_id.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "storeItemId"))?;
+
+        Ok(Self {
+            prefix_mappings,
+            xpath,
+            store_item_id,
+        })
+    }
+}
+
+#[cfg(test)]
+impl DataBinding {
+    pub fn test_xml(node_name: &'static str) -> String {
+        format!(r#"<{node_name} prefixMappings="xmlns:ns0='http://example.com/example'" xpath="//ns0:book" storeItemID="testXmlPart">
+        </{node_name}>"#
+            , node_name=node_name
+        )
+    }
+
+    pub fn test_instance() -> Self {
+        Self {
+            prefix_mappings: Some(String::from("xmlns:ns0='http://example.com/example'")),
+            xpath: String::from("//ns0:book"),
+            store_item_id: String::from("testXmlPart"),
+        }
+    }
+}
+
+#[cfg(test)]
+#[test]
+pub fn test_data_binding_from_xml() {
+    let xml = DataBinding::test_xml("dataBinding");
+    assert_eq!(
+        DataBinding::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+        DataBinding::test_instance()
+    );
 }
 
 /*
@@ -2425,20 +3447,20 @@ pub enum SdtPrControlChoice {
     </xsd:sequence>
   </xsd:complexType>
 */
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct SdtPr {
     pub run_properties: Option<RPr>,
     pub alias: Option<String>,
     pub tag: Option<String>,
     pub id: Option<DecimalNumber>,
-    //pub lock: Option<Lock>,
-    //pub placeholder: Option<Placeholder>,
+    pub lock: Option<Lock>,
+    pub placeholder: Option<Placeholder>,
     pub temporary: Option<OnOff>,
     pub showing_placeholder_header: Option<OnOff>,
-    //pub data_binding: Option<DataBinding>,
+    pub data_binding: Option<DataBinding>,
     pub label: Option<DecimalNumber>,
     pub tab_index: Option<UnsignedDecimalNumber>,
-    pub control_choice: Option<SdtPrControlChoice>,
+    pub control_choice: Option<SdtPrChoice>,
 }
 
 /*
