@@ -58,33 +58,6 @@ impl EffectExtent {
     }
 }
 
-#[cfg(test)]
-impl EffectExtent {
-    pub fn test_xml(node_name: &'static str) -> String {
-        format!(
-            r#"<{node_name} l="0" t="0" r="100" b="100"></{node_name}>"#,
-            node_name = node_name
-        )
-    }
-
-    pub fn test_instance() -> Self {
-        Self {
-            left: 0,
-            top: 0,
-            right: 100,
-            bottom: 100,
-        }
-    }
-}
-
-#[cfg(test)]
-#[test]
-pub fn effect_extent_from_xml_node_test() {
-    let xml = EffectExtent::test_xml("effectExtent");
-    let effect_extent = EffectExtent::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
-    assert_eq!(effect_extent, EffectExtent::test_instance());
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct Inline {
     pub extent: PositiveSize2D,
@@ -149,61 +122,6 @@ impl Inline {
     }
 }
 
-#[cfg(test)]
-#[test]
-pub fn test_inline_from_xml_element() {
-    use msoffice_shared::drawingml::Hyperlink;
-
-    let xml = format!(
-        r#"<inline distT="0" distB="100" distL="0" distR="100">
-        <extent cx="10000" cy="10000" />
-        {}
-        <docPr id="1" name="Object name" descr="Some description" title="Title of the object">
-            <a:hlinkClick r:id="rId2" tooltip="Some Sample Text"/>
-            <a:hlinkHover r:id="rId2" tooltip="Some Sample Text"/>
-        </docPr>
-        <graphic>
-            <graphicData uri="http://some/url" />
-        </graphic>
-    </inline>"#,
-        EffectExtent::test_xml("effectExtent")
-    );
-
-    let inline = Inline::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
-    let inline_rhs = Inline {
-        extent: PositiveSize2D::new(10000, 10000),
-        effect_extent: Some(EffectExtent::test_instance()),
-        doc_properties: NonVisualDrawingProps {
-            id: 1,
-            name: String::from("Object name"),
-            description: Some(String::from("Some description")),
-            hidden: None,
-            title: Some(String::from("Title of the object")),
-            hyperlink_click: Some(Box::new(Hyperlink {
-                relationship_id: Some(String::from("rId2")),
-                tooltip: Some(String::from("Some Sample Text")),
-                ..Default::default()
-            })),
-            hyperlink_hover: Some(Box::new(Hyperlink {
-                relationship_id: Some(String::from("rId2")),
-                tooltip: Some(String::from("Some Sample Text")),
-                ..Default::default()
-            })),
-        },
-        graphic_frame_properties: None,
-        graphic: GraphicalObject {
-            graphic_data: GraphicalObjectData {
-                uri: String::from("http://some/url"),
-            },
-        },
-        distance_top: Some(0),
-        distance_bottom: Some(100),
-        distance_left: Some(0),
-        distance_right: Some(100),
-    };
-    assert_eq!(inline, inline_rhs);
-}
-
 #[derive(Debug, Clone, EnumString, PartialEq)]
 pub enum WrapText {
     #[strum(serialize = "bothSides")]
@@ -254,37 +172,6 @@ impl WrapPath {
     }
 }
 
-#[cfg(test)]
-impl WrapPath {
-    pub fn test_xml(node_name: &'static str) -> String {
-        format!(
-            r#"<{node_name} edited="true">
-            <start x="0" y="0" />
-            <lineTo x="50" y="50" />
-            <lineTo x="100" y="100" />
-        </{node_name}>"#,
-            node_name = node_name
-        )
-    }
-
-    pub fn test_instance() -> Self {
-        Self {
-            start: Point2D::new(0, 0),
-            line_to: vec![Point2D::new(50, 50), Point2D::new(100, 100)],
-            edited: Some(true),
-        }
-    }
-}
-
-#[cfg(test)]
-#[test]
-pub fn test_wrap_path_from_xml() {
-    let xml = WrapPath::test_xml("wrapPath");
-
-    let wrap_path = WrapPath::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
-    assert_eq!(wrap_path, WrapPath::test_instance());
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct WrapSquare {
     pub effect_extent: Option<EffectExtent>,
@@ -332,39 +219,6 @@ impl WrapSquare {
     }
 }
 
-#[cfg(test)]
-impl WrapSquare {
-    pub fn test_xml(node_name: &'static str) -> String {
-        format!(
-            r#"<{node_name} wrapText="bothSides" distT="0" distB="100" distL="0" distR="100">
-            {}
-        </{node_name}>"#,
-            EffectExtent::test_xml("effectExtent"),
-            node_name = node_name
-        )
-    }
-
-    pub fn test_instance() -> Self {
-        WrapSquare {
-            effect_extent: Some(EffectExtent::test_instance()),
-            wrap_text: WrapText::BothSides,
-            distance_top: Some(0),
-            distance_bottom: Some(100),
-            distance_left: Some(0),
-            distance_right: Some(100),
-        }
-    }
-}
-
-#[cfg(test)]
-#[test]
-pub fn test_wrap_square_from_xml() {
-    let xml = WrapSquare::test_xml("wrapSquare");
-    let wrap_square = WrapSquare::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
-
-    assert_eq!(wrap_square, WrapSquare::test_instance());
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct WrapTight {
     pub wrap_polygon: WrapPath,
@@ -401,36 +255,6 @@ impl WrapTight {
             distance_right,
         })
     }
-}
-
-#[cfg(test)]
-impl WrapTight {
-    pub fn test_xml(node_name: &'static str) -> String {
-        format!(
-            r#"<{node_name} wrapText="bothSides", distL="0" distR="0">
-            {}
-        </{node_name}>"#,
-            WrapPath::test_xml("wrapPolygon"),
-            node_name = node_name
-        )
-    }
-
-    pub fn test_instance() -> Self {
-        Self {
-            wrap_polygon: WrapPath::test_instance(),
-            wrap_text: WrapText::BothSides,
-            distance_left: Some(0),
-            distance_right: Some(0),
-        }
-    }
-}
-
-#[cfg(test)]
-#[test]
-pub fn test_wrap_tight_from_xml() {
-    let xml = WrapTight::test_xml("wrapTight");
-    let wrap_tight = WrapTight::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
-    assert_eq!(wrap_tight, WrapTight::test_instance());
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -471,36 +295,6 @@ impl WrapThrough {
     }
 }
 
-#[cfg(test)]
-impl WrapThrough {
-    pub fn test_xml(node_name: &'static str) -> String {
-        format!(
-            r#"<{node_name} wrapText="bothSides" distL="0" distR="0">
-            {}
-        </{node_name}>"#,
-            WrapPath::test_xml("wrapPolygon"),
-            node_name = node_name
-        )
-    }
-
-    pub fn test_instance() -> Self {
-        Self {
-            wrap_polygon: WrapPath::test_instance(),
-            wrap_text: WrapText::BothSides,
-            distance_left: Some(0),
-            distance_right: Some(0),
-        }
-    }
-}
-
-#[cfg(test)]
-#[test]
-pub fn test_wrap_through_from_xml() {
-    let xml = WrapThrough::test_xml("wrapThrough");
-    let wrap_through = WrapThrough::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
-    assert_eq!(wrap_through, WrapThrough::test_instance());
-}
-
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct WrapTopBottom {
     pub effect_extent: Option<EffectExtent>,
@@ -535,35 +329,6 @@ impl WrapTopBottom {
     }
 }
 
-#[cfg(test)]
-impl WrapTopBottom {
-    pub fn test_xml(node_name: &'static str) -> String {
-        format!(
-            r#"<{node_name} distT="0" distB="0">
-            {}
-        </{node_name}>"#,
-            EffectExtent::test_xml("effectExtent"),
-            node_name = node_name
-        )
-    }
-
-    pub fn test_instance() -> Self {
-        Self {
-            effect_extent: Some(EffectExtent::test_instance()),
-            distance_top: Some(0),
-            distance_bottom: Some(0),
-        }
-    }
-}
-
-#[cfg(test)]
-#[test]
-pub fn test_wrap_top_bottom_from_xml() {
-    let xml = WrapTopBottom::test_xml("wrapTopAndBottom");
-    let wrap_top_bottom = WrapTopBottom::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
-    assert_eq!(wrap_top_bottom, WrapTopBottom::test_instance());
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub enum WrapType {
     None,
@@ -591,46 +356,6 @@ impl WrapType {
             _ => Err(Box::new(NotGroupMemberError::new(xml_node.name.clone(), "WrapType"))),
         }
     }
-}
-
-#[cfg(test)]
-#[test]
-pub fn test_wrap_type_none_from_xml() {
-    let xml = r#"<wrapNone></wrapNone>"#;
-    let wrap_type = WrapType::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
-    assert_eq!(wrap_type, WrapType::None);
-}
-
-#[cfg(test)]
-#[test]
-pub fn test_wrap_type_square() {
-    let xml = WrapSquare::test_xml("wrapSquare");
-    let wrap_type = WrapType::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
-    assert_eq!(wrap_type, WrapType::Square(WrapSquare::test_instance()));
-}
-
-#[cfg(test)]
-#[test]
-pub fn test_wrap_type_tight() {
-    let xml = WrapTight::test_xml("wrapTight");
-    let wrap_type = WrapType::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
-    assert_eq!(wrap_type, WrapType::Tight(WrapTight::test_instance()));
-}
-
-#[cfg(test)]
-#[test]
-pub fn test_wrap_type_through() {
-    let xml = WrapThrough::test_xml("wrapThrough");
-    let wrap_type = WrapType::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
-    assert_eq!(wrap_type, WrapType::Through(WrapThrough::test_instance()));
-}
-
-#[cfg(test)]
-#[test]
-pub fn test_wrap_type_top_and_bottom() {
-    let xml = WrapTopBottom::test_xml("wrapTopAndBottom");
-    let wrap_type = WrapType::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
-    assert_eq!(wrap_type, WrapType::TopAndBottom(WrapTopBottom::test_instance()));
 }
 
 #[derive(Debug, Clone, EnumString, PartialEq)]
@@ -713,58 +438,6 @@ impl PosH {
         })
     }
 }
-
-#[cfg(test)]
-impl PosH {
-    pub fn test_xml_with_align(node_name: &'static str) -> String {
-        format!(
-            r#"<{node_name} relativeFrom="margin">
-            <align>left</align>
-        </{node_name}>"#,
-            node_name = node_name
-        )
-    }
-
-    pub fn test_xml_with_offset(node_name: &'static str) -> String {
-        format!(
-            r#"<{node_name} relativeFrom="margin">
-            <posOffset>50</posOffset>
-        </{node_name}>"#,
-            node_name = node_name
-        )
-    }
-
-    pub fn test_instance_with_align() -> Self {
-        Self {
-            align_or_offset: PosHChoice::Align(AlignH::Left),
-            relative_from: RelFromH::Margin,
-        }
-    }
-
-    pub fn test_instance_with_offset() -> Self {
-        Self {
-            align_or_offset: PosHChoice::PositionOffset(50),
-            relative_from: RelFromH::Margin,
-        }
-    }
-}
-
-#[cfg(test)]
-#[test]
-pub fn test_pos_h_with_align_from_xml() {
-    let xml = PosH::test_xml_with_align("posH");
-    let pos_h = PosH::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
-    assert_eq!(pos_h, PosH::test_instance_with_align());
-}
-
-#[cfg(test)]
-#[test]
-pub fn test_pos_h_with_offset_from_xml() {
-    let xml = PosH::test_xml_with_offset("posH");
-    let pos_h = PosH::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
-    assert_eq!(pos_h, PosH::test_instance_with_offset());
-}
-
 #[derive(Debug, Clone, EnumString, PartialEq)]
 pub enum AlignV {
     #[strum(serialize = "top")]
@@ -844,57 +517,6 @@ impl PosV {
             relative_from: relative_from_attr.parse()?,
         })
     }
-}
-
-#[cfg(test)]
-impl PosV {
-    pub fn test_xml_with_align(node_name: &'static str) -> String {
-        format!(
-            r#"<{node_name} relativeFrom="margin">
-            <align>top</align>
-        </{node_name}>"#,
-            node_name = node_name
-        )
-    }
-
-    pub fn test_xml_with_offset(node_name: &'static str) -> String {
-        format!(
-            r#"<{node_name} relativeFrom="margin">
-            <posOffset>50</posOffset>
-        </{node_name}>"#,
-            node_name = node_name
-        )
-    }
-
-    pub fn test_instance_with_align() -> Self {
-        Self {
-            align_or_offset: PosVChoice::Align(AlignV::Top),
-            relative_from: RelFromV::Margin,
-        }
-    }
-
-    pub fn test_instance_with_offset() -> Self {
-        Self {
-            align_or_offset: PosVChoice::PositionOffset(50),
-            relative_from: RelFromV::Margin,
-        }
-    }
-}
-
-#[cfg(test)]
-#[test]
-pub fn test_pos_v_with_align_from_xml() {
-    let xml = PosV::test_xml_with_align("posV");
-    let pos_v = PosV::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
-    assert_eq!(pos_v, PosV::test_instance_with_align());
-}
-
-#[cfg(test)]
-#[test]
-pub fn test_pos_v_with_offset_from_xml() {
-    let xml = PosV::test_xml_with_offset("posV");
-    let pos_h = PosV::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
-    assert_eq!(pos_h, PosV::test_instance_with_offset());
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1028,88 +650,6 @@ impl Anchor {
     }
 }
 
-#[cfg(test)]
-impl Anchor {
-    pub fn test_xml(node_name: &'static str) -> String {
-        format!(r#"<{node_name} distT="0" distB="100" distL="0" distR="100" simplePos="false" relativeHeight="100" behindDoc="false" locked="false" layoutInCell="false" hidden="false" allowOverlap="false">
-            <simplePos x="0" y="0" />
-            {}
-            {}
-            <extent cx="100" cy="100" />
-            {}
-            {}
-            <docPr id="1" name="Object name" descr="Some description" title="Title of the object">
-                <a:hlinkClick r:id="rId2" tooltip="Some Sample Text"/>
-                <a:hlinkHover r:id="rId2" tooltip="Some Sample Text"/>
-            </docPr>
-            <graphic>
-                <graphicData uri="http://some/url" />
-            </graphic>
-        </{node_name}>"#,
-            PosH::test_xml_with_align("positionH"),
-            PosV::test_xml_with_align("positionV"),
-            EffectExtent::test_xml("effectExtent"),
-            WrapSquare::test_xml("wrapSquare"),
-            node_name=node_name
-        )
-    }
-
-    pub fn test_instance() -> Self {
-        use msoffice_shared::drawingml::Hyperlink;
-
-        Self {
-            simple_position: Point2D::new(0, 0),
-            horizontal_position: PosH::test_instance_with_align(),
-            vertical_position: PosV::test_instance_with_align(),
-            extent: PositiveSize2D::new(100, 100),
-            effect_extent: Some(EffectExtent::test_instance()),
-            wrap_type: WrapType::Square(WrapSquare::test_instance()),
-            document_properties: NonVisualDrawingProps {
-                id: 1,
-                name: String::from("Object name"),
-                description: Some(String::from("Some description")),
-                hidden: None,
-                title: Some(String::from("Title of the object")),
-                hyperlink_click: Some(Box::new(Hyperlink {
-                    relationship_id: Some(String::from("rId2")),
-                    tooltip: Some(String::from("Some Sample Text")),
-                    ..Default::default()
-                })),
-                hyperlink_hover: Some(Box::new(Hyperlink {
-                    relationship_id: Some(String::from("rId2")),
-                    tooltip: Some(String::from("Some Sample Text")),
-                    ..Default::default()
-                })),
-            },
-            graphic_frame_properties: None,
-            graphic: GraphicalObject {
-                graphic_data: GraphicalObjectData {
-                    uri: String::from("http://some/url"),
-                },
-            },
-            distance_top: Some(0),
-            distance_bottom: Some(100),
-            distance_left: Some(0),
-            distance_right: Some(100),
-            use_simple_position: Some(false),
-            relative_height: 100,
-            behind_document_text: false,
-            locked: false,
-            layout_in_cell: false,
-            hidden: Some(false),
-            allow_overlap: false,
-        }
-    }
-}
-
-#[cfg(test)]
-#[test]
-pub fn test_anchor_from_xml() {
-    let xml = Anchor::test_xml("anchor");
-    let anchor = Anchor::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
-    assert_eq!(anchor, Anchor::test_instance());
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct TxbxContent {
     pub block_level_elements: Vec<super::BlockLevelElts>, // minOccurs=1
@@ -1203,4 +743,450 @@ pub struct WordprocessingCanvas {
     //pub background_formatting: Option<BackgroundFormatting>,
     //pub whole_formatting: Option<WholeE2oFormatting>,
     pub shapes: Vec<WordprocessingCanvasChoice>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use msoffice_shared::drawingml::Hyperlink;
+
+    impl EffectExtent {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} l="0" t="0" r="100" b="100"></{node_name}>"#,
+                node_name = node_name
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                left: 0,
+                top: 0,
+                right: 100,
+                bottom: 100,
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_effect_extent_from_xml() {
+        let xml = EffectExtent::test_xml("effectExtent");
+        let effect_extent = EffectExtent::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        assert_eq!(effect_extent, EffectExtent::test_instance());
+    }
+
+    impl Inline {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} distT="0" distB="100" distL="0" distR="100">
+                <extent cx="10000" cy="10000" />
+                {}
+                <docPr id="1" name="Object name" descr="Some description" title="Title of the object">
+                    <a:hlinkClick r:id="rId2" tooltip="Some Sample Text"/>
+                    <a:hlinkHover r:id="rId2" tooltip="Some Sample Text"/>
+                </docPr>
+                <graphic>
+                    <graphicData uri="http://some/url" />
+                </graphic>
+            </{node_name}>"#,
+                EffectExtent::test_xml("effectExtent"),
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                extent: PositiveSize2D::new(10000, 10000),
+                effect_extent: Some(EffectExtent::test_instance()),
+                doc_properties: NonVisualDrawingProps {
+                    id: 1,
+                    name: String::from("Object name"),
+                    description: Some(String::from("Some description")),
+                    hidden: None,
+                    title: Some(String::from("Title of the object")),
+                    hyperlink_click: Some(Box::new(Hyperlink {
+                        relationship_id: Some(String::from("rId2")),
+                        tooltip: Some(String::from("Some Sample Text")),
+                        ..Default::default()
+                    })),
+                    hyperlink_hover: Some(Box::new(Hyperlink {
+                        relationship_id: Some(String::from("rId2")),
+                        tooltip: Some(String::from("Some Sample Text")),
+                        ..Default::default()
+                    })),
+                },
+                graphic_frame_properties: None,
+                graphic: GraphicalObject {
+                    graphic_data: GraphicalObjectData {
+                        uri: String::from("http://some/url"),
+                    },
+                },
+                distance_top: Some(0),
+                distance_bottom: Some(100),
+                distance_left: Some(0),
+                distance_right: Some(100),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_inline_from_xml_element() {
+        let xml = Inline::test_xml("inline");
+        assert_eq!(
+            Inline::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            Inline::test_instance()
+        );
+    }
+
+    impl WrapPath {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} edited="true">
+            <start x="0" y="0" />
+            <lineTo x="50" y="50" />
+            <lineTo x="100" y="100" />
+        </{node_name}>"#,
+                node_name = node_name
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                start: Point2D::new(0, 0),
+                line_to: vec![Point2D::new(50, 50), Point2D::new(100, 100)],
+                edited: Some(true),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_wrap_path_from_xml() {
+        let xml = WrapPath::test_xml("wrapPath");
+
+        let wrap_path = WrapPath::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        assert_eq!(wrap_path, WrapPath::test_instance());
+    }
+
+    impl WrapSquare {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} wrapText="bothSides" distT="0" distB="100" distL="0" distR="100">
+            {}
+        </{node_name}>"#,
+                EffectExtent::test_xml("effectExtent"),
+                node_name = node_name
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            WrapSquare {
+                effect_extent: Some(EffectExtent::test_instance()),
+                wrap_text: WrapText::BothSides,
+                distance_top: Some(0),
+                distance_bottom: Some(100),
+                distance_left: Some(0),
+                distance_right: Some(100),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_wrap_square_from_xml() {
+        let xml = WrapSquare::test_xml("wrapSquare");
+        let wrap_square = WrapSquare::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+
+        assert_eq!(wrap_square, WrapSquare::test_instance());
+    }
+
+    impl WrapTight {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} wrapText="bothSides", distL="0" distR="0">
+            {}
+        </{node_name}>"#,
+                WrapPath::test_xml("wrapPolygon"),
+                node_name = node_name
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                wrap_polygon: WrapPath::test_instance(),
+                wrap_text: WrapText::BothSides,
+                distance_left: Some(0),
+                distance_right: Some(0),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_wrap_tight_from_xml() {
+        let xml = WrapTight::test_xml("wrapTight");
+        let wrap_tight = WrapTight::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        assert_eq!(wrap_tight, WrapTight::test_instance());
+    }
+
+    impl WrapThrough {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} wrapText="bothSides" distL="0" distR="0">
+            {}
+        </{node_name}>"#,
+                WrapPath::test_xml("wrapPolygon"),
+                node_name = node_name
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                wrap_polygon: WrapPath::test_instance(),
+                wrap_text: WrapText::BothSides,
+                distance_left: Some(0),
+                distance_right: Some(0),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_wrap_through_from_xml() {
+        let xml = WrapThrough::test_xml("wrapThrough");
+        let wrap_through = WrapThrough::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        assert_eq!(wrap_through, WrapThrough::test_instance());
+    }
+
+    impl WrapTopBottom {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} distT="0" distB="0">
+            {}
+        </{node_name}>"#,
+                EffectExtent::test_xml("effectExtent"),
+                node_name = node_name
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                effect_extent: Some(EffectExtent::test_instance()),
+                distance_top: Some(0),
+                distance_bottom: Some(0),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_wrap_top_bottom_from_xml() {
+        let xml = WrapTopBottom::test_xml("wrapTopAndBottom");
+        let wrap_top_bottom = WrapTopBottom::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        assert_eq!(wrap_top_bottom, WrapTopBottom::test_instance());
+    }
+
+    #[test]
+    pub fn test_wrap_type_none_from_xml() {
+        let xml = r#"<wrapNone></wrapNone>"#;
+        let wrap_type = WrapType::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        assert_eq!(wrap_type, WrapType::None);
+    }
+
+    #[test]
+    pub fn test_wrap_type_square() {
+        let xml = WrapSquare::test_xml("wrapSquare");
+        let wrap_type = WrapType::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        assert_eq!(wrap_type, WrapType::Square(WrapSquare::test_instance()));
+    }
+
+    #[test]
+    pub fn test_wrap_type_tight() {
+        let xml = WrapTight::test_xml("wrapTight");
+        let wrap_type = WrapType::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        assert_eq!(wrap_type, WrapType::Tight(WrapTight::test_instance()));
+    }
+
+    #[test]
+    pub fn test_wrap_type_through() {
+        let xml = WrapThrough::test_xml("wrapThrough");
+        let wrap_type = WrapType::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        assert_eq!(wrap_type, WrapType::Through(WrapThrough::test_instance()));
+    }
+
+    #[test]
+    pub fn test_wrap_type_top_and_bottom() {
+        let xml = WrapTopBottom::test_xml("wrapTopAndBottom");
+        let wrap_type = WrapType::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        assert_eq!(wrap_type, WrapType::TopAndBottom(WrapTopBottom::test_instance()));
+    }
+
+    impl PosH {
+        pub fn test_xml_with_align(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} relativeFrom="margin">
+            <align>left</align>
+        </{node_name}>"#,
+                node_name = node_name
+            )
+        }
+
+        pub fn test_xml_with_offset(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} relativeFrom="margin">
+            <posOffset>50</posOffset>
+        </{node_name}>"#,
+                node_name = node_name
+            )
+        }
+
+        pub fn test_instance_with_align() -> Self {
+            Self {
+                align_or_offset: PosHChoice::Align(AlignH::Left),
+                relative_from: RelFromH::Margin,
+            }
+        }
+
+        pub fn test_instance_with_offset() -> Self {
+            Self {
+                align_or_offset: PosHChoice::PositionOffset(50),
+                relative_from: RelFromH::Margin,
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_pos_h_with_align_from_xml() {
+        let xml = PosH::test_xml_with_align("posH");
+        let pos_h = PosH::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        assert_eq!(pos_h, PosH::test_instance_with_align());
+    }
+
+    #[test]
+    pub fn test_pos_h_with_offset_from_xml() {
+        let xml = PosH::test_xml_with_offset("posH");
+        let pos_h = PosH::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        assert_eq!(pos_h, PosH::test_instance_with_offset());
+    }
+
+    impl PosV {
+        pub fn test_xml_with_align(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} relativeFrom="margin">
+            <align>top</align>
+        </{node_name}>"#,
+                node_name = node_name
+            )
+        }
+
+        pub fn test_xml_with_offset(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} relativeFrom="margin">
+            <posOffset>50</posOffset>
+        </{node_name}>"#,
+                node_name = node_name
+            )
+        }
+
+        pub fn test_instance_with_align() -> Self {
+            Self {
+                align_or_offset: PosVChoice::Align(AlignV::Top),
+                relative_from: RelFromV::Margin,
+            }
+        }
+
+        pub fn test_instance_with_offset() -> Self {
+            Self {
+                align_or_offset: PosVChoice::PositionOffset(50),
+                relative_from: RelFromV::Margin,
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_pos_v_with_align_from_xml() {
+        let xml = PosV::test_xml_with_align("posV");
+        let pos_v = PosV::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        assert_eq!(pos_v, PosV::test_instance_with_align());
+    }
+
+    #[test]
+    pub fn test_pos_v_with_offset_from_xml() {
+        let xml = PosV::test_xml_with_offset("posV");
+        let pos_h = PosV::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        assert_eq!(pos_h, PosV::test_instance_with_offset());
+    }
+
+    impl Anchor {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(r#"<{node_name} distT="0" distB="100" distL="0" distR="100" simplePos="false" relativeHeight="100" behindDoc="false" locked="false" layoutInCell="false" hidden="false" allowOverlap="false">
+            <simplePos x="0" y="0" />
+            {}
+            {}
+            <extent cx="100" cy="100" />
+            {}
+            {}
+            <docPr id="1" name="Object name" descr="Some description" title="Title of the object">
+                <a:hlinkClick r:id="rId2" tooltip="Some Sample Text"/>
+                <a:hlinkHover r:id="rId2" tooltip="Some Sample Text"/>
+            </docPr>
+            <graphic>
+                <graphicData uri="http://some/url" />
+            </graphic>
+        </{node_name}>"#,
+            PosH::test_xml_with_align("positionH"),
+            PosV::test_xml_with_align("positionV"),
+            EffectExtent::test_xml("effectExtent"),
+            WrapSquare::test_xml("wrapSquare"),
+            node_name=node_name
+        )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                simple_position: Point2D::new(0, 0),
+                horizontal_position: PosH::test_instance_with_align(),
+                vertical_position: PosV::test_instance_with_align(),
+                extent: PositiveSize2D::new(100, 100),
+                effect_extent: Some(EffectExtent::test_instance()),
+                wrap_type: WrapType::Square(WrapSquare::test_instance()),
+                document_properties: NonVisualDrawingProps {
+                    id: 1,
+                    name: String::from("Object name"),
+                    description: Some(String::from("Some description")),
+                    hidden: None,
+                    title: Some(String::from("Title of the object")),
+                    hyperlink_click: Some(Box::new(Hyperlink {
+                        relationship_id: Some(String::from("rId2")),
+                        tooltip: Some(String::from("Some Sample Text")),
+                        ..Default::default()
+                    })),
+                    hyperlink_hover: Some(Box::new(Hyperlink {
+                        relationship_id: Some(String::from("rId2")),
+                        tooltip: Some(String::from("Some Sample Text")),
+                        ..Default::default()
+                    })),
+                },
+                graphic_frame_properties: None,
+                graphic: GraphicalObject {
+                    graphic_data: GraphicalObjectData {
+                        uri: String::from("http://some/url"),
+                    },
+                },
+                distance_top: Some(0),
+                distance_bottom: Some(100),
+                distance_left: Some(0),
+                distance_right: Some(100),
+                use_simple_position: Some(false),
+                relative_height: 100,
+                behind_document_text: false,
+                locked: false,
+                layout_in_cell: false,
+                hidden: Some(false),
+                allow_overlap: false,
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_anchor_from_xml() {
+        let xml = Anchor::test_xml("anchor");
+        let anchor = Anchor::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        assert_eq!(anchor, Anchor::test_instance());
+    }
 }
