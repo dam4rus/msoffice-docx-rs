@@ -10,7 +10,7 @@ use msoffice_shared::{
     relationship::RelationshipId,
     sharedtypes::{
         CalendarType, Lang, OnOff, PositiveUniversalMeasure, TwipsMeasure, UniversalMeasure, UniversalMeasureUnit,
-        VerticalAlignRun,
+        VerticalAlignRun, XmlName,
     },
     util::XmlNodeExt,
     xml::{parse_xml_bool, XmlNode},
@@ -2559,7 +2559,7 @@ impl DrawingChoice {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct Drawing {
     pub anchor_or_inline_vec: Vec<DrawingChoice>,
 }
@@ -2848,16 +2848,6 @@ pub enum FldCharType {
     End,
 }
 
-/*
-<xsd:complexType name="CT_FldChar">
-    <xsd:choice>
-      <xsd:element name="ffData" type="CT_FFData" minOccurs="0" maxOccurs="1"/>
-    </xsd:choice>
-    <xsd:attribute name="fldCharType" type="ST_FldCharType" use="required"/>
-    <xsd:attribute name="fldLock" type="s:ST_OnOff"/>
-    <xsd:attribute name="dirty" type="s:ST_OnOff"/>
-  </xsd:complexType>
-*/
 #[derive(Debug, Clone, PartialEq)]
 pub struct FldChar {
     pub form_field_properties: Option<FFData>,
@@ -2899,43 +2889,249 @@ impl FldChar {
     }
 }
 
-/*<xsd:group name="EG_RunInnerContent">
-    <xsd:choice>
-      <xsd:element name="br" type="CT_Br"/>
-      <xsd:element name="t" type="CT_Text"/>
-      <xsd:element name="contentPart" type="CT_Rel"/>
-      <xsd:element name="delText" type="CT_Text"/>
-      <xsd:element name="instrText" type="CT_Text"/>
-      <xsd:element name="delInstrText" type="CT_Text"/>
-      <xsd:element name="noBreakHyphen" type="CT_Empty"/>
-      <xsd:element name="softHyphen" type="CT_Empty" minOccurs="0"/>
-      <xsd:element name="dayShort" type="CT_Empty" minOccurs="0"/>
-      <xsd:element name="monthShort" type="CT_Empty" minOccurs="0"/>
-      <xsd:element name="yearShort" type="CT_Empty" minOccurs="0"/>
-      <xsd:element name="dayLong" type="CT_Empty" minOccurs="0"/>
-      <xsd:element name="monthLong" type="CT_Empty" minOccurs="0"/>
-      <xsd:element name="yearLong" type="CT_Empty" minOccurs="0"/>
-      <xsd:element name="annotationRef" type="CT_Empty" minOccurs="0"/>
-      <xsd:element name="footnoteRef" type="CT_Empty" minOccurs="0"/>
-      <xsd:element name="endnoteRef" type="CT_Empty" minOccurs="0"/>
-      <xsd:element name="separator" type="CT_Empty" minOccurs="0"/>
-      <xsd:element name="continuationSeparator" type="CT_Empty" minOccurs="0"/>
-      <xsd:element name="sym" type="CT_Sym" minOccurs="0"/>
-      <xsd:element name="pgNum" type="CT_Empty" minOccurs="0"/>
-      <xsd:element name="cr" type="CT_Empty" minOccurs="0"/>
-      <xsd:element name="tab" type="CT_Empty" minOccurs="0"/>
-      <xsd:element name="object" type="CT_Object"/>
-      <xsd:element name="fldChar" type="CT_FldChar"/>
-      <xsd:element name="ruby" type="CT_Ruby"/>
-      <xsd:element name="footnoteReference" type="CT_FtnEdnRef"/>
-      <xsd:element name="endnoteReference" type="CT_FtnEdnRef"/>
-      <xsd:element name="commentReference" type="CT_Markup"/>
-      <xsd:element name="drawing" type="CT_Drawing"/>
-      <xsd:element name="ptab" type="CT_PTab" minOccurs="0"/>
-      <xsd:element name="lastRenderedPageBreak" type="CT_Empty" minOccurs="0" maxOccurs="1"/>
-    </xsd:choice>
-  </xsd:group>
-*/
+#[derive(Debug, Clone, PartialEq, EnumString)]
+pub enum RubyAlign {
+    #[strum(serialize = "center")]
+    Center,
+    #[strum(serialize = "distributeLetter")]
+    DistributeLetter,
+    #[strum(serialize = "distributeSpace")]
+    DistributeSpace,
+    #[strum(serialize = "left")]
+    Left,
+    #[strum(serialize = "right")]
+    Right,
+    #[strum(serialize = "rightVertical")]
+    RightVertical,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RubyPr {
+    pub ruby_align: RubyAlign,
+    pub hps: HpsMeasure,
+    pub hps_raise: HpsMeasure,
+    pub hps_base_text: HpsMeasure,
+    pub language_id: Lang,
+    pub dirty: Option<OnOff>,
+}
+
+impl RubyPr {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut ruby_align = None;
+        let mut hps = None;
+        let mut hps_raise = None;
+        let mut hps_base_text = None;
+        let mut language_id = None;
+        let mut dirty = None;
+
+        for child_node in &xml_node.child_nodes {
+            match child_node.local_name() {
+                "rubyAlign" => ruby_align = Some(child_node.get_val_attribute()?.parse()?),
+                "hps" => hps = Some(child_node.get_val_attribute()?.parse()?),
+                "hpsRaise" => hps_raise = Some(child_node.get_val_attribute()?.parse()?),
+                "hpsBaseText" => hps_base_text = Some(child_node.get_val_attribute()?.parse()?),
+                "lid" => language_id = Some(child_node.get_val_attribute()?.clone()),
+                "dirty" => dirty = parse_on_off_xml_element(child_node)?,
+                _ => (),
+            }
+        }
+
+        let ruby_align = ruby_align.ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "rubyAlign"))?;
+        let hps = hps.ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "hps"))?;
+        let hps_raise = hps_raise.ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "hpsRaise"))?;
+        let hps_base_text =
+            hps_base_text.ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "hpsBaseText"))?;
+        let language_id = language_id.ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "lid"))?;
+
+        Ok(Self {
+            ruby_align,
+            hps,
+            hps_raise,
+            hps_base_text,
+            language_id,
+            dirty,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum RubyContentChoice {
+    Run(R),
+    RunLevelElement(RunLevelElts),
+}
+
+impl RubyContentChoice {
+    pub fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
+        match node_name.as_ref() {
+            "r" => true,
+            _ => RunLevelElts::is_choice_member(&node_name),
+        }
+    }
+
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        match xml_node.local_name() {
+            "r" => Ok(RubyContentChoice::Run(R::from_xml_element(xml_node)?)),
+            node_name @ _ if RunLevelElts::is_choice_member(node_name) => Ok(RubyContentChoice::RunLevelElement(
+                RunLevelElts::from_xml_element(xml_node)?,
+            )),
+            _ => Err(Box::new(NotGroupMemberError::new(
+                xml_node.name.clone(),
+                "RubyContentChoice",
+            ))),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct RubyContent {
+    pub ruby_contents: Vec<RubyContentChoice>,
+}
+
+impl RubyContent {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let ruby_contents = xml_node
+            .child_nodes
+            .iter()
+            .filter_map(|child_node| {
+                if RubyContentChoice::is_choice_member(child_node.local_name()) {
+                    Some(RubyContentChoice::from_xml_element(child_node))
+                } else {
+                    None
+                }
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        Ok(Self { ruby_contents })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Ruby {
+    pub ruby_properties: RubyPr,
+    pub ruby_content: RubyContent,
+    pub ruby_base: RubyContent,
+}
+
+impl Ruby {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut ruby_properties = None;
+        let mut ruby_content = None;
+        let mut ruby_base = None;
+
+        for child_node in &xml_node.child_nodes {
+            match child_node.local_name() {
+                "rubyPr" => ruby_properties = Some(RubyPr::from_xml_element(child_node)?),
+                "rt" => ruby_content = Some(RubyContent::from_xml_element(child_node)?),
+                "rubyBase" => ruby_base = Some(RubyContent::from_xml_element(child_node)?),
+                _ => (),
+            }
+        }
+
+        let ruby_properties =
+            ruby_properties.ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "rubyPr"))?;
+        let ruby_content = ruby_content.ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "rt"))?;
+        let ruby_base = ruby_base.ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "rubyBase"))?;
+
+        Ok(Self {
+            ruby_properties,
+            ruby_content,
+            ruby_base,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct FtnEdnRef {
+    pub custom_mark_follows: Option<OnOff>,
+    pub id: DecimalNumber,
+}
+
+impl FtnEdnRef {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut custom_mark_follows = None;
+        let mut id = None;
+
+        for (attr, value) in &xml_node.attributes {
+            match attr.as_ref() {
+                "customMarkFollows" => custom_mark_follows = Some(parse_xml_bool(value)?),
+                "id" => id = Some(value.parse()?),
+                _ => (),
+            }
+        }
+
+        Ok(Self {
+            custom_mark_follows,
+            id: id.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "id"))?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, EnumString)]
+pub enum PTabAlignment {
+    #[strum(serialize = "left")]
+    Left,
+    #[strum(serialize = "center")]
+    Center,
+    #[strum(serialize = "right")]
+    Right,
+}
+
+#[derive(Debug, Clone, PartialEq, EnumString)]
+pub enum PTabRelativeTo {
+    #[strum(serialize = "margin")]
+    Margin,
+    #[strum(serialize = "indent")]
+    Indent,
+}
+
+#[derive(Debug, Clone, PartialEq, EnumString)]
+pub enum PTabLeader {
+    #[strum(serialize = "none")]
+    None,
+    #[strum(serialize = "dot")]
+    Dot,
+    #[strum(serialize = "hyphen")]
+    Hyphen,
+    #[strum(serialize = "underscore")]
+    Underscore,
+    #[strum(serialize = "middleDot")]
+    MiddleDot,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PTab {
+    pub alignment: PTabAlignment,
+    pub relative_to: PTabRelativeTo,
+    pub leader: PTabLeader,
+}
+
+impl PTab {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut alignment = None;
+        let mut relative_to = None;
+        let mut leader = None;
+
+        for (attr, value) in &xml_node.attributes {
+            match attr.as_ref() {
+                "alignment" => alignment = Some(value.parse()?),
+                "relativeTo" => relative_to = Some(value.parse()?),
+                "leader" => leader = Some(value.parse()?),
+                _ => (),
+            }
+        }
+
+        let alignment = alignment.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "alignment"))?;
+        let relative_to = relative_to.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "relativeTo"))?;
+        let leader = leader.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "leader"))?;
+
+        Ok(Self {
+            alignment,
+            relative_to,
+            leader,
+        })
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum RunInnerContent {
     Break(Br),
@@ -2943,12 +3139,15 @@ pub enum RunInnerContent {
     ContentPart(Rel),
     DeletedText(Text),
     InstructionText(Text),
-    DeleteInstructionText(Text),
+    DeletedInstructionText(Text),
     NonBreakingHyphen,
     OptionalHypen,
     ShortDayFormat,
     ShortMonthFormat,
     ShortYearFormat,
+    LongDayFormat,
+    LongMonthFormat,
+    LongYearFormat,
     AnnorationReferenceMark,
     FootnoteReferenceMark,
     EndnoteReferenceMark,
@@ -2960,26 +3159,102 @@ pub enum RunInnerContent {
     Tab,
     Object(Object),
     FieldCharacter(FldChar),
-    //Ruby(Ruby),
-    //FootnoteReference(FtnEdnRef),
-    //EndnoteReference(FtnEdnRef),
+    Ruby(Ruby),
+    FootnoteReference(FtnEdnRef),
+    EndnoteReference(FtnEdnRef),
     CommentReference(Markup),
-    //Drawing(Drawing),
-    //PositionTab(PTab),
+    Drawing(Drawing),
+    PositionTab(PTab),
     LastRenderedPageBreak,
 }
 
-/*<xsd:complexType name="CT_R">
-    <xsd:sequence>
-      <xsd:group ref="EG_RPr" minOccurs="0"/>
-      <xsd:group ref="EG_RunInnerContent" minOccurs="0" maxOccurs="unbounded"/>
-    </xsd:sequence>
-    <xsd:attribute name="rsidRPr" type="ST_LongHexNumber"/>
-    <xsd:attribute name="rsidDel" type="ST_LongHexNumber"/>
-    <xsd:attribute name="rsidR" type="ST_LongHexNumber"/>
-  </xsd:complexType>
+impl RunInnerContent {
+    pub fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
+        match node_name.as_ref() {
+            "br"
+            | "t"
+            | "contentPart"
+            | "delText"
+            | "instrText"
+            | "delInstrText"
+            | "noBreakHyphen"
+            | "softHyphen"
+            | "dayShort"
+            | "monthShort"
+            | "yearShort"
+            | "dayLong"
+            | "monthLong"
+            | "yearLong"
+            | "annotationRef"
+            | "footnoteRef"
+            | "endnoteRef"
+            | "separator"
+            | "continuationSeparator"
+            | "sym"
+            | "pgNum"
+            | "cr"
+            | "tab"
+            | "object"
+            | "fldChar"
+            | "ruby"
+            | "footnoteReference"
+            | "endnoteReference"
+            | "commentReference"
+            | "drawing"
+            | "ptab"
+            | "lastRenderedPageBreak" => true,
+            _ => false,
+        }
+    }
 
-*/
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        match xml_node.local_name() {
+            "br" => Ok(RunInnerContent::Break(Br::from_xml_element(xml_node)?)),
+            "t" => Ok(RunInnerContent::Text(Text::from_xml_element(xml_node)?)),
+            "contentPart" => Ok(RunInnerContent::ContentPart(Rel::from_xml_element(xml_node)?)),
+            "delText" => Ok(RunInnerContent::DeletedText(Text::from_xml_element(xml_node)?)),
+            "instrText" => Ok(RunInnerContent::InstructionText(Text::from_xml_element(xml_node)?)),
+            "delInstrText" => Ok(RunInnerContent::DeletedInstructionText(Text::from_xml_element(
+                xml_node,
+            )?)),
+            "noBreakHyphen" => Ok(RunInnerContent::NonBreakingHyphen),
+            "softHyphen" => Ok(RunInnerContent::OptionalHypen),
+            "dayShort" => Ok(RunInnerContent::ShortDayFormat),
+            "monthShort" => Ok(RunInnerContent::ShortMonthFormat),
+            "yearShort" => Ok(RunInnerContent::ShortYearFormat),
+            "dayLong" => Ok(RunInnerContent::LongDayFormat),
+            "monthLong" => Ok(RunInnerContent::LongMonthFormat),
+            "yearLong" => Ok(RunInnerContent::LongYearFormat),
+            "annotationRef" => Ok(RunInnerContent::AnnorationReferenceMark),
+            "footnoteRef" => Ok(RunInnerContent::FootnoteReferenceMark),
+            "endnoteRef" => Ok(RunInnerContent::EndnoteReferenceMark),
+            "separator" => Ok(RunInnerContent::Separator),
+            "continuationSeparator" => Ok(RunInnerContent::ContinuationSeparator),
+            "sym" => Ok(RunInnerContent::Symbol(Sym::from_xml_element(xml_node)?)),
+            "pgNum" => Ok(RunInnerContent::PageNum),
+            "cr" => Ok(RunInnerContent::CarriageReturn),
+            "tab" => Ok(RunInnerContent::Tab),
+            "object" => Ok(RunInnerContent::Object(Object::from_xml_element(xml_node)?)),
+            "fldChar" => Ok(RunInnerContent::FieldCharacter(FldChar::from_xml_element(xml_node)?)),
+            "ruby" => Ok(RunInnerContent::Ruby(Ruby::from_xml_element(xml_node)?)),
+            "footnoteReference" => Ok(RunInnerContent::FootnoteReference(FtnEdnRef::from_xml_element(
+                xml_node,
+            )?)),
+            "endnoteReference" => Ok(RunInnerContent::EndnoteReference(FtnEdnRef::from_xml_element(
+                xml_node,
+            )?)),
+            "commentReference" => Ok(RunInnerContent::CommentReference(Markup::from_xml_element(xml_node)?)),
+            "drawing" => Ok(RunInnerContent::Drawing(Drawing::from_xml_element(xml_node)?)),
+            "ptab" => Ok(RunInnerContent::PositionTab(PTab::from_xml_element(xml_node)?)),
+            "lastRenderedPageBreak" => Ok(RunInnerContent::LastRenderedPageBreak),
+            _ => Err(Box::new(NotGroupMemberError::new(
+                xml_node.name.clone(),
+                "RunInnerContent",
+            ))),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct R {
     pub run_properties: Option<RPr>,
@@ -2989,19 +3264,33 @@ pub struct R {
     pub run_revision_id: Option<LongHexNumber>,
 }
 
-/*
-<xsd:group name="EG_ContentRunContent">
-    <xsd:choice>
-      <xsd:element name="customXml" type="CT_CustomXmlRun"/>
-      <xsd:element name="smartTag" type="CT_SmartTagRun"/>
-      <xsd:element name="sdt" type="CT_SdtRun"/>
-      <xsd:element name="dir" type="CT_DirContentRun"/>
-      <xsd:element name="bdo" type="CT_BdoContentRun"/>
-      <xsd:element name="r" type="CT_R"/>
-      <xsd:group ref="EG_RunLevelElts" minOccurs="0" maxOccurs="unbounded"/>
-    </xsd:choice>
-  </xsd:group>
-*/
+impl R {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: Self = Default::default();
+
+        for (attr, value) in &xml_node.attributes {
+            match attr.as_ref() {
+                "rsidRPr" => instance.run_properties_revision_id = Some(LongHexNumber::from_str_radix(value, 16)?),
+                "rsidDel" => instance.deletion_revision_id = Some(LongHexNumber::from_str_radix(value, 16)?),
+                "rsidR" => instance.run_revision_id = Some(LongHexNumber::from_str_radix(value, 16)?),
+                _ => (),
+            }
+        }
+
+        for child_node in &xml_node.child_nodes {
+            match child_node.local_name() {
+                "rPr" => instance.run_properties = Some(RPr::from_xml_element(child_node)?),
+                node_name @ _ if RunInnerContent::is_choice_member(node_name) => instance
+                    .run_inner_contents
+                    .push(RunInnerContent::from_xml_element(child_node)?),
+                _ => (),
+            }
+        }
+
+        Ok(instance)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum ContentRunContent {
     CustomXml(CustomXmlRun),
@@ -3010,7 +3299,7 @@ pub enum ContentRunContent {
     Bidirectional(DirContentRun),
     BidirectionalOverride(BdoContentRun),
     Run(R),
-    RunLevelElts(Vec<RunLevelElts>),
+    RunLevelElements(RunLevelElts),
 }
 
 impl ContentRunContent {
@@ -3021,8 +3310,26 @@ impl ContentRunContent {
         }
     }
 
-    pub fn from_xml_element(_xml_node: &XmlNode) -> Result<Self> {
-        unimplemented!();
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        match xml_node.local_name() {
+            "customXml" => Ok(ContentRunContent::CustomXml(CustomXmlRun::from_xml_element(xml_node)?)),
+            "smartTag" => Ok(ContentRunContent::SmartTag(SmartTagRun::from_xml_element(xml_node)?)),
+            "sdt" => Ok(ContentRunContent::Sdt(SdtRun::from_xml_element(xml_node)?)),
+            "dir" => Ok(ContentRunContent::Bidirectional(DirContentRun::from_xml_element(
+                xml_node,
+            )?)),
+            "bdo" => Ok(ContentRunContent::BidirectionalOverride(
+                BdoContentRun::from_xml_element(xml_node)?,
+            )),
+            "r" => Ok(ContentRunContent::Run(R::from_xml_element(xml_node)?)),
+            node_name @ _ if RunLevelElts::is_choice_member(node_name) => Ok(ContentRunContent::RunLevelElements(
+                RunLevelElts::from_xml_element(xml_node)?,
+            )),
+            _ => Err(Box::new(NotGroupMemberError::new(
+                xml_node.name.clone(),
+                "ContentRunContent",
+            ))),
+        }
     }
 }
 
@@ -3033,22 +3340,49 @@ pub enum RunTrackChangeChoice {
     // OMathMathElements(OMathMathElements),
 }
 
-/*
-<xsd:complexType name="CT_RunTrackChange">
-    <xsd:complexContent>
-      <xsd:extension base="CT_TrackChange">
-        <xsd:choice minOccurs="0" maxOccurs="unbounded">
-          <xsd:group ref="EG_ContentRunContent"/>
-          <xsd:group ref="m:EG_OMathMathElements"/>
-        </xsd:choice>
-      </xsd:extension>
-    </xsd:complexContent>
-  </xsd:complexType>
-*/
+impl RunTrackChangeChoice {
+    pub fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
+        ContentRunContent::is_choice_member(node_name)
+    }
+
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let local_name = xml_node.local_name();
+        if ContentRunContent::is_choice_member(local_name) {
+            Ok(RunTrackChangeChoice::ContentRunContent(
+                ContentRunContent::from_xml_element(xml_node)?,
+            ))
+        } else {
+            Err(Box::new(NotGroupMemberError::new(
+                xml_node.name.clone(),
+                "RunTrackChangeChoice",
+            )))
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct RunTrackChange {
     pub base: TrackChange,
     pub choices: Vec<RunTrackChangeChoice>,
+}
+
+impl RunTrackChange {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let base = TrackChange::from_xml_element(xml_node)?;
+        let choices = xml_node
+            .child_nodes
+            .iter()
+            .filter_map(|child_node| {
+                if RunTrackChangeChoice::is_choice_member(child_node.local_name()) {
+                    Some(RunTrackChangeChoice::from_xml_element(child_node))
+                } else {
+                    None
+                }
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        Ok(Self { base, choices })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -3071,28 +3405,6 @@ pub enum RangeMarkupElements {
     CustomXmlMoveToRangeEnd(Markup),
 }
 
-/*
-<xsd:group name="EG_RangeMarkupElements">
-    <xsd:choice>
-      <xsd:element name="bookmarkStart" type="CT_Bookmark"/>
-      <xsd:element name="bookmarkEnd" type="CT_MarkupRange"/>
-      <xsd:element name="moveFromRangeStart" type="CT_MoveBookmark"/>
-      <xsd:element name="moveFromRangeEnd" type="CT_MarkupRange"/>
-      <xsd:element name="moveToRangeStart" type="CT_MoveBookmark"/>
-      <xsd:element name="moveToRangeEnd" type="CT_MarkupRange"/>
-      <xsd:element name="commentRangeStart" type="CT_MarkupRange"/>
-      <xsd:element name="commentRangeEnd" type="CT_MarkupRange"/>
-      <xsd:element name="customXmlInsRangeStart" type="CT_TrackChange"/>
-      <xsd:element name="customXmlInsRangeEnd" type="CT_Markup"/>
-      <xsd:element name="customXmlDelRangeStart" type="CT_TrackChange"/>
-      <xsd:element name="customXmlDelRangeEnd" type="CT_Markup"/>
-      <xsd:element name="customXmlMoveFromRangeStart" type="CT_TrackChange"/>
-      <xsd:element name="customXmlMoveFromRangeEnd" type="CT_Markup"/>
-      <xsd:element name="customXmlMoveToRangeStart" type="CT_TrackChange"/>
-      <xsd:element name="customXmlMoveToRangeEnd" type="CT_Markup"/>
-    </xsd:choice>
-  </xsd:group>
-*/
 impl RangeMarkupElements {
     pub fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
         match node_name.as_ref() {
@@ -3115,16 +3427,65 @@ impl RangeMarkupElements {
             _ => false,
         }
     }
+
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        match xml_node.local_name() {
+            "bookmarkStart" => Ok(RangeMarkupElements::BookmarkStart(Bookmark::from_xml_element(
+                xml_node,
+            )?)),
+            "bookmarkEnd" => Ok(RangeMarkupElements::BookmarkEnd(MarkupRange::from_xml_element(
+                xml_node,
+            )?)),
+            "moveFromRangeStart" => Ok(RangeMarkupElements::MoveFromRangeStart(MoveBookmark::from_xml_element(
+                xml_node,
+            )?)),
+            "moveFromRangeEnd" => Ok(RangeMarkupElements::MoveFromRangeEnd(MarkupRange::from_xml_element(
+                xml_node,
+            )?)),
+            "moveToRangeStart" => Ok(RangeMarkupElements::MoveToRangeStart(MoveBookmark::from_xml_element(
+                xml_node,
+            )?)),
+            "moveToRangeEnd" => Ok(RangeMarkupElements::MoveToRangeEnd(MarkupRange::from_xml_element(
+                xml_node,
+            )?)),
+            "commentRangeStart" => Ok(RangeMarkupElements::CommentRangeStart(MarkupRange::from_xml_element(
+                xml_node,
+            )?)),
+            "commentRangeEnd" => Ok(RangeMarkupElements::CommentRangeEnd(MarkupRange::from_xml_element(
+                xml_node,
+            )?)),
+            "customXmlInsRangeStart" => Ok(RangeMarkupElements::CustomXmlInsertRangeStart(
+                TrackChange::from_xml_element(xml_node)?,
+            )),
+            "customXmlInsRangeEnd" => Ok(RangeMarkupElements::CustomXmlInsertRangeEnd(Markup::from_xml_element(
+                xml_node,
+            )?)),
+            "customXmlDelRangeStart" => Ok(RangeMarkupElements::CustomXmlDeleteRangeStart(
+                TrackChange::from_xml_element(xml_node)?,
+            )),
+            "customXmlDelRangeEnd" => Ok(RangeMarkupElements::CustomXmlDeleteRangeEnd(Markup::from_xml_element(
+                xml_node,
+            )?)),
+            "customXmlMoveFromRangeStart" => Ok(RangeMarkupElements::CustomXmlMoveFromRangeStart(
+                TrackChange::from_xml_element(xml_node)?,
+            )),
+            "customXmlMoveFromRangeEnd" => Ok(RangeMarkupElements::CustomXmlMoveFromRangeEnd(
+                Markup::from_xml_element(xml_node)?,
+            )),
+            "customXmlMoveToRangeStart" => Ok(RangeMarkupElements::CustomXmlMoveToRangeStart(
+                TrackChange::from_xml_element(xml_node)?,
+            )),
+            "customXmlMoveToRangeEnd" => Ok(RangeMarkupElements::CustomXmlMoveToRangeEnd(Markup::from_xml_element(
+                xml_node,
+            )?)),
+            _ => Err(Box::new(NotGroupMemberError::new(
+                xml_node.name.clone(),
+                "RangeMarkupElements",
+            ))),
+        }
+    }
 }
 
-/*
-<xsd:group name="EG_MathContent">
-    <xsd:choice>
-      <xsd:element ref="m:oMathPara"/>
-      <xsd:element ref="m:oMath"/>
-    </xsd:choice>
-  </xsd:group>
-*/
 // TODO
 #[derive(Debug, Clone, PartialEq)]
 pub enum MathContent {
@@ -3141,32 +3502,17 @@ impl MathContent {
     }
 }
 
-/*
-<xsd:group name="EG_RunLevelElts">
-    <xsd:choice>
-      <xsd:element name="proofErr" minOccurs="0" type="CT_ProofErr"/>
-      <xsd:element name="permStart" minOccurs="0" type="CT_PermStart"/>
-      <xsd:element name="permEnd" minOccurs="0" type="CT_Perm"/>
-      <xsd:group ref="EG_RangeMarkupElements" minOccurs="0" maxOccurs="unbounded"/>
-      <xsd:element name="ins" type="CT_RunTrackChange" minOccurs="0"/>
-      <xsd:element name="del" type="CT_RunTrackChange" minOccurs="0"/>
-      <xsd:element name="moveFrom" type="CT_RunTrackChange"/>
-      <xsd:element name="moveTo" type="CT_RunTrackChange"/>
-      <xsd:group ref="EG_MathContent" minOccurs="0" maxOccurs="unbounded"/>
-    </xsd:choice>
-  </xsd:group>
-*/
 #[derive(Debug, Clone, PartialEq)]
 pub enum RunLevelElts {
-    ProofError(Option<ProofErr>),
-    PermissionStart(Option<PermStart>),
-    PermissionEnd(Option<Perm>),
-    RangeMarkupElements(Vec<RangeMarkupElements>),
-    Insert(Option<RunTrackChange>),
-    Delete(Option<RunTrackChange>),
+    ProofError(ProofErr),
+    PermissionStart(PermStart),
+    PermissionEnd(Perm),
+    RangeMarkupElements(RangeMarkupElements),
+    Insert(RunTrackChange),
+    Delete(RunTrackChange),
     MoveFrom(RunTrackChange),
     MoveTo(RunTrackChange),
-    MathContent(Vec<MathContent>),
+    MathContent(MathContent),
 }
 
 impl RunLevelElts {
@@ -3176,6 +3522,240 @@ impl RunLevelElts {
             _ => RangeMarkupElements::is_choice_member(&node_name) || MathContent::is_choice_member(&node_name),
         }
     }
+
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let local_name = xml_node.local_name();
+        match local_name {
+            "proofErr" => Ok(RunLevelElts::ProofError(ProofErr::from_xml_element(xml_node)?)),
+            "permStart" => Ok(RunLevelElts::PermissionStart(PermStart::from_xml_element(xml_node)?)),
+            "permEnd" => Ok(RunLevelElts::PermissionEnd(Perm::from_xml_element(xml_node)?)),
+            "ins" => Ok(RunLevelElts::Insert(RunTrackChange::from_xml_element(xml_node)?)),
+            "del" => Ok(RunLevelElts::Delete(RunTrackChange::from_xml_element(xml_node)?)),
+            "moveFrom" => Ok(RunLevelElts::MoveFrom(RunTrackChange::from_xml_element(xml_node)?)),
+            "moveTo" => Ok(RunLevelElts::MoveTo(RunTrackChange::from_xml_element(xml_node)?)),
+            _ if RangeMarkupElements::is_choice_member(local_name) => Ok(RunLevelElts::RangeMarkupElements(
+                RangeMarkupElements::from_xml_element(xml_node)?,
+            )),
+            // TODO MathContent
+            _ => Err(Box::new(NotGroupMemberError::new(
+                xml_node.name.clone(),
+                "RunLevelElts",
+            ))),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CustomXmlBlock {
+    pub custom_xml_properties: Option<CustomXmlPr>,
+    pub block_contents: Vec<ContentBlockContent>,
+    pub uri: Option<String>,
+    pub element: XmlName,
+}
+
+impl CustomXmlBlock {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut uri = None;
+        let mut element = None;
+
+        for (attr, value) in &xml_node.attributes {
+            match attr.as_ref() {
+                "uri" => uri = Some(value.clone()),
+                "element" => element = Some(value.clone()),
+                _ => (),
+            }
+        }
+
+        let mut custom_xml_properties = None;
+        let mut block_contents = Vec::new();
+
+        for child_node in &xml_node.child_nodes {
+            match child_node.local_name() {
+                "customXmlPr" => custom_xml_properties = Some(CustomXmlPr::from_xml_element(child_node)?),
+                node_name @ _ if ContentBlockContent::is_choice_member(node_name) => {
+                    block_contents.push(ContentBlockContent::from_xml_element(child_node)?);
+                }
+                _ => (),
+            }
+        }
+
+        let element = element.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "element"))?;
+
+        Ok(Self {
+            custom_xml_properties,
+            block_contents,
+            uri,
+            element,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct SdtContentBlock {
+    pub block_contents: Vec<ContentBlockContent>,
+}
+
+impl SdtContentBlock {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let block_contents = xml_node
+            .child_nodes
+            .iter()
+            .filter_map(|child_node| {
+                if ContentBlockContent::is_choice_member(child_node.local_name()) {
+                    Some(ContentBlockContent::from_xml_element(child_node))
+                } else {
+                    None
+                }
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        Ok(Self { block_contents })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct SdtBlock {
+    pub sdt_properties: Option<SdtPr>,
+    pub sdt_end_properties: Option<SdtEndPr>,
+    pub sdt_content: Option<SdtContentBlock>,
+}
+
+impl SdtBlock {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: Self = Default::default();
+
+        for child_node in &xml_node.child_nodes {
+            match child_node.local_name() {
+                "sdtPr" => instance.sdt_properties = Some(SdtPr::from_xml_element(child_node)?),
+                "sdtEndPr" => instance.sdt_end_properties = Some(SdtEndPr::from_xml_element(child_node)?),
+                "sdtContent" => instance.sdt_content = Some(SdtContentBlock::from_xml_element(child_node)?),
+                _ => (),
+            }
+        }
+
+        Ok(instance)
+    }
+}
+
+/*
+<xsd:complexType name="CT_PPrBase">
+    <xsd:sequence>
+      <xsd:element name="pStyle" type="CT_String" minOccurs="0"/>
+      <xsd:element name="keepNext" type="CT_OnOff" minOccurs="0"/>
+      <xsd:element name="keepLines" type="CT_OnOff" minOccurs="0"/>
+      <xsd:element name="pageBreakBefore" type="CT_OnOff" minOccurs="0"/>
+      <xsd:element name="framePr" type="CT_FramePr" minOccurs="0"/>
+      <xsd:element name="widowControl" type="CT_OnOff" minOccurs="0"/>
+      <xsd:element name="numPr" type="CT_NumPr" minOccurs="0"/>
+      <xsd:element name="suppressLineNumbers" type="CT_OnOff" minOccurs="0"/>
+      <xsd:element name="pBdr" type="CT_PBdr" minOccurs="0"/>
+      <xsd:element name="shd" type="CT_Shd" minOccurs="0"/>
+      <xsd:element name="tabs" type="CT_Tabs" minOccurs="0"/>
+      <xsd:element name="suppressAutoHyphens" type="CT_OnOff" minOccurs="0"/>
+      <xsd:element name="kinsoku" type="CT_OnOff" minOccurs="0"/>
+      <xsd:element name="wordWrap" type="CT_OnOff" minOccurs="0"/>
+      <xsd:element name="overflowPunct" type="CT_OnOff" minOccurs="0"/>
+      <xsd:element name="topLinePunct" type="CT_OnOff" minOccurs="0"/>
+      <xsd:element name="autoSpaceDE" type="CT_OnOff" minOccurs="0"/>
+      <xsd:element name="autoSpaceDN" type="CT_OnOff" minOccurs="0"/>
+      <xsd:element name="bidi" type="CT_OnOff" minOccurs="0"/>
+      <xsd:element name="adjustRightInd" type="CT_OnOff" minOccurs="0"/>
+      <xsd:element name="snapToGrid" type="CT_OnOff" minOccurs="0"/>
+      <xsd:element name="spacing" type="CT_Spacing" minOccurs="0"/>
+      <xsd:element name="ind" type="CT_Ind" minOccurs="0"/>
+      <xsd:element name="contextualSpacing" type="CT_OnOff" minOccurs="0"/>
+      <xsd:element name="mirrorIndents" type="CT_OnOff" minOccurs="0"/>
+      <xsd:element name="suppressOverlap" type="CT_OnOff" minOccurs="0"/>
+      <xsd:element name="jc" type="CT_Jc" minOccurs="0"/>
+      <xsd:element name="textDirection" type="CT_TextDirection" minOccurs="0"/>
+      <xsd:element name="textAlignment" type="CT_TextAlignment" minOccurs="0"/>
+      <xsd:element name="textboxTightWrap" type="CT_TextboxTightWrap" minOccurs="0"/>
+      <xsd:element name="outlineLvl" type="CT_DecimalNumber" minOccurs="0"/>
+      <xsd:element name="divId" type="CT_DecimalNumber" minOccurs="0"/>
+      <xsd:element name="cnfStyle" type="CT_Cnf" minOccurs="0" maxOccurs="1"/>
+    </xsd:sequence>
+  </xsd:complexType>
+*/
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct PPrBase {
+    // pub style: Option<String>,
+// pub keep_with_next: Option<OnOff>,
+// pub keep_lines_on_one_page: Option<OnOff>,
+// pub start_on_next_page: Option<OnOff>,
+// pub frame_properties: Option<FramePr>,
+// pub widow_control: Option<OnOff>,
+// pub numbering_properties: Option<NumPr>,
+// pub suppress_line_numbers: Option<OnOff>,
+// pub borders: Option<PBdr>,
+// pub shading: Option<Shd>,
+// pub tabs: Option<Tabs>,
+// pub suppress_auto_hyphens: Option<OnOff>,
+// pub kinsoku: Option<OnOff>,
+// pub word_wrapping: Option<OnOff>,
+// pub overflow_punctuations: Option<OnOff>,
+// pub top_line_punctuations: Option<OnOff>,
+// pub auto_space_latin_and_east_asian: Option<OnOff>,
+// pub auto_space_east_asian_and_numbers: Option<OnOff>,
+// pub bidirectional: Option<OnOff>,
+// pub adjust_right_indent: Option<OnOff>,
+// pub snap_to_grid: Option<OnOff>,
+// pub spacing: Option<Spacing>,
+// pub indent: Option<Ind>,
+// pub contextual_spacing: Option<OnOff>,
+// pub mirror_indents: Option<OnOff>,
+// pub suppress_overlapping: Option<OnOff>,
+// pub alignment: Option<Jc>,
+// pub text_direction: Option<TextDirection>,
+// pub text_alignment: Option<TextAlignment>,
+// pub textbox_tight_wrap: Option<TextboxTightWrap>,
+// pub outline_level: Option<DecimalNumber>,
+// pub div_id: Option<DecimalNumber>,
+// pub conditional_formatting: Option<Cnf>,
+}
+
+/*
+<xsd:complexType name="CT_PPr">
+    <xsd:complexContent>
+      <xsd:extension base="CT_PPrBase">
+        <xsd:sequence>
+          <xsd:element name="rPr" type="CT_ParaRPr" minOccurs="0"/>
+          <xsd:element name="sectPr" type="CT_SectPr" minOccurs="0"/>
+          <xsd:element name="pPrChange" type="CT_PPrChange" minOccurs="0"/>
+        </xsd:sequence>
+      </xsd:extension>
+    </xsd:complexContent>
+  </xsd:complexType>
+*/
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct PPr {
+    pub base: PPrBase,
+    // pub run_properties: Option<ParaRPr>,
+    // pub section_properties: Option<SectPr>,
+    // pub properties_change: Option<PPrChange>,
+}
+
+/*
+<xsd:complexType name="CT_P">
+    <xsd:sequence>
+      <xsd:element name="pPr" type="CT_PPr" minOccurs="0"/>
+      <xsd:group ref="EG_PContent" minOccurs="0" maxOccurs="unbounded"/>
+    </xsd:sequence>
+    <xsd:attribute name="rsidRPr" type="ST_LongHexNumber"/>
+    <xsd:attribute name="rsidR" type="ST_LongHexNumber"/>
+    <xsd:attribute name="rsidDel" type="ST_LongHexNumber"/>
+    <xsd:attribute name="rsidP" type="ST_LongHexNumber"/>
+    <xsd:attribute name="rsidRDefault" type="ST_LongHexNumber"/>
+  </xsd:complexType>
+*/
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct P {
+    pub properties: Option<PPr>,
+    pub contents: Vec<PContent>,
+    pub run_properties_revision_id: Option<LongHexNumber>,
+    pub run_revision_id: Option<LongHexNumber>,
+    pub deletion_revision_id: Option<LongHexNumber>,
+    pub paragraph_revision_id: Option<LongHexNumber>,
+    pub run_default_revision_id: Option<LongHexNumber>,
 }
 
 /*
@@ -3191,11 +3771,35 @@ impl RunLevelElts {
 */
 #[derive(Debug, Clone, PartialEq)]
 pub enum ContentBlockContent {
-    // CustomXml(CustomXmlBlock),
-    // Sdt(SdtBlock),
-    // Paragraph(Vec<P>),
-    // Table(Vec<Tbl>),
-    RunLevelElement(Vec<RunLevelElts>),
+    CustomXml(CustomXmlBlock),
+    Sdt(SdtBlock),
+    Paragraph(P),
+    // Table(Tbl),
+    RunLevelElement(RunLevelElts),
+}
+
+impl ContentBlockContent {
+    pub fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
+        match node_name.as_ref() {
+            "customXml" | "sdt" | "p" | "tbl" => true,
+            _ => RunLevelElts::is_choice_member(&node_name),
+        }
+    }
+
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        match xml_node.local_name() {
+            "customXml" => Ok(ContentBlockContent::CustomXml(CustomXmlBlock::from_xml_element(
+                xml_node,
+            )?)),
+            node_name @ _ if RunLevelElts::is_choice_member(&node_name) => Ok(ContentBlockContent::RunLevelElement(
+                RunLevelElts::from_xml_element(xml_node)?,
+            )),
+            _ => Err(Box::new(NotGroupMemberError::new(
+                xml_node.name.clone(),
+                "ContentBlockContent",
+            ))),
+        }
+    }
 }
 
 /*
@@ -3207,7 +3811,7 @@ pub enum ContentBlockContent {
 */
 #[derive(Debug, Clone, PartialEq)]
 pub enum BlockLevelChunkElts {
-    Content(Vec<ContentBlockContent>),
+    Content(ContentBlockContent),
 }
 // <xsd:group name="EG_BlockLevelElts">
 //     <xsd:choice>
@@ -3217,8 +3821,8 @@ pub enum BlockLevelChunkElts {
 //   </xsd:group>
 #[derive(Debug, Clone, PartialEq)]
 pub enum BlockLevelElts {
-    Chunks(Vec<BlockLevelChunkElts>),
-    //AltChunks(Vec<AltChunk>),
+    Chunks(BlockLevelChunkElts),
+    //AltChunks(AltChunk),
 }
 
 #[cfg(test)]
@@ -4993,6 +5597,321 @@ mod tests {
         assert_eq!(
             FldChar::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
             FldChar::test_instance()
+        );
+    }
+
+    impl RubyPr {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name}>
+                <rubyAlign val="left" />
+                <hps val="123" />
+                <hpsRaise val="123" />
+                <hpsBaseText val="123" />
+                <lid val="en-US" />
+                <dirty val="true" />
+            </{node_name}>"#,
+                node_name = node_name
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                ruby_align: RubyAlign::Left,
+                hps: HpsMeasure::Decimal(123),
+                hps_raise: HpsMeasure::Decimal(123),
+                hps_base_text: HpsMeasure::Decimal(123),
+                language_id: Lang::from("en-US"),
+                dirty: Some(true),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_ruby_pr_from_xml() {
+        let xml = RubyPr::test_xml("rubyPr");
+        assert_eq!(
+            RubyPr::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            RubyPr::test_instance()
+        );
+    }
+
+    #[test]
+    pub fn test_ruby_content_choice_from_xml() {
+        let xml = R::test_xml("r");
+        assert_eq!(
+            RubyContentChoice::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            RubyContentChoice::Run(R::test_instance())
+        );
+        let xml = ProofErr::test_xml("proofErr");
+        assert_eq!(
+            RubyContentChoice::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            RubyContentChoice::RunLevelElement(RunLevelElts::ProofError(ProofErr::test_instance()))
+        );
+    }
+
+    impl RubyContent {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name}>
+                {}
+            </{node_name}>"#,
+                R::test_xml("r"),
+                node_name = node_name
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                ruby_contents: vec![RubyContentChoice::Run(R::test_instance())],
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_ruby_content_from_xml() {
+        let xml = RubyContent::test_xml("rubyContent");
+        assert_eq!(
+            RubyContent::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            RubyContent::test_instance()
+        );
+    }
+
+    impl R {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} rsidRPr="ffffffff" rsidDel="ffffffff" rsidR="ffffffff">
+                {}
+                {}
+            </{node_name}>"#,
+                RPr::test_xml("rPr"),
+                Br::test_xml("br"),
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                run_properties: Some(RPr::test_instance()),
+                run_inner_contents: vec![RunInnerContent::Break(Br::test_instance())],
+                run_properties_revision_id: Some(0xffffffff),
+                deletion_revision_id: Some(0xffffffff),
+                run_revision_id: Some(0xffffffff),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_r_from_xml() {
+        let xml = R::test_xml("r");
+        assert_eq!(
+            R::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            R::test_instance()
+        );
+    }
+
+    impl Ruby {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name}>
+                {}
+                {}
+                {}
+            </{node_name}>"#,
+                RubyPr::test_xml("rubyPr"),
+                RubyContent::test_xml("rt"),
+                RubyContent::test_xml("rubyBase"),
+                node_name = node_name
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                ruby_properties: RubyPr::test_instance(),
+                ruby_content: RubyContent::test_instance(),
+                ruby_base: RubyContent::test_instance(),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_ruby_from_xml() {
+        let xml = Ruby::test_xml("ruby");
+        assert_eq!(
+            Ruby::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            Ruby::test_instance()
+        );
+    }
+
+    impl FtnEdnRef {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} customMarkFollows="true" id="1"></{node_name}>"#,
+                node_name = node_name
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                custom_mark_follows: Some(true),
+                id: 1,
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_ftn_edn_ref_from_xml() {
+        let xml = FtnEdnRef::test_xml("ftnEdnRef");
+        assert_eq!(
+            FtnEdnRef::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            FtnEdnRef::test_instance()
+        );
+    }
+
+    impl PTab {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} alignment="left" relativeTo="margin" leader="none">
+            </{node_name}>"#,
+                node_name = node_name
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                alignment: PTabAlignment::Left,
+                relative_to: PTabRelativeTo::Margin,
+                leader: PTabLeader::None,
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_p_tab_from_xml() {
+        let xml = PTab::test_xml("pTab");
+        assert_eq!(
+            PTab::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            PTab::test_instance()
+        );
+    }
+
+    impl RunTrackChange {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} id="0" author="John Smith" date="2001-10-26T21:32:52">
+                {}
+            </{node_name}>"#,
+                R::test_xml("r"),
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                base: TrackChange::test_instance(),
+                choices: vec![RunTrackChangeChoice::ContentRunContent(ContentRunContent::Run(
+                    R::test_instance(),
+                ))],
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_run_track_change_from_xml() {
+        let xml = RunTrackChange::test_xml("runTrackChange");
+        assert_eq!(
+            RunTrackChange::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            RunTrackChange::test_instance()
+        );
+    }
+
+    impl CustomXmlBlock {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} uri="https://some/uri" element="Some element">
+                {}
+            </{node_name}>"#,
+                CustomXmlPr::test_xml("customXmlPr"),
+                node_name = node_name
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                custom_xml_properties: Some(CustomXmlPr::test_instance()),
+                block_contents: Vec::new(),
+                uri: Some(String::from("https://some/uri")),
+                element: XmlName::from("Some element"),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_custom_xml_block_from_xml() {
+        let xml = CustomXmlBlock::test_xml("customXmlBlock");
+        assert_eq!(
+            CustomXmlBlock::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            CustomXmlBlock::test_instance()
+        );
+    }
+
+    impl SdtContentBlock {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                "<{node_name}>
+                {}
+            </{node_name}>",
+                CustomXmlBlock::test_xml("customXml"),
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                block_contents: vec![ContentBlockContent::CustomXml(CustomXmlBlock::test_instance())],
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_sdt_content_block_from_xml() {
+        let xml = SdtContentBlock::test_xml("sdtContentBlock");
+        assert_eq!(
+            SdtContentBlock::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            SdtContentBlock::test_instance()
+        );
+    }
+
+    impl SdtBlock {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name}>
+                {}
+                {}
+                {}
+            </{node_name}>"#,
+                SdtPr::test_xml("sdtPr"),
+                SdtEndPr::test_xml("sdtEndPr"),
+                SdtContentBlock::test_xml("sdtContent"),
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                sdt_properties: Some(SdtPr::test_instance()),
+                sdt_end_properties: Some(SdtEndPr::test_instance()),
+                sdt_content: Some(SdtContentBlock::test_instance()),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_sdt_block_from_xml() {
+        let xml = SdtBlock::test_xml("sdtBlock");
+        assert_eq!(
+            SdtBlock::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            SdtBlock::test_instance()
         );
     }
 }
