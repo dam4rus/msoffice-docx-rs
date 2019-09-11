@@ -5,12 +5,13 @@ use super::{
 use msoffice_shared::{
     drawingml::{parse_hex_color_rgb, HexColorRGB},
     error::{
-        MissingAttributeError, MissingChildNodeError, NotGroupMemberError, ParseBoolError, PatternRestrictionError,
+        Limit, LimitViolationError, MissingAttributeError, MissingChildNodeError, NotGroupMemberError, ParseBoolError,
+        PatternRestrictionError,
     },
     relationship::RelationshipId,
     sharedtypes::{
-        CalendarType, Lang, OnOff, PositiveUniversalMeasure, TwipsMeasure, UniversalMeasure, UniversalMeasureUnit,
-        VerticalAlignRun, XmlName,
+        CalendarType, Lang, OnOff, PositiveUniversalMeasure, TwipsMeasure, UniversalMeasure, VerticalAlignRun, XAlign,
+        XmlName, YAlign,
     },
     util::XmlNodeExt,
     xml::{parse_xml_bool, XmlNode},
@@ -3637,80 +3638,1181 @@ impl SdtBlock {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, EnumString)]
+pub enum DropCap {
+    #[strum(serialize = "none")]
+    None,
+    #[strum(serialize = "drop")]
+    Drop,
+    #[strum(serialize = "margin")]
+    Margin,
+}
+
+#[derive(Debug, Clone, PartialEq, EnumString)]
+pub enum HeightRule {
+    #[strum(serialize = "auto")]
+    Auto,
+    #[strum(serialize = "exact")]
+    Exact,
+    #[strum(serialize = "atLeast")]
+    AtLeast,
+}
+
+#[derive(Debug, Clone, PartialEq, EnumString)]
+pub enum Wrap {
+    #[strum(serialize = "auto")]
+    Auto,
+    #[strum(serialize = "notBeside")]
+    NotBeside,
+    #[strum(serialize = "around")]
+    Around,
+    #[strum(serialize = "tight")]
+    Tight,
+    #[strum(serialize = "through")]
+    Throught,
+    #[strum(serialize = "none")]
+    None,
+}
+
+#[derive(Debug, Clone, PartialEq, EnumString)]
+pub enum VAnchor {
+    #[strum(serialize = "text")]
+    Text,
+    #[strum(serialize = "margin")]
+    Margin,
+    #[strum(serialize = "page")]
+    Page,
+}
+
+#[derive(Debug, Clone, PartialEq, EnumString)]
+pub enum HAnchor {
+    #[strum(serialize = "text")]
+    Text,
+    #[strum(serialize = "margin")]
+    Margin,
+    #[strum(serialize = "page")]
+    Page,
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct FramePr {
+    pub drop_cap: Option<DropCap>,
+    pub lines: Option<DecimalNumber>,
+    pub width: Option<TwipsMeasure>,
+    pub height: Option<TwipsMeasure>,
+    pub vertical_space: Option<TwipsMeasure>,
+    pub horizontal_space: Option<TwipsMeasure>,
+    pub wrap: Option<Wrap>,
+    pub horizontal_anchor: Option<HAnchor>,
+    pub vertical_anchor: Option<VAnchor>,
+    pub x: Option<SignedTwipsMeasure>,
+    pub x_align: Option<XAlign>,
+    pub y: Option<SignedTwipsMeasure>,
+    pub y_align: Option<YAlign>,
+    pub height_rule: Option<HeightRule>,
+    pub anchor_lock: Option<OnOff>,
+}
+
+impl FramePr {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: Self = Default::default();
+
+        for (attr, value) in &xml_node.attributes {
+            match attr.as_ref() {
+                "dropCap" => instance.drop_cap = Some(value.parse()?),
+                "lines" => instance.lines = Some(value.parse()?),
+                "w" => instance.width = Some(value.parse()?),
+                "h" => instance.height = Some(value.parse()?),
+                "vSpace" => instance.vertical_space = Some(value.parse()?),
+                "hSpace" => instance.horizontal_space = Some(value.parse()?),
+                "wrap" => instance.wrap = Some(value.parse()?),
+                "hAnchor" => instance.horizontal_anchor = Some(value.parse()?),
+                "vAnchor" => instance.vertical_anchor = Some(value.parse()?),
+                "x" => instance.x = Some(value.parse()?),
+                "xAlign" => instance.x_align = Some(value.parse()?),
+                "y" => instance.y = Some(value.parse()?),
+                "yAlign" => instance.y_align = Some(value.parse()?),
+                "hRule" => instance.height_rule = Some(value.parse()?),
+                "anchorLock" => instance.anchor_lock = Some(parse_xml_bool(value)?),
+                _ => (),
+            }
+        }
+
+        Ok(instance)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct NumPr {
+    pub indent_level: Option<DecimalNumber>,
+    pub numbering_id: Option<DecimalNumber>,
+    pub inserted: Option<TrackChange>,
+}
+
+impl NumPr {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: Self = Default::default();
+        for child_node in &xml_node.child_nodes {
+            match child_node.local_name() {
+                "ilvl" => instance.indent_level = Some(child_node.get_val_attribute()?.parse()?),
+                "numId" => instance.numbering_id = Some(child_node.get_val_attribute()?.parse()?),
+                "ins" => instance.inserted = Some(TrackChange::from_xml_element(child_node)?),
+                _ => (),
+            }
+        }
+
+        Ok(instance)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct PBdr {
+    pub top: Option<Border>,
+    pub left: Option<Border>,
+    pub bottom: Option<Border>,
+    pub right: Option<Border>,
+    pub between: Option<Border>,
+    pub bar: Option<Border>,
+}
+
+impl PBdr {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: Self = Default::default();
+
+        for child_node in &xml_node.child_nodes {
+            match child_node.local_name() {
+                "top" => instance.top = Some(Border::from_xml_element(child_node)?),
+                "left" => instance.left = Some(Border::from_xml_element(child_node)?),
+                "bottom" => instance.bottom = Some(Border::from_xml_element(child_node)?),
+                "right" => instance.right = Some(Border::from_xml_element(child_node)?),
+                "between" => instance.between = Some(Border::from_xml_element(child_node)?),
+                "bar" => instance.bar = Some(Border::from_xml_element(child_node)?),
+                _ => (),
+            }
+        }
+
+        Ok(instance)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, EnumString)]
+pub enum TabJc {
+    #[strum(serialize = "clear")]
+    Clear,
+    #[strum(serialize = "start")]
+    Start,
+    #[strum(serialize = "center")]
+    Center,
+    #[strum(serialize = "end")]
+    End,
+    #[strum(serialize = "decimal")]
+    Decimal,
+    #[strum(serialize = "bar")]
+    Bar,
+    #[strum(serialize = "num")]
+    Number,
+}
+
+#[derive(Debug, Clone, PartialEq, EnumString)]
+pub enum TabTlc {
+    #[strum(serialize = "none")]
+    None,
+    #[strum(serialize = "dot")]
+    Dot,
+    #[strum(serialize = "hyphen")]
+    Hyphen,
+    #[strum(serialize = "underscore")]
+    Underscore,
+    #[strum(serialize = "heavy")]
+    Heavy,
+    #[strum(serialize = "middleDot")]
+    MiddleDot,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct TabStop {
+    pub value: TabJc,
+    pub leader: Option<TabTlc>,
+    pub position: SignedTwipsMeasure,
+}
+
+impl TabStop {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut value = None;
+        let mut leader = None;
+        let mut position = None;
+
+        for (attr, attr_value) in &xml_node.attributes {
+            match attr.as_ref() {
+                "val" => value = Some(attr_value.parse()?),
+                "leader" => leader = Some(attr_value.parse()?),
+                "pos" => position = Some(attr_value.parse()?),
+                _ => (),
+            }
+        }
+
+        let value = value.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "val"))?;
+        let position = position.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "pos"))?;
+
+        Ok(Self {
+            value,
+            leader,
+            position,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Tabs {
+    pub tabs: Vec<TabStop>,
+}
+
+impl Tabs {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let tabs = xml_node
+            .child_nodes
+            .iter()
+            .filter_map(|child_node| {
+                if child_node.local_name() == "tab" {
+                    Some(TabStop::from_xml_element(child_node))
+                } else {
+                    None
+                }
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        if tabs.is_empty() {
+            Err(Box::new(LimitViolationError::new(
+                xml_node.name.clone(),
+                "tab",
+                Limit::Value(1),
+                Limit::Unbounded,
+                tabs.len() as u32,
+            )))
+        } else {
+            Ok(Self { tabs })
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, EnumString)]
+pub enum LineSpacingRule {
+    #[strum(serialize = "auto")]
+    Auto,
+    #[strum(serialize = "exact")]
+    Exact,
+    #[strum(serialize = "atLeast")]
+    AtLeast,
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct Spacing {
+    pub before: Option<TwipsMeasure>,
+    pub before_lines: Option<DecimalNumber>,
+    pub before_autospacing: Option<OnOff>,
+    pub after: Option<TwipsMeasure>,
+    pub after_lines: Option<DecimalNumber>,
+    pub after_autospacing: Option<OnOff>,
+    pub line: Option<SignedTwipsMeasure>,
+    pub line_rule: Option<LineSpacingRule>,
+}
+
+impl Spacing {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: Self = Default::default();
+
+        for (attr, value) in &xml_node.attributes {
+            match attr.as_ref() {
+                "before" => instance.before = Some(value.parse()?),
+                "beforeLines" => instance.before_lines = Some(value.parse()?),
+                "beforeAutospacing" => instance.before_autospacing = Some(parse_xml_bool(value)?),
+                "after" => instance.after = Some(value.parse()?),
+                "afterLines" => instance.after_lines = Some(value.parse()?),
+                "afterAutospacing" => instance.after_autospacing = Some(parse_xml_bool(value)?),
+                "line" => instance.line = Some(value.parse()?),
+                "lineRule" => instance.line_rule = Some(value.parse()?),
+                _ => (),
+            }
+        }
+
+        Ok(instance)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct Ind {
+    pub start: Option<SignedTwipsMeasure>,
+    pub start_chars: Option<DecimalNumber>,
+    pub end: Option<SignedTwipsMeasure>,
+    pub end_chars: Option<DecimalNumber>,
+    pub hanging: Option<TwipsMeasure>,
+    pub hanging_chars: Option<DecimalNumber>,
+    pub first_line: Option<TwipsMeasure>,
+    pub first_line_chars: Option<DecimalNumber>,
+}
+
+impl Ind {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: Self = Default::default();
+
+        for (attr, value) in &xml_node.attributes {
+            match attr.as_ref() {
+                "start" => instance.start = Some(value.parse()?),
+                "startChars" => instance.start_chars = Some(value.parse()?),
+                "end" => instance.end = Some(value.parse()?),
+                "endChars" => instance.end_chars = Some(value.parse()?),
+                "hanging" => instance.hanging = Some(value.parse()?),
+                "hangingChars" => instance.hanging_chars = Some(value.parse()?),
+                "firstLine" => instance.first_line = Some(value.parse()?),
+                "firstLineChars" => instance.first_line_chars = Some(value.parse()?),
+                _ => (),
+            }
+        }
+
+        Ok(instance)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, EnumString)]
+pub enum Jc {
+    #[strum(serialize = "start")]
+    Start,
+    #[strum(serialize = "center")]
+    Center,
+    #[strum(serialize = "end")]
+    End,
+    #[strum(serialize = "both")]
+    Both,
+    #[strum(serialize = "mediumKashida")]
+    MediumKashida,
+    #[strum(serialize = "distribute")]
+    Distribute,
+    #[strum(serialize = "numTab")]
+    NumTab,
+    #[strum(serialize = "highKashida")]
+    HighKashida,
+    #[strum(serialize = "lowKashida")]
+    LowKashida,
+    #[strum(serialize = "thaiDistribute")]
+    ThaiDistribute,
+}
+
+#[derive(Debug, Clone, PartialEq, EnumString)]
+pub enum TextDirection {
+    #[strum(serialize = "tb")]
+    TopToBottom,
+    #[strum(serialize = "rl")]
+    RightToLeft,
+    #[strum(serialize = "lr")]
+    LeftToRight,
+    #[strum(serialize = "tbV")]
+    TopToBottomRotated,
+    #[strum(serialize = "rlV")]
+    RightToLeftRotated,
+    #[strum(serialize = "lrV")]
+    LeftToRightRotated,
+}
+
+#[derive(Debug, Clone, PartialEq, EnumString)]
+pub enum TextAlignment {
+    #[strum(serialize = "top")]
+    Top,
+    #[strum(serialize = "center")]
+    Center,
+    #[strum(serialize = "baseline")]
+    Baseline,
+    #[strum(serialize = "bottom")]
+    Bottom,
+    #[strum(serialize = "auto")]
+    Auto,
+}
+
+#[derive(Debug, Clone, PartialEq, EnumString)]
+pub enum TextboxTightWrap {
+    #[strum(serialize = "none")]
+    None,
+    #[strum(serialize = "allLines")]
+    AllLines,
+    #[strum(serialize = "firstAndLastLine")]
+    FirstAndLastLine,
+    #[strum(serialize = "firstLineOnly")]
+    FirstLineOnly,
+    #[strum(serialize = "lastLineOnly")]
+    LastLineOnly,
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct Cnf {
+    pub first_row: Option<OnOff>,
+    pub last_row: Option<OnOff>,
+    pub first_column: Option<OnOff>,
+    pub last_column: Option<OnOff>,
+    pub odd_vertical_band: Option<OnOff>,
+    pub even_vertical_band: Option<OnOff>,
+    pub odd_horizontal_band: Option<OnOff>,
+    pub even_horizontal_band: Option<OnOff>,
+    pub first_row_first_column: Option<OnOff>,
+    pub first_row_last_column: Option<OnOff>,
+    pub last_row_first_column: Option<OnOff>,
+    pub last_row_last_column: Option<OnOff>,
+}
+
+impl Cnf {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: Self = Default::default();
+
+        for (attr, value) in &xml_node.attributes {
+            match attr.as_ref() {
+                "firstRow" => instance.first_row = Some(parse_xml_bool(value)?),
+                "lastRow" => instance.last_row = Some(parse_xml_bool(value)?),
+                "firstColumn" => instance.first_column = Some(parse_xml_bool(value)?),
+                "lastColumn" => instance.last_column = Some(parse_xml_bool(value)?),
+                "oddVBand" => instance.odd_vertical_band = Some(parse_xml_bool(value)?),
+                "evenVBand" => instance.even_vertical_band = Some(parse_xml_bool(value)?),
+                "oddHBand" => instance.odd_horizontal_band = Some(parse_xml_bool(value)?),
+                "evenHBand" => instance.even_horizontal_band = Some(parse_xml_bool(value)?),
+                "firstRowFirstColumn" => instance.first_row_first_column = Some(parse_xml_bool(value)?),
+                "firstRowLastColumn" => instance.first_row_last_column = Some(parse_xml_bool(value)?),
+                "lastRowFirstColumn" => instance.last_row_first_column = Some(parse_xml_bool(value)?),
+                "lastRowLastColumn" => instance.last_row_last_column = Some(parse_xml_bool(value)?),
+                _ => (),
+            }
+        }
+
+        Ok(instance)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct PPrBase {
+    pub style: Option<String>,
+    pub keep_with_next: Option<OnOff>,
+    pub keep_lines_on_one_page: Option<OnOff>,
+    pub start_on_next_page: Option<OnOff>,
+    pub frame_properties: Option<FramePr>,
+    pub widow_control: Option<OnOff>,
+    pub numbering_properties: Option<NumPr>,
+    pub suppress_line_numbers: Option<OnOff>,
+    pub borders: Option<PBdr>,
+    pub shading: Option<Shd>,
+    pub tabs: Option<Tabs>,
+    pub suppress_auto_hyphens: Option<OnOff>,
+    pub kinsoku: Option<OnOff>,
+    pub word_wrapping: Option<OnOff>,
+    pub overflow_punctuations: Option<OnOff>,
+    pub top_line_punctuations: Option<OnOff>,
+    pub auto_space_latin_and_east_asian: Option<OnOff>,
+    pub auto_space_east_asian_and_numbers: Option<OnOff>,
+    pub bidirectional: Option<OnOff>,
+    pub adjust_right_indent: Option<OnOff>,
+    pub snap_to_grid: Option<OnOff>,
+    pub spacing: Option<Spacing>,
+    pub indent: Option<Ind>,
+    pub contextual_spacing: Option<OnOff>,
+    pub mirror_indents: Option<OnOff>,
+    pub suppress_overlapping: Option<OnOff>,
+    pub alignment: Option<Jc>,
+    pub text_direction: Option<TextDirection>,
+    pub text_alignment: Option<TextAlignment>,
+    pub textbox_tight_wrap: Option<TextboxTightWrap>,
+    pub outline_level: Option<DecimalNumber>,
+    pub div_id: Option<DecimalNumber>,
+    pub conditional_formatting: Option<Cnf>,
+}
+
+impl PPrBase {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: Self = Default::default();
+
+        for child_node in &xml_node.child_nodes {
+            match child_node.local_name() {
+                "pStyle" => instance.style = Some(child_node.get_val_attribute()?.clone()),
+                "keepNext" => instance.keep_with_next = parse_on_off_xml_element(child_node)?,
+                "keepLines" => instance.keep_lines_on_one_page = parse_on_off_xml_element(child_node)?,
+                "pageBreakBefore" => instance.start_on_next_page = parse_on_off_xml_element(child_node)?,
+                "framePr" => instance.frame_properties = Some(FramePr::from_xml_element(child_node)?),
+                "widowControl" => instance.widow_control = parse_on_off_xml_element(child_node)?,
+                "numPr" => instance.numbering_properties = Some(NumPr::from_xml_element(child_node)?),
+                "suppressLineNumbers" => instance.suppress_line_numbers = parse_on_off_xml_element(child_node)?,
+                "pBdr" => instance.borders = Some(PBdr::from_xml_element(child_node)?),
+                "shd" => instance.shading = Some(Shd::from_xml_element(child_node)?),
+                "tabs" => instance.tabs = Some(Tabs::from_xml_element(child_node)?),
+                "suppressAutoHyphens" => instance.suppress_auto_hyphens = parse_on_off_xml_element(child_node)?,
+                "kinsoku" => instance.kinsoku = parse_on_off_xml_element(child_node)?,
+                "wordWrap" => instance.word_wrapping = parse_on_off_xml_element(child_node)?,
+                "overflowPunct" => instance.overflow_punctuations = parse_on_off_xml_element(child_node)?,
+                "topLinePunct" => instance.top_line_punctuations = parse_on_off_xml_element(child_node)?,
+                "autoSpaceDE" => instance.auto_space_latin_and_east_asian = parse_on_off_xml_element(child_node)?,
+                "autoSpaceDN" => instance.auto_space_east_asian_and_numbers = parse_on_off_xml_element(child_node)?,
+                "bidi" => instance.bidirectional = parse_on_off_xml_element(child_node)?,
+                "adjustRightInd" => instance.adjust_right_indent = parse_on_off_xml_element(child_node)?,
+                "snapToGrid" => instance.snap_to_grid = parse_on_off_xml_element(child_node)?,
+                "spacing" => instance.spacing = Some(Spacing::from_xml_element(child_node)?),
+                "ind" => instance.indent = Some(Ind::from_xml_element(child_node)?),
+                "contextualSpacing" => instance.contextual_spacing = parse_on_off_xml_element(child_node)?,
+                "mirrorIndents" => instance.mirror_indents = parse_on_off_xml_element(child_node)?,
+                "suppressOverlap" => instance.suppress_overlapping = parse_on_off_xml_element(child_node)?,
+                "jc" => instance.alignment = Some(child_node.get_val_attribute()?.parse()?),
+                "textDirection" => instance.text_direction = Some(child_node.get_val_attribute()?.parse()?),
+                "textAlignment" => instance.text_alignment = Some(child_node.get_val_attribute()?.parse()?),
+                "textboxTightWrap" => instance.textbox_tight_wrap = Some(child_node.get_val_attribute()?.parse()?),
+                "outlineLvl" => instance.outline_level = Some(child_node.get_val_attribute()?.parse()?),
+                "divId" => instance.div_id = Some(child_node.get_val_attribute()?.parse()?),
+                "cnfStyle" => instance.conditional_formatting = Some(Cnf::from_xml_element(child_node)?),
+                _ => (),
+            }
+        }
+
+        Ok(instance)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct ParaRPrTrackChanges {
+    pub insert: Option<TrackChange>,
+    pub deletion: Option<TrackChange>,
+    pub move_from: Option<TrackChange>,
+    pub move_to: Option<TrackChange>,
+}
+
+impl ParaRPrTrackChanges {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Option<Self>> {
+        let mut instance: Option<Self> = None;
+
+        for child_node in &xml_node.child_nodes {
+            match child_node.local_name() {
+                "ins" => {
+                    instance.get_or_insert_with(Default::default).insert =
+                        Some(TrackChange::from_xml_element(child_node)?)
+                }
+                "del" => {
+                    instance.get_or_insert_with(Default::default).deletion =
+                        Some(TrackChange::from_xml_element(child_node)?)
+                }
+                "moveFrom" => {
+                    instance.get_or_insert_with(Default::default).move_from =
+                        Some(TrackChange::from_xml_element(child_node)?)
+                }
+                "moveTo" => {
+                    instance.get_or_insert_with(Default::default).move_to =
+                        Some(TrackChange::from_xml_element(child_node)?)
+                }
+                _ => (),
+            }
+        }
+
+        Ok(instance)
+    }
+
+    pub fn try_parse_group_node(instance: &mut Option<Self>, xml_node: &XmlNode) -> Result<bool> {
+        match xml_node.local_name() {
+            "ins" => {
+                instance.get_or_insert_with(Default::default).insert = Some(TrackChange::from_xml_element(xml_node)?);
+                Ok(true)
+            }
+            "del" => {
+                instance.get_or_insert_with(Default::default).deletion = Some(TrackChange::from_xml_element(xml_node)?);
+                Ok(true)
+            }
+            "moveFrom" => {
+                instance.get_or_insert_with(Default::default).move_from =
+                    Some(TrackChange::from_xml_element(xml_node)?);
+                Ok(true)
+            }
+            "moveTo" => {
+                instance.get_or_insert_with(Default::default).move_to = Some(TrackChange::from_xml_element(xml_node)?);
+                Ok(true)
+            }
+            _ => Ok(false),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct ParaRPrOriginal {
+    pub track_changes: Option<ParaRPrTrackChanges>,
+    pub bases: Vec<RPrBase>,
+}
+
+impl ParaRPrOriginal {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: Self = Default::default();
+
+        for child_node in &xml_node.child_nodes {
+            if ParaRPrTrackChanges::try_parse_group_node(&mut instance.track_changes, child_node)? {
+                continue;
+            }
+
+            if RPrBase::is_choice_member(child_node.local_name()) {
+                instance.bases.push(RPrBase::from_xml_element(child_node)?);
+            }
+        }
+
+        Ok(instance)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ParaRPrChange {
+    base: TrackChange,
+    run_properties: ParaRPrOriginal,
+}
+
+impl ParaRPrChange {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let base = TrackChange::from_xml_element(xml_node)?;
+        let run_properties_node = xml_node
+            .child_nodes
+            .iter()
+            .find(|child_node| child_node.local_name() == "rPr")
+            .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "rPr"))?;
+
+        let run_properties = ParaRPrOriginal::from_xml_element(run_properties_node)?;
+
+        Ok(Self { base, run_properties })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct ParaRPr {
+    pub track_changes: Option<ParaRPrTrackChanges>,
+    pub bases: Vec<RPrBase>,
+    pub change: Option<ParaRPrChange>,
+}
+
+impl ParaRPr {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: Self = Default::default();
+
+        for child_node in &xml_node.child_nodes {
+            if ParaRPrTrackChanges::try_parse_group_node(&mut instance.track_changes, child_node)? {
+                continue;
+            }
+
+            let local_name = child_node.local_name();
+            if RPrBase::is_choice_member(local_name) {
+                instance.bases.push(RPrBase::from_xml_element(child_node)?);
+            } else if local_name == "rPrChange" {
+                instance.change = Some(ParaRPrChange::from_xml_element(child_node)?);
+            }
+        }
+
+        Ok(instance)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, EnumString)]
+pub enum HdrFtr {
+    #[strum(serialize = "even")]
+    Even,
+    #[strum(serialize = "default")]
+    Default,
+    #[strum(serialize = "first")]
+    First,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct HdrFtrRef {
+    pub base: Rel,
+    pub header_footer_type: HdrFtr,
+}
+
+impl HdrFtrRef {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let base = Rel::from_xml_element(xml_node)?;
+        let header_footer_type = xml_node
+            .attributes
+            .get("type")
+            .ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "type"))?
+            .parse()?;
+
+        Ok(Self {
+            base,
+            header_footer_type,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum HdrFtrReferences {
+    Header(HdrFtrRef),
+    Footer(HdrFtrRef),
+}
+
+impl HdrFtrReferences {
+    pub fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
+        match node_name.as_ref() {
+            "headerReference" | "footerReference" => true,
+            _ => false,
+        }
+    }
+
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        match xml_node.local_name() {
+            "headerReference" => Ok(HdrFtrReferences::Header(HdrFtrRef::from_xml_element(xml_node)?)),
+            "footerReference" => Ok(HdrFtrReferences::Footer(HdrFtrRef::from_xml_element(xml_node)?)),
+            _ => Err(Box::new(NotGroupMemberError::new(
+                xml_node.name.clone(),
+                "HdrFtrReferences",
+            ))),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, EnumString)]
+pub enum FtnPos {
+    #[strum(serialize = "pageBottom")]
+    PageBottom,
+    #[strum(serialize = "beneathText")]
+    BeneathText,
+    #[strum(serialize = "sectEnd")]
+    SectionEnd,
+    #[strum(serialize = "docEnd")]
+    DocumentEnd,
+}
+
+#[derive(Debug, Clone, PartialEq, EnumString)]
+pub enum NumberFormat {
+    #[strum(serialize = "decimal")]
+    Decimal,
+    #[strum(serialize = "upperRoman")]
+    UpperRoman,
+    #[strum(serialize = "lowerRoman")]
+    LowerRoman,
+    #[strum(serialize = "upperLetter")]
+    UpperLetter,
+    #[strum(serialize = "lowerLetter")]
+    LowerLetter,
+    #[strum(serialize = "ordinal")]
+    Ordinal,
+    #[strum(serialize = "cardinalText")]
+    CardinalText,
+    #[strum(serialize = "ordinalText")]
+    OrdinalText,
+    #[strum(serialize = "hex")]
+    Hex,
+    #[strum(serialize = "chicago")]
+    Chicago,
+    #[strum(serialize = "ideographDigital")]
+    IdeographDigital,
+    #[strum(serialize = "japaneseCounting")]
+    JapaneseCounting,
+    #[strum(serialize = "aiueo")]
+    Aiueo,
+    #[strum(serialize = "iroha")]
+    Iroha,
+    #[strum(serialize = "decimalFullWidth")]
+    DecimalFullWidth,
+    #[strum(serialize = "decimalHalfWidth")]
+    DecimalHalfWidth,
+    #[strum(serialize = "japaneseLegal")]
+    JapaneseLegal,
+    #[strum(serialize = "japaneseDigitalTenThousand")]
+    JapaneseDigitalTenThousand,
+    #[strum(serialize = "decimalEnclosedCircle")]
+    DecimalEnclosedCircle,
+    #[strum(serialize = "decimalFullWidth2")]
+    DecimalFullWidth2,
+    #[strum(serialize = "aiueoFullWidth")]
+    AiueoFullWidth,
+    #[strum(serialize = "irohaFullWidth")]
+    IrohaFullWidth,
+    #[strum(serialize = "decimalZero")]
+    DecimalZero,
+    #[strum(serialize = "bullet")]
+    Bullet,
+    #[strum(serialize = "ganada")]
+    Ganada,
+    #[strum(serialize = "chosung")]
+    Chosung,
+    #[strum(serialize = "decimalEnclosedFullstop")]
+    DecimalEnclosedFullstop,
+    #[strum(serialize = "decimalEnclosedParen")]
+    DecimalEnclosedParen,
+    #[strum(serialize = "decimalEnclosedCircleChinese")]
+    DecimalEnclosedCircleChinese,
+    #[strum(serialize = "ideographEnclosedCircle")]
+    IdeographEnclosedCircle,
+    #[strum(serialize = "ideographTraditional")]
+    IdeographTraditional,
+    #[strum(serialize = "ideographZodiac")]
+    IdeographZodiac,
+    #[strum(serialize = "ideographZodiacTraditional")]
+    IdeographZodiacTraditional,
+    #[strum(serialize = "taiwaneseCounting")]
+    TaiwaneseCounting,
+    #[strum(serialize = "ideographLegalTraditional")]
+    IdeographLegalTraditional,
+    #[strum(serialize = "taiwaneseCountingThousand")]
+    TaiwaneseCountingThousand,
+    #[strum(serialize = "taiwaneseDigital")]
+    TaiwaneseDigital,
+    #[strum(serialize = "chineseCounting")]
+    ChineseCounting,
+    #[strum(serialize = "chineseLegalSimplified")]
+    ChineseLegalSimplified,
+    #[strum(serialize = "chineseCountingThousand")]
+    ChineseCountingThousand,
+    #[strum(serialize = "koreanDigital")]
+    KoreanDigital,
+    #[strum(serialize = "koreanCounting")]
+    KoreanCounting,
+    #[strum(serialize = "koreanLegal")]
+    KoreanLegal,
+    #[strum(serialize = "koreanDigital2")]
+    KoreanDigital2,
+    #[strum(serialize = "vietnameseCounting")]
+    VietnameseCounting,
+    #[strum(serialize = "russianLower")]
+    RussianLower,
+    #[strum(serialize = "russianUpper")]
+    RussianUpper,
+    #[strum(serialize = "none")]
+    None,
+    #[strum(serialize = "numberInDash")]
+    NumberInDash,
+    #[strum(serialize = "hebrew1")]
+    Hebrew1,
+    #[strum(serialize = "hebrew2")]
+    Hebrew2,
+    #[strum(serialize = "arabicAlpha")]
+    ArabicAlpha,
+    #[strum(serialize = "arabicAbjad")]
+    ArabicAbjad,
+    #[strum(serialize = "hindiVowels")]
+    HindiVowels,
+    #[strum(serialize = "hindiConsonants")]
+    HindiConsonants,
+    #[strum(serialize = "hindiNumbers")]
+    HindiNumbers,
+    #[strum(serialize = "hindiCounting")]
+    HindiCounting,
+    #[strum(serialize = "thaiLetters")]
+    ThaiLetters,
+    #[strum(serialize = "thaiNumbers")]
+    ThaiNumbers,
+    #[strum(serialize = "thaiCounting")]
+    ThaiCounting,
+    #[strum(serialize = "bahtText")]
+    BahtText,
+    #[strum(serialize = "dollarText")]
+    DollarText,
+    #[strum(serialize = "custom")]
+    Custom,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct NumFmt {
+    pub value: NumberFormat,
+    pub format: Option<String>,
+}
+
+impl NumFmt {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut value = None;
+        let mut format = None;
+
+        for (attr, attr_value) in &xml_node.attributes {
+            match attr.as_ref() {
+                "val" => value = Some(attr_value.parse()?),
+                "format" => format = Some(attr_value.clone()),
+                _ => (),
+            }
+        }
+
+        Ok(Self {
+            value: value.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "val"))?,
+            format,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, EnumString)]
+pub enum RestartNumber {
+    #[strum(serialize = "continuous")]
+    Continuous,
+    #[strum(serialize = "eachSect")]
+    EachSection,
+    #[strum(serialize = "eachPage")]
+    EachPage,
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct FtnEdnNumProps {
+    pub numbering_start: Option<DecimalNumber>,
+    pub numbering_restart: Option<RestartNumber>,
+}
+
+impl FtnEdnNumProps {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: Self = Default::default();
+
+        for child_node in &xml_node.child_nodes {
+            match child_node.local_name() {
+                "numStart" => instance.numbering_start = Some(child_node.get_val_attribute()?.parse()?),
+                "numRestart" => instance.numbering_restart = Some(child_node.get_val_attribute()?.parse()?),
+                _ => (),
+            }
+        }
+
+        Ok(instance)
+    }
+
+    pub fn try_parse_group_node(instance: &mut Option<Self>, xml_node: &XmlNode) -> Result<bool> {
+        match xml_node.local_name() {
+            "numStart" => {
+                instance.get_or_insert_with(Default::default).numbering_start =
+                    Some(xml_node.get_val_attribute()?.parse()?);
+                Ok(true)
+            }
+            "numRestart" => {
+                instance.get_or_insert_with(Default::default).numbering_restart =
+                    Some(xml_node.get_val_attribute()?.parse()?);
+                Ok(true)
+            }
+            _ => Ok(false),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct FtnProps {
+    pub position: Option<FtnPos>,
+    pub numbering_format: Option<NumFmt>,
+    pub numbering_properties: Option<FtnEdnNumProps>,
+}
+
+impl FtnProps {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: Self = Default::default();
+
+        for child_node in &xml_node.child_nodes {
+            match child_node.local_name() {
+                "pos" => instance.position = Some(child_node.get_val_attribute()?.parse()?),
+                "numFmt" => instance.numbering_format = Some(NumFmt::from_xml_element(child_node)?),
+                _ => {
+                    FtnEdnNumProps::try_parse_group_node(&mut instance.numbering_properties, child_node)?;
+                }
+            }
+        }
+
+        Ok(instance)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, EnumString)]
+pub enum EdnPos {
+    #[strum(serialize = "sectEnd")]
+    SectionEnd,
+    #[strum(serialize = "docEnd")]
+    DocumentEnd,
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct EdnProps {
+    pub position: Option<EdnPos>,
+    pub numbering_format: Option<NumFmt>,
+    pub numbering_properties: Option<FtnEdnNumProps>,
+}
+
+impl EdnProps {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: Self = Default::default();
+
+        for child_node in &xml_node.child_nodes {
+            match child_node.local_name() {
+                "pos" => instance.position = Some(child_node.get_val_attribute()?.parse()?),
+                "numFmt" => instance.numbering_format = Some(NumFmt::from_xml_element(child_node)?),
+                _ => {
+                    FtnEdnNumProps::try_parse_group_node(&mut instance.numbering_properties, child_node)?;
+                }
+            }
+        }
+
+        Ok(instance)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, EnumString)]
+pub enum SectionMark {
+    #[strum(serialize = "nextPage")]
+    NextPage,
+    #[strum(serialize = "nextColumn")]
+    NextColumn,
+    #[strum(serialize = "continuous")]
+    Continuous,
+    #[strum(serialize = "evenPage")]
+    EvenPage,
+    #[strum(serialize = "oddPage")]
+    OddPage,
+}
+
+#[derive(Debug, Clone, PartialEq, EnumString)]
+pub enum PageOrientation {
+    #[strum(serialize = "portrait")]
+    Portrait,
+    #[strum(serialize = "landscape")]
+    Landscape,
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct PageSz {
+    pub width: Option<TwipsMeasure>,
+    pub height: Option<TwipsMeasure>,
+    pub orientation: Option<PageOrientation>,
+    pub code: Option<DecimalNumber>,
+}
+
+impl PageSz {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: Self = Default::default();
+
+        for (attr, value) in &xml_node.attributes {
+            match attr.as_ref() {
+                "w" => instance.width = Some(value.parse()?),
+                "h" => instance.height = Some(value.parse()?),
+                "orient" => instance.orientation = Some(value.parse()?),
+                "code" => instance.code = Some(value.parse()?),
+                _ => (),
+            }
+        }
+
+        Ok(instance)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PageMar {
+    pub top: SignedTwipsMeasure,
+    pub right: TwipsMeasure,
+    pub bottom: SignedTwipsMeasure,
+    pub left: TwipsMeasure,
+    pub header: TwipsMeasure,
+    pub footer: TwipsMeasure,
+    pub gutter: TwipsMeasure,
+}
+
+impl PageMar {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut top = None;
+        let mut right = None;
+        let mut bottom = None;
+        let mut left = None;
+        let mut header = None;
+        let mut footer = None;
+        let mut gutter = None;
+
+        for (attr, value) in &xml_node.attributes {
+            match attr.as_ref() {
+                "top" => top = Some(value.parse()?),
+                "right" => right = Some(value.parse()?),
+                "bottom" => bottom = Some(value.parse()?),
+                "left" => left = Some(value.parse()?),
+                "header" => header = Some(value.parse()?),
+                "footer" => footer = Some(value.parse()?),
+                "gutter" => gutter = Some(value.parse()?),
+                _ => (),
+            }
+        }
+
+        Ok(Self {
+            top: top.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "top"))?,
+            right: right.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "right"))?,
+            bottom: bottom.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "bottom"))?,
+            left: left.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "left"))?,
+            header: header.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "header"))?,
+            footer: footer.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "footer"))?,
+            gutter: gutter.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "gutter"))?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct PaperSource {
+    pub first: Option<DecimalNumber>,
+    pub other: Option<DecimalNumber>,
+}
+
+impl PaperSource {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: Self = Default::default();
+
+        for (attr, value) in &xml_node.attributes {
+            match attr.as_ref() {
+                "first" => instance.first = Some(value.parse()?),
+                "other" => instance.other = Some(value.parse()?),
+                _ => (),
+            }
+        }
+
+        Ok(instance)
+    }
+}
+
 /*
-<xsd:complexType name="CT_PPrBase">
+<xsd:group name="EG_SectPrContents">
     <xsd:sequence>
-      <xsd:element name="pStyle" type="CT_String" minOccurs="0"/>
-      <xsd:element name="keepNext" type="CT_OnOff" minOccurs="0"/>
-      <xsd:element name="keepLines" type="CT_OnOff" minOccurs="0"/>
-      <xsd:element name="pageBreakBefore" type="CT_OnOff" minOccurs="0"/>
-      <xsd:element name="framePr" type="CT_FramePr" minOccurs="0"/>
-      <xsd:element name="widowControl" type="CT_OnOff" minOccurs="0"/>
-      <xsd:element name="numPr" type="CT_NumPr" minOccurs="0"/>
-      <xsd:element name="suppressLineNumbers" type="CT_OnOff" minOccurs="0"/>
-      <xsd:element name="pBdr" type="CT_PBdr" minOccurs="0"/>
-      <xsd:element name="shd" type="CT_Shd" minOccurs="0"/>
-      <xsd:element name="tabs" type="CT_Tabs" minOccurs="0"/>
-      <xsd:element name="suppressAutoHyphens" type="CT_OnOff" minOccurs="0"/>
-      <xsd:element name="kinsoku" type="CT_OnOff" minOccurs="0"/>
-      <xsd:element name="wordWrap" type="CT_OnOff" minOccurs="0"/>
-      <xsd:element name="overflowPunct" type="CT_OnOff" minOccurs="0"/>
-      <xsd:element name="topLinePunct" type="CT_OnOff" minOccurs="0"/>
-      <xsd:element name="autoSpaceDE" type="CT_OnOff" minOccurs="0"/>
-      <xsd:element name="autoSpaceDN" type="CT_OnOff" minOccurs="0"/>
-      <xsd:element name="bidi" type="CT_OnOff" minOccurs="0"/>
-      <xsd:element name="adjustRightInd" type="CT_OnOff" minOccurs="0"/>
-      <xsd:element name="snapToGrid" type="CT_OnOff" minOccurs="0"/>
-      <xsd:element name="spacing" type="CT_Spacing" minOccurs="0"/>
-      <xsd:element name="ind" type="CT_Ind" minOccurs="0"/>
-      <xsd:element name="contextualSpacing" type="CT_OnOff" minOccurs="0"/>
-      <xsd:element name="mirrorIndents" type="CT_OnOff" minOccurs="0"/>
-      <xsd:element name="suppressOverlap" type="CT_OnOff" minOccurs="0"/>
-      <xsd:element name="jc" type="CT_Jc" minOccurs="0"/>
+      <xsd:element name="footnotePr" type="CT_FtnProps" minOccurs="0"/>
+      <xsd:element name="endnotePr" type="CT_EdnProps" minOccurs="0"/>
+      <xsd:element name="type" type="CT_SectType" minOccurs="0"/>
+      <xsd:element name="pgSz" type="CT_PageSz" minOccurs="0"/>
+      <xsd:element name="pgMar" type="CT_PageMar" minOccurs="0"/>
+      <xsd:element name="paperSrc" type="CT_PaperSource" minOccurs="0"/>
+      <xsd:element name="pgBorders" type="CT_PageBorders" minOccurs="0"/>
+      <xsd:element name="lnNumType" type="CT_LineNumber" minOccurs="0"/>
+      <xsd:element name="pgNumType" type="CT_PageNumber" minOccurs="0"/>
+      <xsd:element name="cols" type="CT_Columns" minOccurs="0"/>
+      <xsd:element name="formProt" type="CT_OnOff" minOccurs="0"/>
+      <xsd:element name="vAlign" type="CT_VerticalJc" minOccurs="0"/>
+      <xsd:element name="noEndnote" type="CT_OnOff" minOccurs="0"/>
+      <xsd:element name="titlePg" type="CT_OnOff" minOccurs="0"/>
       <xsd:element name="textDirection" type="CT_TextDirection" minOccurs="0"/>
-      <xsd:element name="textAlignment" type="CT_TextAlignment" minOccurs="0"/>
-      <xsd:element name="textboxTightWrap" type="CT_TextboxTightWrap" minOccurs="0"/>
-      <xsd:element name="outlineLvl" type="CT_DecimalNumber" minOccurs="0"/>
-      <xsd:element name="divId" type="CT_DecimalNumber" minOccurs="0"/>
-      <xsd:element name="cnfStyle" type="CT_Cnf" minOccurs="0" maxOccurs="1"/>
+      <xsd:element name="bidi" type="CT_OnOff" minOccurs="0"/>
+      <xsd:element name="rtlGutter" type="CT_OnOff" minOccurs="0"/>
+      <xsd:element name="docGrid" type="CT_DocGrid" minOccurs="0"/>
+      <xsd:element name="printerSettings" type="CT_Rel" minOccurs="0"/>
     </xsd:sequence>
+  </xsd:group>
+*/
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct SectPrContents {
+    pub footnote_properties: Option<FtnProps>,
+    pub endnote_properties: Option<EdnProps>,
+    pub section_type: Option<SectionMark>,
+    pub page_size: Option<PageSz>,
+    pub page_margin: Option<PageMar>,
+    pub paper_source: Option<PaperSource>,
+    // pub page_borders: Option<PageBorders>,
+    // pub line_number_type: Option<LineNumber>,
+    // pub page_number_type: Option<PageNumber>,
+    // pub columns: Option<Columns>,
+    // pub protect_form_fields: Option<OnOff>,
+    // pub vertical_align: Option<VerticalJc>,
+    // pub no_endnote: Option<OnOff>,
+    // pub title_page: Option<OnOff>,
+    // pub text_direction: Option<TextDirection>,
+    // pub bidirectional: Option<OnOff>,
+    // pub rtl_gutter: Option<OnOff>,
+    // pub document_grid: Option<DocGrid>,
+    // pub printer_settings: Option<Rel>,
+}
+
+/*
+<xsd:complexType name="CT_SectPr">
+    <xsd:sequence>
+      <xsd:group ref="EG_HdrFtrReferences" minOccurs="0" maxOccurs="6"/>
+      <xsd:group ref="EG_SectPrContents" minOccurs="0"/>
+      <xsd:element name="sectPrChange" type="CT_SectPrChange" minOccurs="0"/>
+    </xsd:sequence>
+    <xsd:attributeGroup ref="AG_SectPrAttributes"/>
   </xsd:complexType>
 */
 #[derive(Debug, Clone, PartialEq, Default)]
-pub struct PPrBase {
-    // pub style: Option<String>,
-// pub keep_with_next: Option<OnOff>,
-// pub keep_lines_on_one_page: Option<OnOff>,
-// pub start_on_next_page: Option<OnOff>,
-// pub frame_properties: Option<FramePr>,
-// pub widow_control: Option<OnOff>,
-// pub numbering_properties: Option<NumPr>,
-// pub suppress_line_numbers: Option<OnOff>,
-// pub borders: Option<PBdr>,
-// pub shading: Option<Shd>,
-// pub tabs: Option<Tabs>,
-// pub suppress_auto_hyphens: Option<OnOff>,
-// pub kinsoku: Option<OnOff>,
-// pub word_wrapping: Option<OnOff>,
-// pub overflow_punctuations: Option<OnOff>,
-// pub top_line_punctuations: Option<OnOff>,
-// pub auto_space_latin_and_east_asian: Option<OnOff>,
-// pub auto_space_east_asian_and_numbers: Option<OnOff>,
-// pub bidirectional: Option<OnOff>,
-// pub adjust_right_indent: Option<OnOff>,
-// pub snap_to_grid: Option<OnOff>,
-// pub spacing: Option<Spacing>,
-// pub indent: Option<Ind>,
-// pub contextual_spacing: Option<OnOff>,
-// pub mirror_indents: Option<OnOff>,
-// pub suppress_overlapping: Option<OnOff>,
-// pub alignment: Option<Jc>,
-// pub text_direction: Option<TextDirection>,
-// pub text_alignment: Option<TextAlignment>,
-// pub textbox_tight_wrap: Option<TextboxTightWrap>,
-// pub outline_level: Option<DecimalNumber>,
-// pub div_id: Option<DecimalNumber>,
-// pub conditional_formatting: Option<Cnf>,
+pub struct SectPr {
+    pub header_footer_references: Vec<HdrFtrReferences>,
+    pub contents: Option<SectPrContents>,
+    // pub change: Option<SectPrChange>,
+    // pub attributes: SectPrAttributes,
 }
 
 /*
@@ -3729,8 +4831,8 @@ pub struct PPrBase {
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct PPr {
     pub base: PPrBase,
-    // pub run_properties: Option<ParaRPr>,
-    // pub section_properties: Option<SectPr>,
+    pub run_properties: Option<ParaRPr>,
+    pub section_properties: Option<SectPr>,
     // pub properties_change: Option<PPrChange>,
 }
 
@@ -3828,6 +4930,7 @@ pub enum BlockLevelElts {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use msoffice_shared::sharedtypes::UniversalMeasureUnit;
 
     #[test]
     pub fn test_parse_text_scale_percent() {
@@ -5912,6 +7015,723 @@ mod tests {
         assert_eq!(
             SdtBlock::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
             SdtBlock::test_instance()
+        );
+    }
+
+    impl FramePr {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} dropCap="drop" lines="1" w="100" h="100" vSpace="50" hSpace="50" wrap="auto"
+                hAnchor="text" vAnchor="text" x="0" xAlign="left" y="0" yAlign="top" hRule="auto" anchorLock="true">
+            </{node_name}>"#,
+                node_name = node_name
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                drop_cap: Some(DropCap::Drop),
+                lines: Some(1),
+                width: Some(TwipsMeasure::Decimal(100)),
+                height: Some(TwipsMeasure::Decimal(100)),
+                vertical_space: Some(TwipsMeasure::Decimal(50)),
+                horizontal_space: Some(TwipsMeasure::Decimal(50)),
+                wrap: Some(Wrap::Auto),
+                horizontal_anchor: Some(HAnchor::Text),
+                vertical_anchor: Some(VAnchor::Text),
+                x: Some(SignedTwipsMeasure::Decimal(0)),
+                x_align: Some(XAlign::Left),
+                y: Some(SignedTwipsMeasure::Decimal(0)),
+                y_align: Some(YAlign::Top),
+                height_rule: Some(HeightRule::Auto),
+                anchor_lock: Some(true),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_frame_pr_from_xml() {
+        let xml = FramePr::test_xml("framePr");
+        assert_eq!(
+            FramePr::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            FramePr::test_instance()
+        );
+    }
+
+    impl NumPr {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name}>
+                <ilvl val="1" />
+                <numId val="1" />
+                {}
+            </{node_name}>"#,
+                TrackChange::test_xml("ins"),
+                node_name = node_name
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                indent_level: Some(1),
+                numbering_id: Some(1),
+                inserted: Some(TrackChange::test_instance()),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_num_pr_from_xml() {
+        let xml = NumPr::test_xml("numPr");
+        assert_eq!(
+            NumPr::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            NumPr::test_instance(),
+        );
+    }
+
+    impl PBdr {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name}>
+                {}
+                {}
+                {}
+                {}
+                {}
+                {}
+            </{node_name}>"#,
+                Border::test_xml("top"),
+                Border::test_xml("left"),
+                Border::test_xml("bottom"),
+                Border::test_xml("right"),
+                Border::test_xml("between"),
+                Border::test_xml("bar"),
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                top: Some(Border::test_instance()),
+                left: Some(Border::test_instance()),
+                bottom: Some(Border::test_instance()),
+                right: Some(Border::test_instance()),
+                between: Some(Border::test_instance()),
+                bar: Some(Border::test_instance()),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_p_bdr_from_xml() {
+        let xml = PBdr::test_xml("pBdr");
+        assert_eq!(
+            PBdr::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            PBdr::test_instance(),
+        );
+    }
+
+    impl TabStop {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} val="start" leader="dot" pos="0"></{node_name}>"#,
+                node_name = node_name
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                value: TabJc::Start,
+                leader: Some(TabTlc::Dot),
+                position: SignedTwipsMeasure::Decimal(0),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_tab_stop_from_xml() {
+        let xml = TabStop::test_xml("tabStop");
+        assert_eq!(
+            TabStop::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TabStop::test_instance(),
+        );
+    }
+
+    impl Tabs {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                "<{node_name}>
+                {tab_stop}
+                {tab_stop}
+            </{node_name}>",
+                tab_stop = TabStop::test_xml("tab"),
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                tabs: vec![TabStop::test_instance(), TabStop::test_instance()],
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_tabs_from_xml() {
+        let xml = Tabs::test_xml("tabs");
+        assert_eq!(
+            Tabs::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            Tabs::test_instance(),
+        );
+    }
+
+    impl Spacing {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} before="10" beforeLines="1" beforeAutospacing="true"
+                after="10" afterLines="1" afterAutospacing="true" line="50" lineRule="auto">
+            </{node_name}>"#,
+                node_name = node_name
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                before: Some(TwipsMeasure::Decimal(10)),
+                before_lines: Some(1),
+                before_autospacing: Some(true),
+                after: Some(TwipsMeasure::Decimal(10)),
+                after_lines: Some(1),
+                after_autospacing: Some(true),
+                line: Some(SignedTwipsMeasure::Decimal(50)),
+                line_rule: Some(LineSpacingRule::Auto),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_spacing_from_xml() {
+        let xml = Spacing::test_xml("spacing");
+        assert_eq!(
+            Spacing::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            Spacing::test_instance(),
+        );
+    }
+
+    impl Ind {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} start="50" startChars="0" end="50" endChars="10" hanging="50" hangingChars="5"
+                firstLine="50" firstLineChars="5">
+            </{node_name}>"#,
+                node_name = node_name
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                start: Some(SignedTwipsMeasure::Decimal(50)),
+                start_chars: Some(0),
+                end: Some(SignedTwipsMeasure::Decimal(50)),
+                end_chars: Some(10),
+                hanging: Some(TwipsMeasure::Decimal(50)),
+                hanging_chars: Some(5),
+                first_line: Some(TwipsMeasure::Decimal(50)),
+                first_line_chars: Some(5),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_ind_from_xml() {
+        let xml = Ind::test_xml("ind");
+        assert_eq!(
+            Ind::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            Ind::test_instance(),
+        );
+    }
+
+    impl Cnf {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} firstRow="true" lastRow="true" firstColumn="true" lastColumn="true" oddVBand="true"
+                evenVBand="true" oddHBand="true" evenHBand="true" firstRowFirstColumn="true" firstRowLastColumn="true"
+                lastRowFirstColumn="true" lastRowLastColumn="true">
+            </{node_name}>"#,
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                first_row: Some(true),
+                last_row: Some(true),
+                first_column: Some(true),
+                last_column: Some(true),
+                odd_vertical_band: Some(true),
+                even_vertical_band: Some(true),
+                odd_horizontal_band: Some(true),
+                even_horizontal_band: Some(true),
+                first_row_first_column: Some(true),
+                first_row_last_column: Some(true),
+                last_row_first_column: Some(true),
+                last_row_last_column: Some(true),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_cnf_from_xml() {
+        let xml = Cnf::test_xml("cnf");
+        assert_eq!(
+            Cnf::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            Cnf::test_instance(),
+        );
+    }
+
+    impl PPrBase {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name}>
+                <pStyle val="Normal" />
+                <keepNext val="true" />
+                <keepLines val="true" />
+                <pageBreakBefore val="true" />
+                {}
+                <widowControl val="true" />
+                {}
+                <suppressLineNumbers val="true" />
+                {}
+                {}
+                {}
+                <suppressAutoHyphens val="true" />
+                <kinsoku val="true" />
+                <wordWrap val="true" />
+                <overflowPunct val="true" />
+                <topLinePunct val="true" />
+                <autoSpaceDE val="true" />
+                <autoSpaceDN val="true" />
+                <bidi val="true" />
+                <adjustRightInd val="true" />
+                <snapToGrid val="true" />
+                {}
+                {}
+                <contextualSpacing val="true" />
+                <mirrorIndents val="true" />
+                <suppressOverlap val="true" />
+                <jc val="start" />
+                <textDirection val="lr" />
+                <textAlignment val="auto" />
+                <textboxTightWrap val="none" />
+                <outlineLvl val="1" />
+                <divId val="1" />
+                {}
+            </{node_name}>"#,
+                FramePr::test_xml("framePr"),
+                NumPr::test_xml("numPr"),
+                PBdr::test_xml("pBdr"),
+                Shd::test_xml("shd"),
+                Tabs::test_xml("tabs"),
+                Spacing::test_xml("spacing"),
+                Ind::test_xml("ind"),
+                Cnf::test_xml("cnfStyle"),
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                style: Some(String::from("Normal")),
+                keep_with_next: Some(true),
+                keep_lines_on_one_page: Some(true),
+                start_on_next_page: Some(true),
+                frame_properties: Some(FramePr::test_instance()),
+                widow_control: Some(true),
+                numbering_properties: Some(NumPr::test_instance()),
+                suppress_line_numbers: Some(true),
+                borders: Some(PBdr::test_instance()),
+                shading: Some(Shd::test_instance()),
+                tabs: Some(Tabs::test_instance()),
+                suppress_auto_hyphens: Some(true),
+                kinsoku: Some(true),
+                word_wrapping: Some(true),
+                overflow_punctuations: Some(true),
+                top_line_punctuations: Some(true),
+                auto_space_latin_and_east_asian: Some(true),
+                auto_space_east_asian_and_numbers: Some(true),
+                bidirectional: Some(true),
+                adjust_right_indent: Some(true),
+                snap_to_grid: Some(true),
+                spacing: Some(Spacing::test_instance()),
+                indent: Some(Ind::test_instance()),
+                contextual_spacing: Some(true),
+                mirror_indents: Some(true),
+                suppress_overlapping: Some(true),
+                alignment: Some(Jc::Start),
+                text_direction: Some(TextDirection::LeftToRight),
+                text_alignment: Some(TextAlignment::Auto),
+                textbox_tight_wrap: Some(TextboxTightWrap::None),
+                outline_level: Some(1),
+                div_id: Some(1),
+                conditional_formatting: Some(Cnf::test_instance()),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_p_pr_base_from_xml() {
+        let xml = PPrBase::test_xml("pPrBase");
+        assert_eq!(
+            PPrBase::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            PPrBase::test_instance(),
+        );
+    }
+
+    impl ParaRPrTrackChanges {
+        pub fn test_xml() -> String {
+            format!(
+                r#"{}
+                {}
+                {}
+                {}
+            "#,
+                TrackChange::test_xml("ins"),
+                TrackChange::test_xml("del"),
+                TrackChange::test_xml("moveFrom"),
+                TrackChange::test_xml("moveTo"),
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                insert: Some(TrackChange::test_instance()),
+                deletion: Some(TrackChange::test_instance()),
+                move_from: Some(TrackChange::test_instance()),
+                move_to: Some(TrackChange::test_instance()),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_para_r_pr_track_changes_from_xml() {
+        let xml = format!("<node>{}</node>", ParaRPrTrackChanges::test_xml());
+        assert_eq!(
+            ParaRPrTrackChanges::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            Some(ParaRPrTrackChanges::test_instance()),
+        );
+    }
+
+    impl ParaRPrOriginal {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name}>
+                {}
+                {}
+            </{node_name}>"#,
+                ParaRPrTrackChanges::test_xml(),
+                RPrBase::test_run_style_xml(),
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                track_changes: Some(ParaRPrTrackChanges::test_instance()),
+                bases: vec![RPrBase::test_run_style_instance()],
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_para_r_pr_original_from_xml() {
+        let xml = ParaRPrOriginal::test_xml("paraRPrOriginal");
+        assert_eq!(
+            ParaRPrOriginal::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            ParaRPrOriginal::test_instance(),
+        );
+    }
+
+    impl ParaRPrChange {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} id="0" author="John Smith" date="2001-10-26T21:32:52">
+                {}
+            </{node_name}>"#,
+                ParaRPrOriginal::test_xml("rPr"),
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                base: TrackChange::test_instance(),
+                run_properties: ParaRPrOriginal::test_instance(),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_para_r_change_from_xml() {
+        let xml = ParaRPrChange::test_xml("paraRPrChange");
+        assert_eq!(
+            ParaRPrChange::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            ParaRPrChange::test_instance(),
+        );
+    }
+
+    impl ParaRPr {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name}>
+                {}
+                {}
+                {}
+            </{node_name}>"#,
+                ParaRPrTrackChanges::test_xml(),
+                RPrBase::test_run_style_xml(),
+                ParaRPrChange::test_xml("rPrChange"),
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                track_changes: Some(ParaRPrTrackChanges::test_instance()),
+                bases: vec![RPrBase::test_run_style_instance()],
+                change: Some(ParaRPrChange::test_instance()),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_para_r_pr_from_xml() {
+        let xml = ParaRPr::test_xml("paraRPr");
+        assert_eq!(
+            ParaRPr::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            ParaRPr::test_instance(),
+        );
+    }
+
+    impl HdrFtrRef {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} r:id="rId1" type="default"></{node_name}>"#,
+                node_name = node_name
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                base: Rel::test_instance(),
+                header_footer_type: HdrFtr::Default,
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_hdr_ftr_ref_from_xml() {
+        let xml = HdrFtrRef::test_xml("hdrFtrRef");
+        assert_eq!(
+            HdrFtrRef::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            HdrFtrRef::test_instance(),
+        );
+    }
+
+    impl NumFmt {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} val="decimal" format="&#x30A2;"></{node_name}>"#,
+                node_name = node_name
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                value: NumberFormat::Decimal,
+                format: Some(String::from("&#x30A2;")),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_num_fmt_from_xml() {
+        let xml = NumFmt::test_xml("numFmt");
+        assert_eq!(
+            NumFmt::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            NumFmt::test_instance(),
+        );
+    }
+
+    impl FtnEdnNumProps {
+        pub fn test_xml() -> String {
+            format!(
+                r#"<numStart val="1" />
+            <numRestart val="continuous" />
+            "#
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                numbering_start: Some(1),
+                numbering_restart: Some(RestartNumber::Continuous),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_ftn_edn_num_props_from_xml() {
+        let xml = format!("<node>{}</node>", FtnEdnNumProps::test_xml());
+        assert_eq!(
+            FtnEdnNumProps::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            FtnEdnNumProps::test_instance(),
+        );
+    }
+
+    impl FtnProps {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name}>
+                <pos val="pageBottom" />
+                {}
+                {}
+            </{node_name}>"#,
+                NumFmt::test_xml("numFmt"),
+                FtnEdnNumProps::test_xml(),
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                position: Some(FtnPos::PageBottom),
+                numbering_format: Some(NumFmt::test_instance()),
+                numbering_properties: Some(FtnEdnNumProps::test_instance()),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_ftn_props_from_xml() {
+        let xml = FtnProps::test_xml("ftnProps");
+        assert_eq!(
+            FtnProps::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            FtnProps::test_instance(),
+        );
+    }
+
+    impl EdnProps {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name}>
+                <pos val="docEnd" />
+                {}
+                {}
+            </{node_name}>"#,
+                NumFmt::test_xml("numFmt"),
+                FtnEdnNumProps::test_xml(),
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                position: Some(EdnPos::DocumentEnd),
+                numbering_format: Some(NumFmt::test_instance()),
+                numbering_properties: Some(FtnEdnNumProps::test_instance()),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_edn_props_from_xml() {
+        let xml = EdnProps::test_xml("endProps");
+        assert_eq!(
+            EdnProps::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            EdnProps::test_instance(),
+        );
+    }
+
+    impl PageSz {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} w="100" h="100" orient="portrait" code="1"></{node_name}>"#,
+                node_name = node_name
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                width: Some(TwipsMeasure::Decimal(100)),
+                height: Some(TwipsMeasure::Decimal(100)),
+                orientation: Some(PageOrientation::Portrait),
+                code: Some(1),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_page_sz_from_xml() {
+        let xml = PageSz::test_xml("pageSz");
+        assert_eq!(
+            PageSz::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            PageSz::test_instance(),
+        );
+    }
+
+    impl PageMar {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} top="10" right="10" bottom="10" left="10" header="10" footer="10" gutter="10">
+            </{node_name}>"#,
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                top: SignedTwipsMeasure::Decimal(10),
+                right: TwipsMeasure::Decimal(10),
+                bottom: SignedTwipsMeasure::Decimal(10),
+                left: TwipsMeasure::Decimal(10),
+                header: TwipsMeasure::Decimal(10),
+                footer: TwipsMeasure::Decimal(10),
+                gutter: TwipsMeasure::Decimal(10),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_page_mar_from_xml() {
+        let xml = PageMar::test_xml("pageMar");
+        assert_eq!(
+            PageMar::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            PageMar::test_instance(),
+        );
+    }
+
+    impl PaperSource {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} first="1" other="1"></{node_name}>"#,
+                node_name = node_name
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                first: Some(1),
+                other: Some(1),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_paper_source_from_xml() {
+        let xml = PaperSource::test_xml("paperSource");
+        assert_eq!(
+            PaperSource::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            PaperSource::test_instance(),
         );
     }
 }
