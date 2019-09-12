@@ -1,11 +1,11 @@
 use msoffice_shared::{
     drawingml::{
-        BlackWhiteMode, Coordinate, GraphicalObject, GraphicalObjectData, GroupShapeProperties,
-        NonVisualConnectorProperties, NonVisualContentPartProperties, NonVisualDrawingProps,
-        NonVisualDrawingShapeProps, NonVisualGraphicFrameProperties, Picture, Point2D, PositiveSize2D, ShapeProperties,
-        ShapeStyle, TextBodyProperties, Transform2D,
+        BlackWhiteMode, Coordinate, GraphicalObject, GroupShapeProperties, NonVisualConnectorProperties,
+        NonVisualContentPartProperties, NonVisualDrawingProps, NonVisualDrawingShapeProps,
+        NonVisualGraphicFrameProperties, Picture, Point2D, PositiveSize2D, ShapeProperties, ShapeStyle,
+        TextBodyProperties, Transform2D,
     },
-    error::{Limit, LimitViolationError, MissingAttributeError, MissingChildNodeError, NotGroupMemberError},
+    error::{LimitViolationError, MaxOccurs, MissingAttributeError, MissingChildNodeError, NotGroupMemberError},
     relationship::RelationshipId,
     xml::{parse_xml_bool, XmlNode},
 };
@@ -162,8 +162,8 @@ impl WrapPath {
             return Err(Box::new(LimitViolationError::new(
                 xml_node.name.clone(),
                 "lineTo",
-                Limit::Value(2),
-                Limit::Unbounded,
+                2,
+                MaxOccurs::Unbounded,
                 line_to.len() as u32,
             )));
         }
@@ -748,7 +748,7 @@ pub struct WordprocessingCanvas {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use msoffice_shared::drawingml::Hyperlink;
+    use msoffice_shared::drawingml::{GraphicalObjectData, Hyperlink};
 
     impl EffectExtent {
         pub fn test_xml(node_name: &'static str) -> String {

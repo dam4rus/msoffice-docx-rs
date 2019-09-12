@@ -5,8 +5,8 @@ use super::{
 use msoffice_shared::{
     drawingml::{parse_hex_color_rgb, HexColorRGB},
     error::{
-        Limit, LimitViolationError, MissingAttributeError, MissingChildNodeError, NotGroupMemberError, ParseBoolError,
-        PatternRestrictionError,
+        LimitViolationError, MaxOccurs, MissingAttributeError, MissingChildNodeError, NotGroupMemberError,
+        ParseBoolError, PatternRestrictionError,
     },
     relationship::RelationshipId,
     sharedtypes::{
@@ -15,6 +15,7 @@ use msoffice_shared::{
     },
     util::XmlNodeExt,
     xml::{parse_xml_bool, XmlNode},
+    xsdtypes::XsdChoice,
 };
 use regex::Regex;
 use std::str::FromStr;
@@ -621,12 +622,11 @@ impl SimpleField {
             }
         }
 
-        let mut paragraph_contents = Vec::new();
-        for child_node in &xml_node.child_nodes {
-            if PContent::is_choice_member(child_node.local_name()) {
-                paragraph_contents.push(PContent::from_xml_element(child_node)?);
-            }
-        }
+        let paragraph_contents = xml_node
+            .child_nodes
+            .iter()
+            .filter_map(|child_node| PContent::try_from_xml_element(child_node))
+            .collect::<Result<Vec<_>>>()?;
 
         let field_codes = field_codes.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "instr"))?;
 
@@ -671,12 +671,11 @@ impl Hyperlink {
             }
         }
 
-        let mut paragraph_contents = Vec::new();
-        for child_node in &xml_node.child_nodes {
-            if PContent::is_choice_member(child_node.local_name()) {
-                paragraph_contents.push(PContent::from_xml_element(child_node)?);
-            }
-        }
+        let paragraph_contents = xml_node
+            .child_nodes
+            .iter()
+            .filter_map(|child_node| PContent::try_from_xml_element(child_node))
+            .collect::<Result<Vec<_>>>()?;
 
         let rel_id = rel_id.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "r:id"))?;
         Ok(Self {
@@ -716,15 +715,15 @@ pub enum PContent {
     SubDocument(Rel),
 }
 
-impl PContent {
-    pub fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
+impl XsdChoice for PContent {
+    fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
         match node_name.as_ref() {
             "fldSimple" | "hyperlink" | "subDoc" => true,
             _ => ContentRunContent::is_choice_member(&node_name),
         }
     }
 
-    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+    fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
         match xml_node.local_name() {
             node_name @ _ if ContentRunContent::is_choice_member(node_name) => Ok(PContent::ContentRunContent(
                 ContentRunContent::from_xml_element(xml_node)?,
@@ -1427,10 +1426,8 @@ impl Border {
             }
         }
 
-        let value = value.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "val"))?;
-
         Ok(Self {
-            value,
+            value: value.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "val"))?,
             color,
             theme_color,
             theme_tint,
@@ -1725,8 +1722,8 @@ pub enum RPrBase {
     OMath(Option<OnOff>),
 }
 
-impl RPrBase {
-    pub fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
+impl XsdChoice for RPrBase {
+    fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
         match node_name.as_ref() {
             "rStyle" | "rFonts" | "b" | "bCs" | "i" | "iCs" | "caps" | "smallCaps" | "strike" | "dstrike"
             | "outline" | "shadow" | "emboss" | "imprint" | "noProof" | "snapToGrid" | "vanish" | "webHidden"
@@ -1737,7 +1734,7 @@ impl RPrBase {
         }
     }
 
-    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+    fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
         match xml_node.local_name() {
             "rStyle" => Ok(RPrBase::RunStyle(xml_node.get_val_attribute()?.clone())),
             "rFonts" => Ok(RPrBase::RunFonts(Fonts::from_xml_element(xml_node)?)),
@@ -1797,14 +1794,13 @@ pub struct RPrOriginal {
 
 impl RPrOriginal {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
-        let mut instance: Self = Default::default();
-        for child_node in &xml_node.child_nodes {
-            if RPrBase::is_choice_member(child_node.local_name()) {
-                instance.r_pr_bases.push(RPrBase::from_xml_element(child_node)?);
-            }
-        }
+        let r_pr_bases = xml_node
+            .child_nodes
+            .iter()
+            .filter_map(|child_node| RPrBase::try_from_xml_element(child_node))
+            .collect::<Result<Vec<_>>>()?;
 
-        Ok(instance)
+        Ok(Self { r_pr_bases })
     }
 }
 
@@ -1886,13 +1882,8 @@ impl SdtComboBox {
         let list_items = xml_node
             .child_nodes
             .iter()
-            .filter_map(|child_node| {
-                if child_node.local_name() == "listItem" {
-                    Some(SdtListItem::from_xml_element(child_node))
-                } else {
-                    None
-                }
-            })
+            .filter(|child_node| child_node.local_name() == "listItem")
+            .map(|child_node| SdtListItem::from_xml_element(child_node))
             .collect::<Result<Vec<_>>>()?;
 
         Ok(Self { list_items, last_value })
@@ -1985,13 +1976,8 @@ impl SdtDropDownList {
         let list_items = xml_node
             .child_nodes
             .iter()
-            .filter_map(|child_node| {
-                if child_node.local_name() == "listItem" {
-                    Some(SdtListItem::from_xml_element(child_node))
-                } else {
-                    None
-                }
-            })
+            .filter(|child_node| child_node.local_name() == "listItem")
+            .map(|child_node| SdtListItem::from_xml_element(child_node))
             .collect::<Result<Vec<_>>>()?;
 
         Ok(Self { list_items, last_value })
@@ -2087,7 +2073,8 @@ impl Placeholder {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
         let document_part_node = xml_node
             .child_nodes
-            .first()
+            .iter()
+            .find(|child_node| child_node.local_name() == "docPart")
             .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "docPart"))?;
 
         let document_part = document_part_node
@@ -2188,13 +2175,8 @@ impl SdtEndPr {
         let run_properties_vec = xml_node
             .child_nodes
             .iter()
-            .filter_map(|child_node| {
-                if child_node.local_name() == "rPr" {
-                    Some(RPr::from_xml_element(child_node))
-                } else {
-                    None
-                }
-            })
+            .filter(|child_node| child_node.local_name() == "rPr")
+            .map(|child_node| RPr::from_xml_element(child_node))
             .collect::<Result<Vec<_>>>()?;
 
         Ok(Self { run_properties_vec })
@@ -2211,13 +2193,7 @@ impl SdtContentRun {
         let p_contents = xml_node
             .child_nodes
             .iter()
-            .filter_map(|child_node| {
-                if PContent::is_choice_member(child_node.local_name()) {
-                    Some(PContent::from_xml_element(child_node))
-                } else {
-                    None
-                }
-            })
+            .filter_map(|child_node| PContent::try_from_xml_element(child_node))
             .collect::<Result<Vec<_>>>()?;
 
         Ok(Self { p_contents })
@@ -2269,13 +2245,7 @@ impl DirContentRun {
         let p_contents = xml_node
             .child_nodes
             .iter()
-            .filter_map(|child_node| {
-                if PContent::is_choice_member(child_node.local_name()) {
-                    Some(PContent::from_xml_element(child_node))
-                } else {
-                    None
-                }
-            })
+            .filter_map(|child_node| PContent::try_from_xml_element(child_node))
             .collect::<Result<Vec<_>>>()?;
 
         Ok(Self { p_contents, value })
@@ -2295,13 +2265,7 @@ impl BdoContentRun {
         let p_contents = xml_node
             .child_nodes
             .iter()
-            .filter_map(|child_node| {
-                if PContent::is_choice_member(child_node.local_name()) {
-                    Some(PContent::from_xml_element(child_node))
-                } else {
-                    None
-                }
-            })
+            .filter_map(|child_node| PContent::try_from_xml_element(child_node))
             .collect::<Result<Vec<_>>>()?;
 
         Ok(Self { p_contents, value })
@@ -2540,15 +2504,15 @@ pub enum DrawingChoice {
     Inline(Inline),
 }
 
-impl DrawingChoice {
-    pub fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
+impl XsdChoice for DrawingChoice {
+    fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
         match node_name.as_ref() {
             "anchor" | "inline" => true,
             _ => false,
         }
     }
 
-    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+    fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
         match xml_node.local_name() {
             "anchor" => Ok(DrawingChoice::Anchor(Anchor::from_xml_element(xml_node)?)),
             "inline" => Ok(DrawingChoice::Inline(Inline::from_xml_element(xml_node)?)),
@@ -2570,13 +2534,7 @@ impl Drawing {
         let anchor_or_inline_vec = xml_node
             .child_nodes
             .iter()
-            .filter_map(|child_node| {
-                if DrawingChoice::is_choice_member(child_node.local_name()) {
-                    Some(DrawingChoice::from_xml_element(child_node))
-                } else {
-                    None
-                }
-            })
+            .filter_map(|child_node| DrawingChoice::try_from_xml_element(child_node))
             .collect::<Result<Vec<_>>>()?;
 
         Ok(Self { anchor_or_inline_vec })
@@ -2811,8 +2769,8 @@ pub enum FFData {
     TextInput(FFTextInput),
 }
 
-impl FFData {
-    pub fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
+impl XsdChoice for FFData {
+    fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
         match node_name.as_ref() {
             "name" | "label" | "tabIndex" | "enabled" | "calcOnExit" | "entryMacro" | "exitMacro" | "helpText"
             | "statusText" | "checkBox" | "ddList" | "textInput" => true,
@@ -2820,7 +2778,7 @@ impl FFData {
         }
     }
 
-    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+    fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
         match xml_node.local_name() {
             "name" => Ok(FFData::Name(xml_node.get_val_attribute()?.clone())),
             "label" => Ok(FFData::Label(xml_node.get_val_attribute()?.parse()?)),
@@ -2874,8 +2832,8 @@ impl FldChar {
 
         let form_field_properties = xml_node
             .child_nodes
-            .first()
-            .map(|child_node| FFData::from_xml_element(child_node))
+            .iter()
+            .find_map(|child_node| FFData::try_from_xml_element(child_node))
             .transpose()?;
 
         let field_char_type =
@@ -2961,15 +2919,15 @@ pub enum RubyContentChoice {
     RunLevelElement(RunLevelElts),
 }
 
-impl RubyContentChoice {
-    pub fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
+impl XsdChoice for RubyContentChoice {
+    fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
         match node_name.as_ref() {
             "r" => true,
             _ => RunLevelElts::is_choice_member(&node_name),
         }
     }
 
-    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+    fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
         match xml_node.local_name() {
             "r" => Ok(RubyContentChoice::Run(R::from_xml_element(xml_node)?)),
             node_name @ _ if RunLevelElts::is_choice_member(node_name) => Ok(RubyContentChoice::RunLevelElement(
@@ -2993,13 +2951,7 @@ impl RubyContent {
         let ruby_contents = xml_node
             .child_nodes
             .iter()
-            .filter_map(|child_node| {
-                if RubyContentChoice::is_choice_member(child_node.local_name()) {
-                    Some(RubyContentChoice::from_xml_element(child_node))
-                } else {
-                    None
-                }
-            })
+            .filter_map(|child_node| RubyContentChoice::try_from_xml_element(child_node))
             .collect::<Result<Vec<_>>>()?;
 
         Ok(Self { ruby_contents })
@@ -3341,12 +3293,12 @@ pub enum RunTrackChangeChoice {
     // OMathMathElements(OMathMathElements),
 }
 
-impl RunTrackChangeChoice {
-    pub fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
+impl XsdChoice for RunTrackChangeChoice {
+    fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
         ContentRunContent::is_choice_member(node_name)
     }
 
-    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+    fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
         let local_name = xml_node.local_name();
         if ContentRunContent::is_choice_member(local_name) {
             Ok(RunTrackChangeChoice::ContentRunContent(
@@ -3373,13 +3325,7 @@ impl RunTrackChange {
         let choices = xml_node
             .child_nodes
             .iter()
-            .filter_map(|child_node| {
-                if RunTrackChangeChoice::is_choice_member(child_node.local_name()) {
-                    Some(RunTrackChangeChoice::from_xml_element(child_node))
-                } else {
-                    None
-                }
-            })
+            .filter_map(|child_node| RunTrackChangeChoice::try_from_xml_element(child_node))
             .collect::<Result<Vec<_>>>()?;
 
         Ok(Self { base, choices })
@@ -3601,13 +3547,7 @@ impl SdtContentBlock {
         let block_contents = xml_node
             .child_nodes
             .iter()
-            .filter_map(|child_node| {
-                if ContentBlockContent::is_choice_member(child_node.local_name()) {
-                    Some(ContentBlockContent::from_xml_element(child_node))
-                } else {
-                    None
-                }
-            })
+            .filter_map(|child_node| ContentBlockContent::try_from_xml_element(child_node))
             .collect::<Result<Vec<_>>>()?;
 
         Ok(Self { block_contents })
@@ -3872,22 +3812,17 @@ impl Tabs {
         let tabs = xml_node
             .child_nodes
             .iter()
-            .filter_map(|child_node| {
-                if child_node.local_name() == "tab" {
-                    Some(TabStop::from_xml_element(child_node))
-                } else {
-                    None
-                }
-            })
+            .filter(|child_node| child_node.local_name() == "tab")
+            .map(|child_node| TabStop::from_xml_element(child_node))
             .collect::<Result<Vec<_>>>()?;
 
         if tabs.is_empty() {
             Err(Box::new(LimitViolationError::new(
                 xml_node.name.clone(),
                 "tab",
-                Limit::Value(1),
-                Limit::Unbounded,
-                tabs.len() as u32,
+                1,
+                MaxOccurs::Unbounded,
+                0,
             )))
         } else {
             Ok(Self { tabs })
@@ -4180,25 +4115,7 @@ impl ParaRPrTrackChanges {
         let mut instance: Option<Self> = None;
 
         for child_node in &xml_node.child_nodes {
-            match child_node.local_name() {
-                "ins" => {
-                    instance.get_or_insert_with(Default::default).insert =
-                        Some(TrackChange::from_xml_element(child_node)?)
-                }
-                "del" => {
-                    instance.get_or_insert_with(Default::default).deletion =
-                        Some(TrackChange::from_xml_element(child_node)?)
-                }
-                "moveFrom" => {
-                    instance.get_or_insert_with(Default::default).move_from =
-                        Some(TrackChange::from_xml_element(child_node)?)
-                }
-                "moveTo" => {
-                    instance.get_or_insert_with(Default::default).move_to =
-                        Some(TrackChange::from_xml_element(child_node)?)
-                }
-                _ => (),
-            }
+            Self::try_parse_group_node(&mut instance, child_node)?;
         }
 
         Ok(instance)
@@ -4339,15 +4256,15 @@ pub enum HdrFtrReferences {
     Footer(HdrFtrRef),
 }
 
-impl HdrFtrReferences {
-    pub fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
+impl XsdChoice for HdrFtrReferences {
+    fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
         match node_name.as_ref() {
             "headerReference" | "footerReference" => true,
             _ => false,
         }
     }
 
-    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+    fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
         match xml_node.local_name() {
             "headerReference" => Ok(HdrFtrReferences::Header(HdrFtrRef::from_xml_element(xml_node)?)),
             "footerReference" => Ok(HdrFtrReferences::Footer(HdrFtrRef::from_xml_element(xml_node)?)),
@@ -4544,15 +4461,11 @@ pub struct FtnEdnNumProps {
 }
 
 impl FtnEdnNumProps {
-    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
-        let mut instance: Self = Default::default();
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Option<Self>> {
+        let mut instance: Option<Self> = None;
 
         for child_node in &xml_node.child_nodes {
-            match child_node.local_name() {
-                "numStart" => instance.numbering_start = Some(child_node.get_val_attribute()?.parse()?),
-                "numRestart" => instance.numbering_restart = Some(child_node.get_val_attribute()?.parse()?),
-                _ => (),
-            }
+            Self::try_parse_group_node(&mut instance, child_node)?;
         }
 
         Ok(instance)
@@ -4749,31 +4662,316 @@ impl PaperSource {
     }
 }
 
-/*
-<xsd:group name="EG_SectPrContents">
-    <xsd:sequence>
-      <xsd:element name="footnotePr" type="CT_FtnProps" minOccurs="0"/>
-      <xsd:element name="endnotePr" type="CT_EdnProps" minOccurs="0"/>
-      <xsd:element name="type" type="CT_SectType" minOccurs="0"/>
-      <xsd:element name="pgSz" type="CT_PageSz" minOccurs="0"/>
-      <xsd:element name="pgMar" type="CT_PageMar" minOccurs="0"/>
-      <xsd:element name="paperSrc" type="CT_PaperSource" minOccurs="0"/>
-      <xsd:element name="pgBorders" type="CT_PageBorders" minOccurs="0"/>
-      <xsd:element name="lnNumType" type="CT_LineNumber" minOccurs="0"/>
-      <xsd:element name="pgNumType" type="CT_PageNumber" minOccurs="0"/>
-      <xsd:element name="cols" type="CT_Columns" minOccurs="0"/>
-      <xsd:element name="formProt" type="CT_OnOff" minOccurs="0"/>
-      <xsd:element name="vAlign" type="CT_VerticalJc" minOccurs="0"/>
-      <xsd:element name="noEndnote" type="CT_OnOff" minOccurs="0"/>
-      <xsd:element name="titlePg" type="CT_OnOff" minOccurs="0"/>
-      <xsd:element name="textDirection" type="CT_TextDirection" minOccurs="0"/>
-      <xsd:element name="bidi" type="CT_OnOff" minOccurs="0"/>
-      <xsd:element name="rtlGutter" type="CT_OnOff" minOccurs="0"/>
-      <xsd:element name="docGrid" type="CT_DocGrid" minOccurs="0"/>
-      <xsd:element name="printerSettings" type="CT_Rel" minOccurs="0"/>
-    </xsd:sequence>
-  </xsd:group>
-*/
+#[derive(Debug, Clone, PartialEq)]
+pub struct PageBorder {
+    pub base: Border,
+    pub rel_id: Option<RelationshipId>,
+}
+
+impl PageBorder {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let base = Border::from_xml_element(xml_node)?;
+        let rel_id = xml_node.attributes.get("r:id").map(|value| value.parse()).transpose()?;
+
+        Ok(Self { base, rel_id })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct TopPageBorder {
+    pub base: PageBorder,
+    pub top_left: Option<RelationshipId>,
+    pub top_right: Option<RelationshipId>,
+}
+
+impl TopPageBorder {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let base = PageBorder::from_xml_element(xml_node)?;
+        let top_left = xml_node.attributes.get("r:topLeft").cloned();
+        let top_right = xml_node.attributes.get("r:topRight").cloned();
+
+        Ok(Self {
+            base,
+            top_left,
+            top_right,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct BottomPageBorder {
+    pub base: PageBorder,
+    pub bottom_left: Option<RelationshipId>,
+    pub bottom_right: Option<RelationshipId>,
+}
+
+impl BottomPageBorder {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let base = PageBorder::from_xml_element(xml_node)?;
+        let bottom_left = xml_node.attributes.get("r:bottomLeft").cloned();
+        let bottom_right = xml_node.attributes.get("r:bottomRight").cloned();
+
+        Ok(Self {
+            base,
+            bottom_left,
+            bottom_right,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, EnumString)]
+pub enum PageBorderZOrder {
+    #[strum(serialize = "front")]
+    Front,
+    #[strum(serialize = "back")]
+    Back,
+}
+
+#[derive(Debug, Clone, PartialEq, EnumString)]
+pub enum PageBorderDisplay {
+    #[strum(serialize = "allPages")]
+    AllPages,
+    #[strum(serialize = "firstPage")]
+    FirstPage,
+    #[strum(serialize = "notFirstPage")]
+    NotFirstPage,
+}
+
+#[derive(Debug, Clone, PartialEq, EnumString)]
+pub enum PageBorderOffset {
+    #[strum(serialize = "page")]
+    Page,
+    #[strum(serialize = "text")]
+    Text,
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct PageBorders {
+    pub top: Option<TopPageBorder>,
+    pub left: Option<PageBorder>,
+    pub bottom: Option<BottomPageBorder>,
+    pub right: Option<PageBorder>,
+    pub z_order: Option<PageBorderZOrder>,
+    pub display: Option<PageBorderDisplay>,
+    pub offset_from: Option<PageBorderOffset>,
+}
+
+impl PageBorders {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: Self = Default::default();
+
+        for (attr, value) in &xml_node.attributes {
+            match attr.as_ref() {
+                "zOrder" => instance.z_order = Some(value.parse()?),
+                "display" => instance.display = Some(value.parse()?),
+                "offsetFrom" => instance.offset_from = Some(value.parse()?),
+                _ => (),
+            }
+        }
+
+        for child_node in &xml_node.child_nodes {
+            match child_node.local_name() {
+                "top" => instance.top = Some(TopPageBorder::from_xml_element(child_node)?),
+                "left" => instance.left = Some(PageBorder::from_xml_element(child_node)?),
+                "bottom" => instance.bottom = Some(BottomPageBorder::from_xml_element(child_node)?),
+                "right" => instance.right = Some(PageBorder::from_xml_element(child_node)?),
+                _ => (),
+            }
+        }
+
+        Ok(instance)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, EnumString)]
+pub enum LineNumberRestart {
+    #[strum(serialize = "newPage")]
+    NewPage,
+    #[strum(serialize = "newSection")]
+    NewSection,
+    #[strum(serialize = "continuous")]
+    Continuous,
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct LineNumber {
+    pub count_by: Option<DecimalNumber>,
+    pub start: Option<DecimalNumber>,
+    pub distance: Option<TwipsMeasure>,
+    pub restart: Option<LineNumberRestart>,
+}
+
+impl LineNumber {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: Self = Default::default();
+
+        for (attr, value) in &xml_node.attributes {
+            match attr.as_ref() {
+                "countBy" => instance.count_by = Some(value.parse()?),
+                "start" => instance.start = Some(value.parse()?),
+                "distance" => instance.distance = Some(value.parse()?),
+                "restart" => instance.restart = Some(value.parse()?),
+                _ => (),
+            }
+        }
+
+        Ok(instance)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, EnumString)]
+pub enum ChapterSep {
+    #[strum(serialize = "hyphen")]
+    Hyphen,
+    #[strum(serialize = "period")]
+    Period,
+    #[strum(serialize = "colon")]
+    Color,
+    #[strum(serialize = "emDash")]
+    EmDash,
+    #[strum(serialize = "enDash")]
+    EnDash,
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct PageNumber {
+    pub format: Option<NumberFormat>,
+    pub start: Option<DecimalNumber>,
+    pub chapter_style: Option<DecimalNumber>,
+    pub chapter_separator: Option<ChapterSep>,
+}
+
+impl PageNumber {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: Self = Default::default();
+
+        for (attr, value) in &xml_node.attributes {
+            match attr.as_ref() {
+                "fmt" => instance.format = Some(value.parse()?),
+                "start" => instance.start = Some(value.parse()?),
+                "chapStyle" => instance.chapter_style = Some(value.parse()?),
+                "chapSep" => instance.chapter_separator = Some(value.parse()?),
+                _ => (),
+            }
+        }
+
+        Ok(instance)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct Column {
+    pub width: Option<TwipsMeasure>,
+    pub spacing: Option<TwipsMeasure>,
+}
+
+impl Column {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: Self = Default::default();
+
+        for (attr, value) in &xml_node.attributes {
+            match attr.as_ref() {
+                "w" => instance.width = Some(value.parse()?),
+                "space" => instance.spacing = Some(value.parse()?),
+                _ => (),
+            }
+        }
+
+        Ok(instance)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct Columns {
+    pub columns: Vec<Column>,
+    pub equal_width: Option<OnOff>,
+    pub spacing: Option<TwipsMeasure>,
+    pub number: Option<DecimalNumber>,
+    pub separator: Option<OnOff>,
+}
+
+impl Columns {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: Self = Default::default();
+
+        for (attr, value) in &xml_node.attributes {
+            match attr.as_ref() {
+                "equalWidth" => instance.equal_width = Some(parse_xml_bool(value)?),
+                "space" => instance.spacing = Some(value.parse()?),
+                "num" => instance.number = Some(value.parse()?),
+                "sep" => instance.separator = Some(parse_xml_bool(value)?),
+                _ => (),
+            }
+        }
+
+        instance.columns = xml_node
+            .child_nodes
+            .iter()
+            .filter(|child_node| child_node.local_name() == "col")
+            .map(|child_node| Column::from_xml_element(child_node))
+            .collect::<Result<Vec<_>>>()?;
+
+        match instance.columns.len() {
+            0..=45 => Ok(instance),
+            occurs @ _ => Err(Box::new(LimitViolationError::new(
+                xml_node.name.clone(),
+                "col",
+                0,
+                MaxOccurs::Value(45),
+                occurs as u32,
+            ))),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, EnumString)]
+pub enum VerticalJc {
+    #[strum(serialize = "top")]
+    Top,
+    #[strum(serialize = "center")]
+    Center,
+    #[strum(serialize = "both")]
+    Both,
+    #[strum(serialize = "bottom")]
+    Bottom,
+}
+
+#[derive(Debug, Clone, PartialEq, EnumString)]
+pub enum DocGridType {
+    #[strum(serialize = "default")]
+    Default,
+    #[strum(serialize = "lines")]
+    Lines,
+    #[strum(serialize = "linesAndChars")]
+    LinesAndChars,
+    #[strum(serialize = "snapToChars")]
+    SnapToChars,
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct DocGrid {
+    pub doc_grid_type: Option<DocGridType>,
+    pub line_pitch: Option<DecimalNumber>,
+    pub char_spacing: Option<DecimalNumber>, // defaults to 0
+}
+
+impl DocGrid {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: Self = Default::default();
+
+        for (attr, value) in &xml_node.attributes {
+            match attr.as_ref() {
+                "type" => instance.doc_grid_type = Some(value.parse()?),
+                "linePitch" => instance.line_pitch = Some(value.parse()?),
+                "charSpace" => instance.char_spacing = Some(value.parse()?),
+                _ => (),
+            }
+        }
+
+        Ok(instance)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct SectPrContents {
     pub footnote_properties: Option<FtnProps>,
@@ -4782,37 +4980,229 @@ pub struct SectPrContents {
     pub page_size: Option<PageSz>,
     pub page_margin: Option<PageMar>,
     pub paper_source: Option<PaperSource>,
-    // pub page_borders: Option<PageBorders>,
-    // pub line_number_type: Option<LineNumber>,
-    // pub page_number_type: Option<PageNumber>,
-    // pub columns: Option<Columns>,
-    // pub protect_form_fields: Option<OnOff>,
-    // pub vertical_align: Option<VerticalJc>,
-    // pub no_endnote: Option<OnOff>,
-    // pub title_page: Option<OnOff>,
-    // pub text_direction: Option<TextDirection>,
-    // pub bidirectional: Option<OnOff>,
-    // pub rtl_gutter: Option<OnOff>,
-    // pub document_grid: Option<DocGrid>,
-    // pub printer_settings: Option<Rel>,
+    pub page_borders: Option<PageBorders>,
+    pub line_number_type: Option<LineNumber>,
+    pub page_number_type: Option<PageNumber>,
+    pub columns: Option<Columns>,
+    pub protect_form_fields: Option<OnOff>,
+    pub vertical_align: Option<VerticalJc>,
+    pub no_endnote: Option<OnOff>,
+    pub title_page: Option<OnOff>,
+    pub text_direction: Option<TextDirection>,
+    pub bidirectional: Option<OnOff>,
+    pub rtl_gutter: Option<OnOff>,
+    pub document_grid: Option<DocGrid>,
+    pub printer_settings: Option<Rel>,
 }
 
-/*
-<xsd:complexType name="CT_SectPr">
-    <xsd:sequence>
-      <xsd:group ref="EG_HdrFtrReferences" minOccurs="0" maxOccurs="6"/>
-      <xsd:group ref="EG_SectPrContents" minOccurs="0"/>
-      <xsd:element name="sectPrChange" type="CT_SectPrChange" minOccurs="0"/>
-    </xsd:sequence>
-    <xsd:attributeGroup ref="AG_SectPrAttributes"/>
-  </xsd:complexType>
-*/
+impl SectPrContents {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Option<Self>> {
+        let mut instance: Option<Self> = None;
+
+        for child_node in &xml_node.child_nodes {
+            Self::try_parse_group_node(&mut instance, child_node)?;
+        }
+
+        Ok(instance)
+    }
+
+    pub fn try_parse_group_node(instance: &mut Option<Self>, xml_node: &XmlNode) -> Result<bool> {
+        match xml_node.local_name() {
+            "footnotePr" => {
+                instance.get_or_insert_with(Default::default).footnote_properties =
+                    Some(FtnProps::from_xml_element(xml_node)?);
+                Ok(true)
+            }
+            "endnotePr" => {
+                instance.get_or_insert_with(Default::default).endnote_properties =
+                    Some(EdnProps::from_xml_element(xml_node)?);
+                Ok(true)
+            }
+            "type" => {
+                instance.get_or_insert_with(Default::default).section_type =
+                    Some(xml_node.get_val_attribute()?.parse()?);
+                Ok(true)
+            }
+            "pgSz" => {
+                instance.get_or_insert_with(Default::default).page_size = Some(PageSz::from_xml_element(xml_node)?);
+                Ok(true)
+            }
+            "pgMar" => {
+                instance.get_or_insert_with(Default::default).page_margin = Some(PageMar::from_xml_element(xml_node)?);
+                Ok(true)
+            }
+            "paperSrc" => {
+                instance.get_or_insert_with(Default::default).paper_source =
+                    Some(PaperSource::from_xml_element(xml_node)?);
+                Ok(true)
+            }
+            "pgBorders" => {
+                instance.get_or_insert_with(Default::default).page_borders =
+                    Some(PageBorders::from_xml_element(xml_node)?);
+                Ok(true)
+            }
+            "lnNumType" => {
+                instance.get_or_insert_with(Default::default).line_number_type =
+                    Some(LineNumber::from_xml_element(xml_node)?);
+                Ok(true)
+            }
+            "pgNumType" => {
+                instance.get_or_insert_with(Default::default).page_number_type =
+                    Some(PageNumber::from_xml_element(xml_node)?);
+                Ok(true)
+            }
+            "cols" => {
+                instance.get_or_insert_with(Default::default).columns = Some(Columns::from_xml_element(xml_node)?);
+                Ok(true)
+            }
+            "formProt" => {
+                instance.get_or_insert_with(Default::default).protect_form_fields = parse_on_off_xml_element(xml_node)?;
+                Ok(true)
+            }
+            "vAlign" => {
+                instance.get_or_insert_with(Default::default).vertical_align =
+                    Some(xml_node.get_val_attribute()?.parse()?);
+                Ok(true)
+            }
+            "noEndnote" => {
+                instance.get_or_insert_with(Default::default).no_endnote = parse_on_off_xml_element(xml_node)?;
+                Ok(true)
+            }
+            "titlePg" => {
+                instance.get_or_insert_with(Default::default).title_page = parse_on_off_xml_element(xml_node)?;
+                Ok(true)
+            }
+            "textDirection" => {
+                instance.get_or_insert_with(Default::default).text_direction =
+                    Some(xml_node.get_val_attribute()?.parse()?);
+                Ok(true)
+            }
+            "bidi" => {
+                instance.get_or_insert_with(Default::default).bidirectional = parse_on_off_xml_element(xml_node)?;
+                Ok(true)
+            }
+            "rtlGutter" => {
+                instance.get_or_insert_with(Default::default).rtl_gutter = parse_on_off_xml_element(xml_node)?;
+                Ok(true)
+            }
+            "docGrid" => {
+                instance.get_or_insert_with(Default::default).document_grid =
+                    Some(DocGrid::from_xml_element(xml_node)?);
+                Ok(true)
+            }
+            "printerSettings" => {
+                instance.get_or_insert_with(Default::default).printer_settings = Some(Rel::from_xml_element(xml_node)?);
+                Ok(true)
+            }
+            _ => Ok(false),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct SectPrAttributes {
+    pub run_properties_revision_id: Option<LongHexNumber>,
+    pub deletion_revision_id: Option<LongHexNumber>,
+    pub run_revision_id: Option<LongHexNumber>,
+    pub section_revision_id: Option<LongHexNumber>,
+}
+
+impl SectPrAttributes {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: Self = Default::default();
+
+        for (attr, value) in &xml_node.attributes {
+            match attr.as_ref() {
+                "rsidRPr" => instance.run_properties_revision_id = Some(LongHexNumber::from_str_radix(value, 16)?),
+                "rsidDel" => instance.deletion_revision_id = Some(LongHexNumber::from_str_radix(value, 16)?),
+                "rsidR" => instance.run_revision_id = Some(LongHexNumber::from_str_radix(value, 16)?),
+                "rsidSect" => instance.section_revision_id = Some(LongHexNumber::from_str_radix(value, 16)?),
+                _ => (),
+            }
+        }
+
+        Ok(instance)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct SectPrBase {
+    pub contents: Option<SectPrContents>,
+    pub attributes: SectPrAttributes,
+}
+
+impl SectPrBase {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        Ok(Self {
+            contents: SectPrContents::from_xml_element(xml_node)?,
+            attributes: SectPrAttributes::from_xml_element(xml_node)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SectPrChange {
+    pub base: TrackChange,
+    pub section_properties: Option<SectPrBase>,
+}
+
+impl SectPrChange {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let base = TrackChange::from_xml_element(xml_node)?;
+        let section_properties = xml_node
+            .child_nodes
+            .iter()
+            .find(|child_node| child_node.local_name() == "sectPr")
+            .map(|child_node| SectPrBase::from_xml_element(child_node))
+            .transpose()?;
+
+        Ok(Self {
+            base,
+            section_properties,
+        })
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct SectPr {
     pub header_footer_references: Vec<HdrFtrReferences>,
     pub contents: Option<SectPrContents>,
-    // pub change: Option<SectPrChange>,
-    // pub attributes: SectPrAttributes,
+    pub change: Option<SectPrChange>,
+    pub attributes: SectPrAttributes,
+}
+
+impl SectPr {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: Self = Default::default();
+
+        instance.attributes = SectPrAttributes::from_xml_element(xml_node)?;
+
+        for child_node in &xml_node.child_nodes {
+            if let Some(result) = HdrFtrReferences::try_from_xml_element(child_node) {
+                instance.header_footer_references.push(result?);
+                continue;
+            }
+
+            if SectPrContents::try_parse_group_node(&mut instance.contents, child_node)? {
+                continue;
+            }
+
+            if child_node.local_name() == "sectPrChange" {
+                instance.change = Some(SectPrChange::from_xml_element(child_node)?);
+            }
+        }
+
+        match instance.header_footer_references.len() {
+            0..=6 => Ok(instance),
+            occurs @ _ => Err(Box::new(LimitViolationError::new(
+                xml_node.name.clone(),
+                "headerReference|footerReference",
+                0,
+                MaxOccurs::Value(6),
+                occurs as u32,
+            ))),
+        }
+    }
 }
 
 /*
@@ -4880,15 +5270,15 @@ pub enum ContentBlockContent {
     RunLevelElement(RunLevelElts),
 }
 
-impl ContentBlockContent {
-    pub fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
+impl XsdChoice for ContentBlockContent {
+    fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
         match node_name.as_ref() {
             "customXml" | "sdt" | "p" | "tbl" => true,
             _ => RunLevelElts::is_choice_member(&node_name),
         }
     }
 
-    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+    fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
         match xml_node.local_name() {
             "customXml" => Ok(ContentBlockContent::CustomXml(CustomXmlBlock::from_xml_element(
                 xml_node,
@@ -5249,9 +5639,12 @@ mod tests {
     }
 
     impl TrackChange {
+        const TEST_ATTRIBUTES: &'static str = r#"id="0" author="John Smith" date="2001-10-26T21:32:52""#;
+
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} id="0" author="John Smith" date="2001-10-26T21:32:52"></{node_name}>"#,
+                r#"<{node_name} {}></{node_name}>"#,
+                Self::TEST_ATTRIBUTES,
                 node_name = node_name
             )
         }
@@ -5603,11 +5996,16 @@ mod tests {
     }
 
     impl Border {
+        const TEST_ATTRIBUTES: &'static str = r#"val="single" color="ffffff" themeColor="accent1" themeTint="ff"
+            themeShade="ff" sz="100" space="100" shadow="true" frame="true""#;
+
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name} val="single" color="ffffff" themeColor="accent1" themeTint="ff" themeShade="ff" sz="100" space="100" shadow="true" frame="true">
-        </{node_name}>"#,
-            node_name=node_name
-        )
+            format!(
+                r#"<{node_name} {}>
+                </{node_name}>"#,
+                Self::TEST_ATTRIBUTES,
+                node_name = node_name,
+            )
         }
 
         pub fn test_instance() -> Self {
@@ -7584,7 +7982,7 @@ mod tests {
         let xml = format!("<node>{}</node>", FtnEdnNumProps::test_xml());
         assert_eq!(
             FtnEdnNumProps::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
-            FtnEdnNumProps::test_instance(),
+            Some(FtnEdnNumProps::test_instance()),
         );
     }
 
@@ -7732,6 +8130,456 @@ mod tests {
         assert_eq!(
             PaperSource::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
             PaperSource::test_instance(),
+        );
+    }
+
+    impl PageBorder {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} {} r:id="rId1"></{node_name}>"#,
+                Border::TEST_ATTRIBUTES,
+                node_name = node_name
+            )
+        }
+
+        pub fn test_attributes() -> String {
+            format!(r#"{} r:id="rId1""#, Border::TEST_ATTRIBUTES)
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                base: Border::test_instance(),
+                rel_id: Some(RelationshipId::from("rId1")),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_page_border_from_xml() {
+        let xml = PageBorder::test_xml("pageBorder");
+        assert_eq!(
+            PageBorder::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            PageBorder::test_instance(),
+        );
+    }
+
+    impl TopPageBorder {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} {} r:topLeft="rId2" r:topRight="rId3"></{node_name}>"#,
+                PageBorder::test_attributes(),
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                base: PageBorder::test_instance(),
+                top_left: Some(RelationshipId::from("rId2")),
+                top_right: Some(RelationshipId::from("rId3")),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_top_page_border_from_xml() {
+        let xml = TopPageBorder::test_xml("topPageBorder");
+        assert_eq!(
+            TopPageBorder::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TopPageBorder::test_instance(),
+        );
+    }
+
+    impl BottomPageBorder {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} {} r:bottomLeft="rId2" r:bottomRight="rId3"></{node_name}>"#,
+                PageBorder::test_attributes(),
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                base: PageBorder::test_instance(),
+                bottom_left: Some(RelationshipId::from("rId2")),
+                bottom_right: Some(RelationshipId::from("rId3")),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_bottom_page_border_from_xml() {
+        let xml = BottomPageBorder::test_xml("bottomPageBorder");
+        assert_eq!(
+            BottomPageBorder::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            BottomPageBorder::test_instance(),
+        );
+    }
+
+    impl PageBorders {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} zOrder="front" display="allPages" offsetFrom="page">
+                {}
+                {}
+                {}
+                {}
+            </{node_name}>"#,
+                TopPageBorder::test_xml("top"),
+                PageBorder::test_xml("left"),
+                BottomPageBorder::test_xml("bottom"),
+                PageBorder::test_xml("right"),
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                top: Some(TopPageBorder::test_instance()),
+                left: Some(PageBorder::test_instance()),
+                bottom: Some(BottomPageBorder::test_instance()),
+                right: Some(PageBorder::test_instance()),
+                z_order: Some(PageBorderZOrder::Front),
+                display: Some(PageBorderDisplay::AllPages),
+                offset_from: Some(PageBorderOffset::Page),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_page_borders_from_xml() {
+        let xml = PageBorders::test_xml("pageBorders");
+        assert_eq!(
+            PageBorders::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            PageBorders::test_instance(),
+        );
+    }
+
+    impl LineNumber {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} countBy="1" start="1" distance="100" restart="newPage"></{node_name}>"#,
+                node_name = node_name
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                count_by: Some(1),
+                start: Some(1),
+                distance: Some(TwipsMeasure::Decimal(100)),
+                restart: Some(LineNumberRestart::NewPage),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_line_number_from_xml() {
+        let xml = LineNumber::test_xml("lineNumber");
+        assert_eq!(
+            LineNumber::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            LineNumber::test_instance(),
+        );
+    }
+
+    impl PageNumber {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} fmt="decimal" start="1" chapStyle="1" chapSep="hyphen"></{node_name}>"#,
+                node_name = node_name
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                format: Some(NumberFormat::Decimal),
+                start: Some(1),
+                chapter_style: Some(1),
+                chapter_separator: Some(ChapterSep::Hyphen),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_page_number_from_xml() {
+        let xml = PageNumber::test_xml("pageNumber");
+        assert_eq!(
+            PageNumber::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            PageNumber::test_instance(),
+        );
+    }
+
+    impl Column {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} w="100" space="10"></{node_name}>"#,
+                node_name = node_name
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                width: Some(TwipsMeasure::Decimal(100)),
+                spacing: Some(TwipsMeasure::Decimal(10)),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_column_from_xml() {
+        let xml = Column::test_xml("column");
+        assert_eq!(
+            Column::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            Column::test_instance(),
+        );
+    }
+
+    impl Columns {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} equalWidth="true" space="10" num="2" sep="true">
+                {col}
+                {col}
+            </{node_name}>"#,
+                col = Column::test_xml("col"),
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                columns: vec![Column::test_instance(), Column::test_instance()],
+                equal_width: Some(true),
+                spacing: Some(TwipsMeasure::Decimal(10)),
+                number: Some(2),
+                separator: Some(true),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_columns_from_xml() {
+        let xml = Columns::test_xml("columns");
+        assert_eq!(
+            Columns::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            Columns::test_instance(),
+        );
+    }
+
+    impl DocGrid {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} type="default" linePitch="1" charSpace="10"></{node_name}>"#,
+                node_name = node_name
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                doc_grid_type: Some(DocGridType::Default),
+                line_pitch: Some(1),
+                char_spacing: Some(10),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_doc_grid_from_xml() {
+        let xml = DocGrid::test_xml("docGrid");
+        assert_eq!(
+            DocGrid::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            DocGrid::test_instance(),
+        );
+    }
+
+    impl SectPrContents {
+        pub fn test_xml() -> String {
+            format!(
+                r#"{}
+                {}
+                <type val="nextPage" />
+                {}
+                {}
+                {}
+                {}
+                {}
+                {}
+                {}
+                <formProt val="false" />
+                <vAlign val="top" />
+                <noEndnote val="false" />
+                <titlePg val="true" />
+                <textDirection val="lr" />
+                <bidi val="false" />
+                <rtlGutter val="false" />
+                {}
+                <printerSettings r:id="rId1" />"#,
+                FtnProps::test_xml("footnotePr"),
+                EdnProps::test_xml("endnotePr"),
+                PageSz::test_xml("pgSz"),
+                PageMar::test_xml("pgMar"),
+                PaperSource::test_xml("paperSrc"),
+                PageBorders::test_xml("pgBorders"),
+                LineNumber::test_xml("lnNumType"),
+                PageNumber::test_xml("pgNumType"),
+                Columns::test_xml("cols"),
+                DocGrid::test_xml("docGrid"),
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                footnote_properties: Some(FtnProps::test_instance()),
+                endnote_properties: Some(EdnProps::test_instance()),
+                section_type: Some(SectionMark::NextPage),
+                page_size: Some(PageSz::test_instance()),
+                page_margin: Some(PageMar::test_instance()),
+                paper_source: Some(PaperSource::test_instance()),
+                page_borders: Some(PageBorders::test_instance()),
+                line_number_type: Some(LineNumber::test_instance()),
+                page_number_type: Some(PageNumber::test_instance()),
+                columns: Some(Columns::test_instance()),
+                protect_form_fields: Some(false),
+                vertical_align: Some(VerticalJc::Top),
+                no_endnote: Some(false),
+                title_page: Some(true),
+                text_direction: Some(TextDirection::LeftToRight),
+                bidirectional: Some(false),
+                rtl_gutter: Some(false),
+                document_grid: Some(DocGrid::test_instance()),
+                printer_settings: Some(Rel::test_instance()),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_sect_pr_contents_from_xml() {
+        let xml = format!(r#"<node>{}</node>"#, SectPrContents::test_xml());
+        assert_eq!(
+            SectPrContents::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            Some(SectPrContents::test_instance()),
+        );
+    }
+
+    impl SectPrAttributes {
+        const TEST_ATTRIBUTES: &'static str =
+            r#"rsidRPr="ffffffff" rsidDel="fefefefe" rsidR="fdfdfdfd" rsidSect="fcfcfcfc""#;
+
+        pub fn test_instance() -> Self {
+            Self {
+                run_properties_revision_id: Some(0xffffffff),
+                deletion_revision_id: Some(0xfefefefe),
+                run_revision_id: Some(0xfdfdfdfd),
+                section_revision_id: Some(0xfcfcfcfc),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_sect_pr_attributes_from_xml() {
+        let xml = format!(r#"<node {}></node>"#, SectPrAttributes::TEST_ATTRIBUTES);
+        assert_eq!(
+            SectPrAttributes::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            SectPrAttributes::test_instance(),
+        );
+    }
+
+    impl SectPrBase {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} {}>
+                {}
+            </{node_name}>"#,
+                SectPrAttributes::TEST_ATTRIBUTES,
+                SectPrContents::test_xml(),
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                contents: Some(SectPrContents::test_instance()),
+                attributes: SectPrAttributes::test_instance(),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_sect_pr_base_from_xml() {
+        let xml = SectPrBase::test_xml("sectPrBase");
+        assert_eq!(
+            SectPrBase::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            SectPrBase::test_instance(),
+        );
+    }
+
+    impl SectPrChange {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} {}>
+                {}
+            </{node_name}>"#,
+                TrackChange::TEST_ATTRIBUTES,
+                SectPrBase::test_xml("sectPr"),
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                base: TrackChange::test_instance(),
+                section_properties: Some(SectPrBase::test_instance()),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_sect_pr_change_from_xml() {
+        let xml = SectPrChange::test_xml("sectPrChange");
+        assert_eq!(
+            SectPrChange::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            SectPrChange::test_instance(),
+        );
+    }
+
+    impl SectPr {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} {}>
+                {header_ref}
+                {footer_ref}
+                {}
+                {}
+            </{node_name}>"#,
+                SectPrAttributes::TEST_ATTRIBUTES,
+                SectPrContents::test_xml(),
+                SectPrChange::test_xml("sectPrChange"),
+                node_name = node_name,
+                header_ref = HdrFtrRef::test_xml("headerReference"),
+                footer_ref = HdrFtrRef::test_xml("footerReference"),
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                header_footer_references: vec![
+                    HdrFtrReferences::Header(HdrFtrRef::test_instance()),
+                    HdrFtrReferences::Footer(HdrFtrRef::test_instance()),
+                ],
+                contents: Some(SectPrContents::test_instance()),
+                change: Some(SectPrChange::test_instance()),
+                attributes: SectPrAttributes::test_instance(),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_sect_pr_from_xml() {
+        let xml = SectPr::test_xml("sectPr");
+        assert_eq!(
+            SectPr::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            SectPr::test_instance(),
         );
     }
 }
