@@ -10,8 +10,8 @@ use msoffice_shared::{
     },
     relationship::RelationshipId,
     sharedtypes::{
-        CalendarType, Lang, OnOff, PositiveUniversalMeasure, TwipsMeasure, UniversalMeasure, VerticalAlignRun, XAlign,
-        XmlName, YAlign,
+        CalendarType, Lang, OnOff, Percentage, PositiveUniversalMeasure, TwipsMeasure, UniversalMeasure,
+        VerticalAlignRun, XAlign, XmlName, YAlign,
     },
     util::XmlNodeExt,
     xml::{parse_xml_bool, XmlNode},
@@ -77,8 +77,20 @@ impl Charset {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum DecimalNumberOrPercent {
-    Int(UnqualifiedPercentage),
-    Percentage(String),
+    Decimal(UnqualifiedPercentage),
+    Percentage(Percentage),
+}
+
+impl FromStr for DecimalNumberOrPercent {
+    type Err = Box<dyn std::error::Error>;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        if let Ok(value) = s.parse::<UnqualifiedPercentage>() {
+            Ok(DecimalNumberOrPercent::Decimal(value))
+        } else {
+            Ok(DecimalNumberOrPercent::Percentage(s.parse()?))
+        }
+    }
 }
 
 // pub enum TextScale {
@@ -1813,13 +1825,14 @@ pub struct RPrChange {
 impl RPrChange {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
         let base = TrackChange::from_xml_element(xml_node)?;
-        let run_properties_node = xml_node
+        let run_properties = xml_node
             .child_nodes
             .iter()
             .find(|child_node| child_node.local_name() == "rPr")
+            .map(|child_node| RPrOriginal::from_xml_element(child_node))
+            .transpose()?
             .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "rPr"))?;
 
-        let run_properties = RPrOriginal::from_xml_element(run_properties_node)?;
         Ok(Self { base, run_properties })
     }
 }
@@ -2071,16 +2084,12 @@ pub struct Placeholder {
 
 impl Placeholder {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
-        let document_part_node = xml_node
+        let document_part = xml_node
             .child_nodes
             .iter()
             .find(|child_node| child_node.local_name() == "docPart")
-            .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "docPart"))?;
-
-        let document_part = document_part_node
-            .attributes
-            .get("val")
-            .ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "val"))?
+            .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "docPart"))?
+            .get_val_attribute()?
             .clone();
 
         Ok(Self { document_part })
@@ -4060,52 +4069,155 @@ impl PPrBase {
         let mut instance: Self = Default::default();
 
         for child_node in &xml_node.child_nodes {
-            match child_node.local_name() {
-                "pStyle" => instance.style = Some(child_node.get_val_attribute()?.clone()),
-                "keepNext" => instance.keep_with_next = parse_on_off_xml_element(child_node)?,
-                "keepLines" => instance.keep_lines_on_one_page = parse_on_off_xml_element(child_node)?,
-                "pageBreakBefore" => instance.start_on_next_page = parse_on_off_xml_element(child_node)?,
-                "framePr" => instance.frame_properties = Some(FramePr::from_xml_element(child_node)?),
-                "widowControl" => instance.widow_control = parse_on_off_xml_element(child_node)?,
-                "numPr" => instance.numbering_properties = Some(NumPr::from_xml_element(child_node)?),
-                "suppressLineNumbers" => instance.suppress_line_numbers = parse_on_off_xml_element(child_node)?,
-                "pBdr" => instance.borders = Some(PBdr::from_xml_element(child_node)?),
-                "shd" => instance.shading = Some(Shd::from_xml_element(child_node)?),
-                "tabs" => instance.tabs = Some(Tabs::from_xml_element(child_node)?),
-                "suppressAutoHyphens" => instance.suppress_auto_hyphens = parse_on_off_xml_element(child_node)?,
-                "kinsoku" => instance.kinsoku = parse_on_off_xml_element(child_node)?,
-                "wordWrap" => instance.word_wrapping = parse_on_off_xml_element(child_node)?,
-                "overflowPunct" => instance.overflow_punctuations = parse_on_off_xml_element(child_node)?,
-                "topLinePunct" => instance.top_line_punctuations = parse_on_off_xml_element(child_node)?,
-                "autoSpaceDE" => instance.auto_space_latin_and_east_asian = parse_on_off_xml_element(child_node)?,
-                "autoSpaceDN" => instance.auto_space_east_asian_and_numbers = parse_on_off_xml_element(child_node)?,
-                "bidi" => instance.bidirectional = parse_on_off_xml_element(child_node)?,
-                "adjustRightInd" => instance.adjust_right_indent = parse_on_off_xml_element(child_node)?,
-                "snapToGrid" => instance.snap_to_grid = parse_on_off_xml_element(child_node)?,
-                "spacing" => instance.spacing = Some(Spacing::from_xml_element(child_node)?),
-                "ind" => instance.indent = Some(Ind::from_xml_element(child_node)?),
-                "contextualSpacing" => instance.contextual_spacing = parse_on_off_xml_element(child_node)?,
-                "mirrorIndents" => instance.mirror_indents = parse_on_off_xml_element(child_node)?,
-                "suppressOverlap" => instance.suppress_overlapping = parse_on_off_xml_element(child_node)?,
-                "jc" => instance.alignment = Some(child_node.get_val_attribute()?.parse()?),
-                "textDirection" => instance.text_direction = Some(child_node.get_val_attribute()?.parse()?),
-                "textAlignment" => instance.text_alignment = Some(child_node.get_val_attribute()?.parse()?),
-                "textboxTightWrap" => instance.textbox_tight_wrap = Some(child_node.get_val_attribute()?.parse()?),
-                "outlineLvl" => instance.outline_level = Some(child_node.get_val_attribute()?.parse()?),
-                "divId" => instance.div_id = Some(child_node.get_val_attribute()?.parse()?),
-                "cnfStyle" => instance.conditional_formatting = Some(Cnf::from_xml_element(child_node)?),
-                _ => (),
-            }
+            instance.try_update_from_xml_element(child_node)?;
         }
 
         Ok(instance)
+    }
+
+    pub fn try_update_from_xml_element(&mut self, xml_node: &XmlNode) -> Result<bool> {
+        match xml_node.local_name() {
+            "pStyle" => {
+                self.style = Some(xml_node.get_val_attribute()?.clone());
+                Ok(true)
+            }
+            "keepNext" => {
+                self.keep_with_next = parse_on_off_xml_element(xml_node)?;
+                Ok(true)
+            }
+            "keepLines" => {
+                self.keep_lines_on_one_page = parse_on_off_xml_element(xml_node)?;
+                Ok(true)
+            }
+            "pageBreakBefore" => {
+                self.start_on_next_page = parse_on_off_xml_element(xml_node)?;
+                Ok(true)
+            }
+            "framePr" => {
+                self.frame_properties = Some(FramePr::from_xml_element(xml_node)?);
+                Ok(true)
+            }
+            "widowControl" => {
+                self.widow_control = parse_on_off_xml_element(xml_node)?;
+                Ok(true)
+            }
+            "numPr" => {
+                self.numbering_properties = Some(NumPr::from_xml_element(xml_node)?);
+                Ok(true)
+            }
+            "suppressLineNumbers" => {
+                self.suppress_line_numbers = parse_on_off_xml_element(xml_node)?;
+                Ok(true)
+            }
+            "pBdr" => {
+                self.borders = Some(PBdr::from_xml_element(xml_node)?);
+                Ok(true)
+            }
+            "shd" => {
+                self.shading = Some(Shd::from_xml_element(xml_node)?);
+                Ok(true)
+            }
+            "tabs" => {
+                self.tabs = Some(Tabs::from_xml_element(xml_node)?);
+                Ok(true)
+            }
+            "suppressAutoHyphens" => {
+                self.suppress_auto_hyphens = parse_on_off_xml_element(xml_node)?;
+                Ok(true)
+            }
+            "kinsoku" => {
+                self.kinsoku = parse_on_off_xml_element(xml_node)?;
+                Ok(true)
+            }
+            "wordWrap" => {
+                self.word_wrapping = parse_on_off_xml_element(xml_node)?;
+                Ok(true)
+            }
+            "overflowPunct" => {
+                self.overflow_punctuations = parse_on_off_xml_element(xml_node)?;
+                Ok(true)
+            }
+            "topLinePunct" => {
+                self.top_line_punctuations = parse_on_off_xml_element(xml_node)?;
+                Ok(true)
+            }
+            "autoSpaceDE" => {
+                self.auto_space_latin_and_east_asian = parse_on_off_xml_element(xml_node)?;
+                Ok(true)
+            }
+            "autoSpaceDN" => {
+                self.auto_space_east_asian_and_numbers = parse_on_off_xml_element(xml_node)?;
+                Ok(true)
+            }
+            "bidi" => {
+                self.bidirectional = parse_on_off_xml_element(xml_node)?;
+                Ok(true)
+            }
+            "adjustRightInd" => {
+                self.adjust_right_indent = parse_on_off_xml_element(xml_node)?;
+                Ok(true)
+            }
+            "snapToGrid" => {
+                self.snap_to_grid = parse_on_off_xml_element(xml_node)?;
+                Ok(true)
+            }
+            "spacing" => {
+                self.spacing = Some(Spacing::from_xml_element(xml_node)?);
+                Ok(true)
+            }
+            "ind" => {
+                self.indent = Some(Ind::from_xml_element(xml_node)?);
+                Ok(true)
+            }
+            "contextualSpacing" => {
+                self.contextual_spacing = parse_on_off_xml_element(xml_node)?;
+                Ok(true)
+            }
+            "mirrorIndents" => {
+                self.mirror_indents = parse_on_off_xml_element(xml_node)?;
+                Ok(true)
+            }
+            "suppressOverlap" => {
+                self.suppress_overlapping = parse_on_off_xml_element(xml_node)?;
+                Ok(true)
+            }
+            "jc" => {
+                self.alignment = Some(xml_node.get_val_attribute()?.parse()?);
+                Ok(true)
+            }
+            "textDirection" => {
+                self.text_direction = Some(xml_node.get_val_attribute()?.parse()?);
+                Ok(true)
+            }
+            "textAlignment" => {
+                self.text_alignment = Some(xml_node.get_val_attribute()?.parse()?);
+                Ok(true)
+            }
+            "textboxTightWrap" => {
+                self.textbox_tight_wrap = Some(xml_node.get_val_attribute()?.parse()?);
+                Ok(true)
+            }
+            "outlineLvl" => {
+                self.outline_level = Some(xml_node.get_val_attribute()?.parse()?);
+                Ok(true)
+            }
+            "divId" => {
+                self.div_id = Some(xml_node.get_val_attribute()?.parse()?);
+                Ok(true)
+            }
+            "cnfStyle" => {
+                self.conditional_formatting = Some(Cnf::from_xml_element(xml_node)?);
+                Ok(true)
+            }
+            _ => Ok(false),
+        }
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct ParaRPrTrackChanges {
-    pub insert: Option<TrackChange>,
-    pub deletion: Option<TrackChange>,
+    pub inserted: Option<TrackChange>,
+    pub deleted: Option<TrackChange>,
     pub move_from: Option<TrackChange>,
     pub move_to: Option<TrackChange>,
 }
@@ -4124,11 +4236,11 @@ impl ParaRPrTrackChanges {
     pub fn try_parse_group_node(instance: &mut Option<Self>, xml_node: &XmlNode) -> Result<bool> {
         match xml_node.local_name() {
             "ins" => {
-                instance.get_or_insert_with(Default::default).insert = Some(TrackChange::from_xml_element(xml_node)?);
+                instance.get_or_insert_with(Default::default).inserted = Some(TrackChange::from_xml_element(xml_node)?);
                 Ok(true)
             }
             "del" => {
-                instance.get_or_insert_with(Default::default).deletion = Some(TrackChange::from_xml_element(xml_node)?);
+                instance.get_or_insert_with(Default::default).deleted = Some(TrackChange::from_xml_element(xml_node)?);
                 Ok(true)
             }
             "moveFrom" => {
@@ -4178,13 +4290,13 @@ pub struct ParaRPrChange {
 impl ParaRPrChange {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
         let base = TrackChange::from_xml_element(xml_node)?;
-        let run_properties_node = xml_node
+        let run_properties = xml_node
             .child_nodes
             .iter()
             .find(|child_node| child_node.local_name() == "rPr")
+            .map(|child_node| ParaRPrOriginal::from_xml_element(child_node))
+            .transpose()?
             .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "rPr"))?;
-
-        let run_properties = ParaRPrOriginal::from_xml_element(run_properties_node)?;
 
         Ok(Self { base, run_properties })
     }
@@ -5205,40 +5317,54 @@ impl SectPr {
     }
 }
 
-/*
-<xsd:complexType name="CT_PPr">
-    <xsd:complexContent>
-      <xsd:extension base="CT_PPrBase">
-        <xsd:sequence>
-          <xsd:element name="rPr" type="CT_ParaRPr" minOccurs="0"/>
-          <xsd:element name="sectPr" type="CT_SectPr" minOccurs="0"/>
-          <xsd:element name="pPrChange" type="CT_PPrChange" minOccurs="0"/>
-        </xsd:sequence>
-      </xsd:extension>
-    </xsd:complexContent>
-  </xsd:complexType>
-*/
+#[derive(Debug, Clone, PartialEq)]
+pub struct PPrChange {
+    pub base: TrackChange,
+    pub properties: PPrBase,
+}
+
+impl PPrChange {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let base = TrackChange::from_xml_element(xml_node)?;
+        let properties = xml_node
+            .child_nodes
+            .iter()
+            .find(|child_node| child_node.local_name() == "pPr")
+            .map(|child_node| PPrBase::from_xml_element(child_node))
+            .transpose()?
+            .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "pPr"))?;
+
+        Ok(Self { base, properties })
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct PPr {
     pub base: PPrBase,
     pub run_properties: Option<ParaRPr>,
     pub section_properties: Option<SectPr>,
-    // pub properties_change: Option<PPrChange>,
+    pub properties_change: Option<PPrChange>,
 }
 
-/*
-<xsd:complexType name="CT_P">
-    <xsd:sequence>
-      <xsd:element name="pPr" type="CT_PPr" minOccurs="0"/>
-      <xsd:group ref="EG_PContent" minOccurs="0" maxOccurs="unbounded"/>
-    </xsd:sequence>
-    <xsd:attribute name="rsidRPr" type="ST_LongHexNumber"/>
-    <xsd:attribute name="rsidR" type="ST_LongHexNumber"/>
-    <xsd:attribute name="rsidDel" type="ST_LongHexNumber"/>
-    <xsd:attribute name="rsidP" type="ST_LongHexNumber"/>
-    <xsd:attribute name="rsidRDefault" type="ST_LongHexNumber"/>
-  </xsd:complexType>
-*/
+impl PPr {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: Self = Default::default();
+
+        for child_node in &xml_node.child_nodes {
+            match child_node.local_name() {
+                "rPr" => instance.run_properties = Some(ParaRPr::from_xml_element(child_node)?),
+                "sectPr" => instance.section_properties = Some(SectPr::from_xml_element(child_node)?),
+                "pPrChange" => instance.properties_change = Some(PPrChange::from_xml_element(child_node)?),
+                _ => {
+                    instance.base.try_update_from_xml_element(child_node)?;
+                }
+            }
+        }
+
+        Ok(instance)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct P {
     pub properties: Option<PPr>,
@@ -5248,6 +5374,934 @@ pub struct P {
     pub deletion_revision_id: Option<LongHexNumber>,
     pub paragraph_revision_id: Option<LongHexNumber>,
     pub run_default_revision_id: Option<LongHexNumber>,
+}
+
+impl P {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: Self = Default::default();
+
+        for (attr, value) in &xml_node.attributes {
+            match attr.as_ref() {
+                "rsidRPr" => instance.run_properties_revision_id = Some(LongHexNumber::from_str_radix(value, 16)?),
+                "rsidR" => instance.run_revision_id = Some(LongHexNumber::from_str_radix(value, 16)?),
+                "rsidDel" => instance.deletion_revision_id = Some(LongHexNumber::from_str_radix(value, 16)?),
+                "rsidP" => instance.paragraph_revision_id = Some(LongHexNumber::from_str_radix(value, 16)?),
+                "rsidRDefault" => instance.run_default_revision_id = Some(LongHexNumber::from_str_radix(value, 16)?),
+                _ => (),
+            }
+        }
+
+        for child_node in &xml_node.child_nodes {
+            match child_node.local_name() {
+                "pPr" => instance.properties = Some(PPr::from_xml_element(child_node)?),
+                node_name @ _ if PContent::is_choice_member(node_name) => {
+                    instance.contents.push(PContent::from_xml_element(child_node)?);
+                }
+                _ => (),
+            }
+        }
+
+        Ok(instance)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct TblPPr {
+    pub left_from_text: Option<TwipsMeasure>,
+    pub right_from_text: Option<TwipsMeasure>,
+    pub top_from_text: Option<TwipsMeasure>,
+    pub bottom_from_text: Option<TwipsMeasure>,
+    pub vertical_anchor: Option<VAnchor>,
+    pub horizontal_anchor: Option<HAnchor>,
+    pub horizontal_alignment: Option<XAlign>,
+    pub horizontal_distance: Option<SignedTwipsMeasure>,
+    pub vertical_alignment: Option<YAlign>,
+    pub vertical_distance: Option<SignedTwipsMeasure>,
+}
+
+impl TblPPr {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: Self = Default::default();
+
+        for (attr, value) in &xml_node.attributes {
+            match attr.as_ref() {
+                "leftFromText" => instance.left_from_text = Some(value.parse()?),
+                "rightFromText" => instance.right_from_text = Some(value.parse()?),
+                "topFromText" => instance.top_from_text = Some(value.parse()?),
+                "bottomFromText" => instance.bottom_from_text = Some(value.parse()?),
+                "vertAnchor" => instance.vertical_anchor = Some(value.parse()?),
+                "horzAnchor" => instance.horizontal_anchor = Some(value.parse()?),
+                "tblpXSpec" => instance.horizontal_alignment = Some(value.parse()?),
+                "tblpX" => instance.horizontal_distance = Some(value.parse()?),
+                "tblpYSpec" => instance.vertical_alignment = Some(value.parse()?),
+                "tblpY" => instance.vertical_distance = Some(value.parse()?),
+                _ => (),
+            }
+        }
+
+        Ok(instance)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, EnumString)]
+pub enum TblOverlap {
+    #[strum(serialize = "never")]
+    Never,
+    #[strum(serialize = "overlap")]
+    Overlap,
+}
+
+#[derive(Debug, Clone, PartialEq, EnumString)]
+pub enum TblWidthType {
+    #[strum(serialize = "nil")]
+    NoWidth,
+    #[strum(serialize = "percent")]
+    Percent,
+    #[strum(serialize = "dxa")]
+    TwentiethsOfPoint,
+    #[strum(serialize = "auto")]
+    Auto,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum MeasurementOrPercent {
+    DecimalOrPercent(DecimalNumberOrPercent),
+    UniversalMeasure(UniversalMeasure),
+}
+
+impl FromStr for MeasurementOrPercent {
+    type Err = Box<dyn std::error::Error>;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        if let Ok(value) = s.parse::<DecimalNumberOrPercent>() {
+            Ok(MeasurementOrPercent::DecimalOrPercent(value))
+        } else {
+            Ok(MeasurementOrPercent::UniversalMeasure(s.parse()?))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct TblWidth {
+    pub width: Option<MeasurementOrPercent>,
+    pub width_type: Option<TblWidthType>,
+}
+
+impl TblWidth {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: Self = Default::default();
+
+        for (attr, value) in &xml_node.attributes {
+            match attr.as_ref() {
+                "w" => instance.width = Some(value.parse()?),
+                "type" => instance.width_type = Some(value.parse()?),
+                _ => (),
+            }
+        }
+
+        Ok(instance)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, EnumString)]
+pub enum JcTable {
+    #[strum(serialize = "center")]
+    Center,
+    #[strum(serialize = "end")]
+    End,
+    #[strum(serialize = "start")]
+    Start,
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct TblBorders {
+    pub top: Option<Border>,
+    pub start: Option<Border>,
+    pub bottom: Option<Border>,
+    pub end: Option<Border>,
+    pub inside_horizontal: Option<Border>,
+    pub inside_vertical: Option<Border>,
+}
+
+impl TblBorders {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: Self = Default::default();
+
+        for child_node in &xml_node.child_nodes {
+            match child_node.local_name() {
+                "top" => instance.top = Some(Border::from_xml_element(child_node)?),
+                "start" => instance.start = Some(Border::from_xml_element(child_node)?),
+                "bottom" => instance.bottom = Some(Border::from_xml_element(child_node)?),
+                "end" => instance.end = Some(Border::from_xml_element(child_node)?),
+                "insideH" => instance.inside_horizontal = Some(Border::from_xml_element(child_node)?),
+                "insideV" => instance.inside_vertical = Some(Border::from_xml_element(child_node)?),
+                _ => (),
+            }
+        }
+
+        Ok(instance)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, EnumString)]
+pub enum TblLayoutType {
+    #[strum(serialize = "fixed")]
+    Fixed,
+    #[strum(serialize = "autofit")]
+    Autofit,
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct TblCellMar {
+    pub top: Option<TblWidth>,
+    pub start: Option<TblWidth>,
+    pub bottom: Option<TblWidth>,
+    pub end: Option<TblWidth>,
+}
+
+impl TblCellMar {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: Self = Default::default();
+
+        for child_node in &xml_node.child_nodes {
+            match child_node.local_name() {
+                "top" => instance.top = Some(TblWidth::from_xml_element(child_node)?),
+                "start" => instance.start = Some(TblWidth::from_xml_element(child_node)?),
+                "bottom" => instance.bottom = Some(TblWidth::from_xml_element(child_node)?),
+                "end" => instance.end = Some(TblWidth::from_xml_element(child_node)?),
+                _ => (),
+            }
+        }
+
+        Ok(instance)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct TblLook {
+    pub first_row: Option<OnOff>,
+    pub last_row: Option<OnOff>,
+    pub first_column: Option<OnOff>,
+    pub last_column: Option<OnOff>,
+    pub no_horizontal_band: Option<OnOff>,
+    pub no_vertical_band: Option<OnOff>,
+}
+
+impl TblLook {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: Self = Default::default();
+
+        for (attr, value) in &xml_node.attributes {
+            match attr.as_ref() {
+                "firstRow" => instance.first_row = Some(parse_xml_bool(value)?),
+                "lastRow" => instance.last_row = Some(parse_xml_bool(value)?),
+                "firstColumn" => instance.first_column = Some(parse_xml_bool(value)?),
+                "lastColumn" => instance.last_column = Some(parse_xml_bool(value)?),
+                "noHBand" => instance.no_horizontal_band = Some(parse_xml_bool(value)?),
+                "noVBand" => instance.no_vertical_band = Some(parse_xml_bool(value)?),
+                _ => (),
+            }
+        }
+
+        Ok(instance)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct TblPrBase {
+    pub style: Option<String>,
+    pub paragraph_properties: Option<TblPPr>,
+    pub overlap: Option<TblOverlap>,
+    pub bidirectional_visual: Option<OnOff>,
+    pub style_row_band_size: Option<DecimalNumber>,
+    pub style_column_band_size: Option<DecimalNumber>,
+    pub width: Option<TblWidth>,
+    pub alignment: Option<JcTable>,
+    pub cell_spacing: Option<TblWidth>,
+    pub indent: Option<TblWidth>,
+    pub borders: Option<TblBorders>,
+    pub shading: Option<Shd>,
+    pub layout: Option<TblLayoutType>,
+    pub cell_margin: Option<TblCellMar>,
+    pub look: Option<TblLook>,
+    pub caption: Option<String>,
+    pub description: Option<String>,
+}
+
+impl TblPrBase {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: Self = Default::default();
+
+        for child_node in &xml_node.child_nodes {
+            instance.try_update_from_xml_element(child_node)?;
+        }
+
+        Ok(instance)
+    }
+
+    pub fn try_update_from_xml_element(&mut self, xml_node: &XmlNode) -> Result<bool> {
+        match xml_node.local_name() {
+            "tblStyle" => {
+                self.style = Some(xml_node.get_val_attribute()?.clone());
+                Ok(true)
+            }
+            "tblpPr" => {
+                self.paragraph_properties = Some(TblPPr::from_xml_element(xml_node)?);
+                Ok(true)
+            }
+            "tblOverlap" => {
+                self.overlap = Some(xml_node.get_val_attribute()?.parse()?);
+                Ok(true)
+            }
+            "bidiVisual" => {
+                self.bidirectional_visual = parse_on_off_xml_element(xml_node)?;
+                Ok(true)
+            }
+            "tblStyleRowBandSize" => {
+                self.style_row_band_size = Some(xml_node.get_val_attribute()?.parse()?);
+                Ok(true)
+            }
+            "tblStyleColBandSize" => {
+                self.style_column_band_size = Some(xml_node.get_val_attribute()?.parse()?);
+                Ok(true)
+            }
+            "tblW" => {
+                self.width = Some(TblWidth::from_xml_element(xml_node)?);
+                Ok(true)
+            }
+            "jc" => {
+                self.alignment = Some(xml_node.get_val_attribute()?.parse()?);
+                Ok(true)
+            }
+            "tblCellSpacing" => {
+                self.cell_spacing = Some(TblWidth::from_xml_element(xml_node)?);
+                Ok(true)
+            }
+            "tblInd" => {
+                self.indent = Some(TblWidth::from_xml_element(xml_node)?);
+                Ok(true)
+            }
+            "tblBorders" => {
+                self.borders = Some(TblBorders::from_xml_element(xml_node)?);
+                Ok(true)
+            }
+            "shd" => {
+                self.shading = Some(Shd::from_xml_element(xml_node)?);
+                Ok(true)
+            }
+            "tblLayout" => {
+                self.layout = Some(xml_node.get_val_attribute()?.parse()?);
+                Ok(true)
+            }
+            "tblCellMar" => {
+                self.cell_margin = Some(TblCellMar::from_xml_element(xml_node)?);
+                Ok(true)
+            }
+            "tblLook" => {
+                self.look = Some(TblLook::from_xml_element(xml_node)?);
+                Ok(true)
+            }
+            "tblCaption" => {
+                self.caption = Some(xml_node.get_val_attribute()?.clone());
+                Ok(true)
+            }
+            "tblDescription" => {
+                self.description = Some(xml_node.get_val_attribute()?.clone());
+                Ok(true)
+            }
+            _ => Ok(false),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct TblPrChange {
+    pub base: TrackChange,
+    pub properties: TblPrBase,
+}
+
+impl TblPrChange {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let base = TrackChange::from_xml_element(xml_node)?;
+        let properties = xml_node
+            .child_nodes
+            .iter()
+            .find(|child_node| child_node.local_name() == "tblPr")
+            .map(|child_node| TblPrBase::from_xml_element(child_node))
+            .transpose()?
+            .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "tblPr"))?;
+
+        Ok(Self { base, properties })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct TblPr {
+    pub base: TblPrBase,
+    pub change: Option<TblPrChange>,
+}
+
+impl TblPr {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: Self = Default::default();
+
+        for child_node in &xml_node.child_nodes {
+            match child_node.local_name() {
+                "tblPrChange" => instance.change = Some(TblPrChange::from_xml_element(child_node)?),
+                _ => {
+                    instance.base.try_update_from_xml_element(child_node)?;
+                }
+            }
+        }
+
+        Ok(instance)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct TblGridCol {
+    pub width: Option<TwipsMeasure>,
+}
+
+impl TblGridCol {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let width = xml_node.attributes.get("w").map(|value| value.parse()).transpose()?;
+
+        Ok(Self { width })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct TblGridChange {
+    pub base: Markup,
+    pub grid: TblGridBase,
+}
+
+impl TblGridChange {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let base = Markup::from_xml_element(xml_node)?;
+        let grid = TblGridBase::from_xml_element(xml_node)?;
+
+        Ok(Self { base, grid })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct TblGridBase {
+    pub columns: Vec<TblGridCol>,
+}
+
+impl TblGridBase {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let columns = xml_node
+            .child_nodes
+            .iter()
+            .filter(|child_node| child_node.local_name() == "gridCol")
+            .map(|child_node| TblGridCol::from_xml_element(child_node))
+            .collect::<Result<Vec<_>>>()?;
+
+        Ok(Self { columns })
+    }
+
+    pub fn try_update_from_xml_element(&mut self, xml_node: &XmlNode) -> Result<bool> {
+        match xml_node.local_name() {
+            "gridCol" => {
+                self.columns.push(TblGridCol::from_xml_element(xml_node)?);
+                Ok(true)
+            }
+            _ => Ok(false),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct TblGrid {
+    pub base: TblGridBase,
+    pub change: Option<TblGridChange>,
+}
+
+impl TblGrid {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: Self = Default::default();
+
+        for child_node in &xml_node.child_nodes {
+            match child_node.local_name() {
+                "tblGridChange" => instance.change = Some(TblGridChange::from_xml_element(child_node)?),
+                _ => {
+                    instance.base.try_update_from_xml_element(child_node)?;
+                }
+            }
+        }
+
+        Ok(instance)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct TblPrExBase {
+    pub width: Option<TblWidth>,
+    pub alignment: Option<JcTable>,
+    pub cell_spacing: Option<TblWidth>,
+    pub indent: Option<TblWidth>,
+    pub borders: Option<TblBorders>,
+    pub shading: Option<Shd>,
+    pub layout: Option<TblLayoutType>,
+    pub cell_margin: Option<TblCellMar>,
+    pub look: Option<TblLook>,
+}
+
+impl TblPrExBase {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: Self = Default::default();
+
+        for child_node in &xml_node.child_nodes {
+            instance.try_update_from_xml_element(child_node)?;
+        }
+
+        Ok(instance)
+    }
+
+    pub fn try_update_from_xml_element(&mut self, xml_node: &XmlNode) -> Result<bool> {
+        match xml_node.local_name() {
+            "tblW" => {
+                self.width = Some(TblWidth::from_xml_element(xml_node)?);
+                Ok(true)
+            }
+            "jc" => {
+                self.alignment = Some(xml_node.get_val_attribute()?.parse()?);
+                Ok(true)
+            }
+            "tblCellSpacing" => {
+                self.cell_spacing = Some(TblWidth::from_xml_element(xml_node)?);
+                Ok(true)
+            }
+            "tblInd" => {
+                self.indent = Some(TblWidth::from_xml_element(xml_node)?);
+                Ok(true)
+            }
+            "tblBorders" => {
+                self.borders = Some(TblBorders::from_xml_element(xml_node)?);
+                Ok(true)
+            }
+            "shd" => {
+                self.shading = Some(Shd::from_xml_element(xml_node)?);
+                Ok(true)
+            }
+            "tblLayout" => {
+                self.layout = Some(xml_node.get_val_attribute()?.parse()?);
+                Ok(true)
+            }
+            "tblCellMar" => {
+                self.cell_margin = Some(TblCellMar::from_xml_element(xml_node)?);
+                Ok(true)
+            }
+            "tblLook" => {
+                self.look = Some(TblLook::from_xml_element(xml_node)?);
+                Ok(true)
+            }
+            _ => Ok(false),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct TblPrExChange {
+    pub base: TrackChange,
+    pub properties_ex: TblPrExBase,
+}
+
+impl TblPrExChange {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let base = TrackChange::from_xml_element(xml_node)?;
+        let properties_ex = xml_node
+            .child_nodes
+            .iter()
+            .find(|child_node| child_node.local_name() == "tblPrEx")
+            .map(|child_node| TblPrExBase::from_xml_element(child_node))
+            .transpose()?
+            .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "tblPrEx"))?;
+
+        Ok(Self { base, properties_ex })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct TblPrEx {
+    pub base: TblPrExBase,
+    pub change: Option<TblPrExChange>,
+}
+
+impl TblPrEx {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: Self = Default::default();
+
+        for child_node in &xml_node.child_nodes {
+            match child_node.local_name() {
+                "tblPrExChange" => instance.change = Some(TblPrExChange::from_xml_element(child_node)?),
+                _ => {
+                    instance.base.try_update_from_xml_element(child_node)?;
+                }
+            }
+        }
+
+        Ok(instance)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct Height {
+    pub value: Option<TwipsMeasure>,
+    pub height_rule: Option<HeightRule>,
+}
+
+impl Height {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: Self = Default::default();
+
+        for (attr, value) in &xml_node.attributes {
+            match attr.as_ref() {
+                "val" => instance.value = Some(value.parse()?),
+                "hRule" => instance.height_rule = Some(value.parse()?),
+                _ => (),
+            }
+        }
+
+        Ok(instance)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct TrPrBase {
+    pub conditional_formatting: Option<Cnf>,
+    pub div_id: Option<DecimalNumber>,
+    pub grid_column_before_first_cell: Option<DecimalNumber>,
+    pub grid_column_after_last_cell: Option<DecimalNumber>,
+    pub width_before_row: Option<TblWidth>,
+    pub width_after_row: Option<TblWidth>,
+    pub cant_split: Option<OnOff>,
+    pub row_height: Option<Height>,
+    pub header: Option<OnOff>,
+    pub cell_spacing: Option<TblWidth>,
+    pub alignment: Option<JcTable>,
+    pub hidden: Option<OnOff>,
+}
+
+impl TrPrBase {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: Self = Default::default();
+
+        for child_node in &xml_node.child_nodes {
+            instance.try_update_from_xml_element(child_node)?;
+        }
+
+        Ok(instance)
+    }
+
+    pub fn try_update_from_xml_element(&mut self, xml_node: &XmlNode) -> Result<bool> {
+        match xml_node.local_name() {
+            "cnfStyle" => {
+                self.conditional_formatting = Some(Cnf::from_xml_element(xml_node)?);
+                Ok(true)
+            }
+            "divId" => {
+                self.div_id = Some(xml_node.get_val_attribute()?.parse()?);
+                Ok(true)
+            }
+            "gridBefore" => {
+                self.grid_column_before_first_cell = Some(xml_node.get_val_attribute()?.parse()?);
+                Ok(true)
+            }
+            "gridAfter" => {
+                self.grid_column_after_last_cell = Some(xml_node.get_val_attribute()?.parse()?);
+                Ok(true)
+            }
+            "wBefore" => {
+                self.width_before_row = Some(TblWidth::from_xml_element(xml_node)?);
+                Ok(true)
+            }
+            "wAfter" => {
+                self.width_after_row = Some(TblWidth::from_xml_element(xml_node)?);
+                Ok(true)
+            }
+            "cantSplit" => {
+                self.cant_split = parse_on_off_xml_element(xml_node)?;
+                Ok(true)
+            }
+            "trHeight" => {
+                self.row_height = Some(Height::from_xml_element(xml_node)?);
+                Ok(true)
+            }
+            "tblHeader" => {
+                self.header = parse_on_off_xml_element(xml_node)?;
+                Ok(true)
+            }
+            "tblCellSpacing" => {
+                self.cell_spacing = Some(TblWidth::from_xml_element(xml_node)?);
+                Ok(true)
+            }
+            "jc" => {
+                self.alignment = Some(xml_node.get_val_attribute()?.parse()?);
+                Ok(true)
+            }
+            "hidden" => {
+                self.hidden = parse_on_off_xml_element(xml_node)?;
+                Ok(true)
+            }
+            _ => Ok(false),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct TrPrChange {
+    pub base: TrackChange,
+    pub properties: TrPrBase,
+}
+
+impl TrPrChange {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let base = TrackChange::from_xml_element(xml_node)?;
+        let properties = xml_node
+            .child_nodes
+            .iter()
+            .find(|child_node| child_node.local_name() == "trPr")
+            .map(|child_node| TrPrBase::from_xml_element(child_node))
+            .transpose()?
+            .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "trPr"))?;
+
+        Ok(Self { base, properties })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct TrPr {
+    pub base: TrPrBase,
+    pub inserted: Option<TrackChange>,
+    pub deleted: Option<TrackChange>,
+    pub change: Option<TrPrChange>,
+}
+
+impl TrPr {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: Self = Default::default();
+
+        for child_node in &xml_node.child_nodes {
+            match child_node.local_name() {
+                "ins" => instance.inserted = Some(TrackChange::from_xml_element(child_node)?),
+                "del" => instance.deleted = Some(TrackChange::from_xml_element(child_node)?),
+                "trPrChange" => instance.change = Some(TrPrChange::from_xml_element(child_node)?),
+                _ => {
+                    instance.base.try_update_from_xml_element(child_node)?;
+                }
+            }
+        }
+
+        Ok(instance)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, EnumString)]
+pub enum Merge {
+    #[strum(serialize = "continue")]
+    Continue,
+    #[strum(serialize = "restart")]
+    Restart,
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct TcBorders {
+    pub top: Option<Border>,
+    pub start: Option<Border>,
+    pub bottom: Option<Border>,
+    pub end: Option<Border>,
+    pub inside_horizontal: Option<Border>,
+    pub inside_vertical: Option<Border>,
+    pub top_left_to_bottom_right: Option<Border>,
+    pub top_right_to_bottom_left: Option<Border>,
+}
+
+impl TcBorders {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: Self = Default::default();
+
+        for child_node in &xml_node.child_nodes {
+            match child_node.local_name() {
+                "top" => instance.top = Some(Border::from_xml_element(child_node)?),
+                "start" => instance.start = Some(Border::from_xml_element(child_node)?),
+                "bottom" => instance.bottom = Some(Border::from_xml_element(child_node)?),
+                "end" => instance.end = Some(Border::from_xml_element(child_node)?),
+                "insideH" => instance.inside_horizontal = Some(Border::from_xml_element(child_node)?),
+                "insideV" => instance.inside_vertical = Some(Border::from_xml_element(child_node)?),
+                "tl2br" => instance.top_left_to_bottom_right = Some(Border::from_xml_element(child_node)?),
+                "tr2bl" => instance.top_right_to_bottom_left = Some(Border::from_xml_element(child_node)?),
+                _ => (),
+            }
+        }
+
+        Ok(instance)
+    }
+}
+
+/*
+<xsd:complexType name="CT_TcPrBase">
+    <xsd:sequence>
+      <xsd:element name="cnfStyle" type="CT_Cnf" minOccurs="0" maxOccurs="1"/>
+      <xsd:element name="tcW" type="CT_TblWidth" minOccurs="0" maxOccurs="1"/>
+      <xsd:element name="gridSpan" type="CT_DecimalNumber" minOccurs="0"/>
+      <xsd:element name="vMerge" type="CT_VMerge" minOccurs="0"/>
+      <xsd:element name="tcBorders" type="CT_TcBorders" minOccurs="0" maxOccurs="1"/>
+      <xsd:element name="shd" type="CT_Shd" minOccurs="0"/>
+      <xsd:element name="noWrap" type="CT_OnOff" minOccurs="0"/>
+      <xsd:element name="tcMar" type="CT_TcMar" minOccurs="0" maxOccurs="1"/>
+      <xsd:element name="textDirection" type="CT_TextDirection" minOccurs="0" maxOccurs="1"/>
+      <xsd:element name="tcFitText" type="CT_OnOff" minOccurs="0" maxOccurs="1"/>
+      <xsd:element name="vAlign" type="CT_VerticalJc" minOccurs="0"/>
+      <xsd:element name="hideMark" type="CT_OnOff" minOccurs="0"/>
+      <xsd:element name="headers" type="CT_Headers" minOccurs="0"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  */
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct TcPrBase {
+    pub conditional_formatting: Option<Cnf>,
+    pub width: Option<TblWidth>,
+    pub grid_span: Option<DecimalNumber>,
+    pub vertical_merge: Option<Merge>,
+    pub borders: Option<TcBorders>,
+    pub shading: Option<Shd>,
+    pub no_wrapping: Option<OnOff>,
+    //pub margin: Option<TcMar>,
+    pub text_direction: Option<TextDirection>,
+    pub fit_text: Option<OnOff>,
+    pub vertical_alignment: Option<VerticalJc>,
+    pub hide_marker: Option<OnOff>,
+    //pub headers: Option<Headers>,
+}
+
+/*
+<xsd:complexType name="CT_TcPr">
+  <xsd:complexContent>
+    <xsd:extension base="CT_TcPrInner">
+      <xsd:sequence>
+        <xsd:element name="tcPrChange" type="CT_TcPrChange" minOccurs="0"/>
+      </xsd:sequence>
+    </xsd:extension>
+  </xsd:complexContent>
+</xsd:complexType>
+*/
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct TcPr {
+    pub base: TcPrInner,
+    //pub change: Option<TcPrChange>,
+}
+/*
+  <xsd:complexType name="CT_TcPrInner">
+    <xsd:complexContent>
+      <xsd:extension base="CT_TcPrBase">
+        <xsd:sequence>
+          <xsd:group ref="EG_CellMarkupElements" minOccurs="0" maxOccurs="1"/>
+        </xsd:sequence>
+      </xsd:extension>
+    </xsd:complexContent>
+  </xsd:complexType>
+*/
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct TcPrInner {
+    pub base: TcPrBase,
+    //pub markup_element: Option<CellMarkupElements>,
+}
+
+/*
+<xsd:complexType name="CT_Tc">
+    <xsd:sequence>
+      <xsd:element name="tcPr" type="CT_TcPr" minOccurs="0" maxOccurs="1"/>
+      <xsd:group ref="EG_BlockLevelElts" minOccurs="1" maxOccurs="unbounded"/>
+    </xsd:sequence>
+    <xsd:attribute name="id" type="s:ST_String" use="optional"/>
+  </xsd:complexType>
+*/
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct Tc {
+    pub properties: Option<TcPr>,
+    pub block_level_elements: Vec<BlockLevelElts>, // minOccurs="1"
+}
+
+/*
+<xsd:group name="EG_ContentCellContent">
+    <xsd:choice>
+      <xsd:element name="tc" type="CT_Tc" minOccurs="0" maxOccurs="unbounded"/>
+      <xsd:element name="customXml" type="CT_CustomXmlCell"/>
+      <xsd:element name="sdt" type="CT_SdtCell"/>
+      <xsd:group ref="EG_RunLevelElts" minOccurs="0" maxOccurs="unbounded"/>
+    </xsd:choice>
+  </xsd:group>
+*/
+#[derive(Debug, Clone, PartialEq)]
+pub enum ContentCellContent {
+    Cell(Tc),
+    // CustomXml(CustomXmlCell),
+    // Sdt(SdtCell),
+    RunLevelElements(RunLevelElts),
+}
+
+/*
+<xsd:complexType name="CT_Row">
+    <xsd:sequence>
+      <xsd:element name="tblPrEx" type="CT_TblPrEx" minOccurs="0" maxOccurs="1"/>
+      <xsd:element name="trPr" type="CT_TrPr" minOccurs="0" maxOccurs="1"/>
+      <xsd:group ref="EG_ContentCellContent" minOccurs="0" maxOccurs="unbounded"/>
+    </xsd:sequence>
+    <xsd:attribute name="rsidRPr" type="ST_LongHexNumber"/>
+    <xsd:attribute name="rsidR" type="ST_LongHexNumber"/>
+    <xsd:attribute name="rsidDel" type="ST_LongHexNumber"/>
+    <xsd:attribute name="rsidTr" type="ST_LongHexNumber"/>
+  </xsd:complexType>
+*/
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct Row {
+    pub property_exceptions: Option<TblPrEx>,
+    pub properties: Option<TrPr>,
+    pub contents: Vec<ContentCellContent>,
+    pub run_properties_revision_id: Option<LongHexNumber>,
+    pub run_revision_id: Option<LongHexNumber>,
+    pub deletion_revision_id: Option<LongHexNumber>,
+    pub row_revision_id: Option<LongHexNumber>,
+}
+
+/*
+<xsd:group name="EG_ContentRowContent">
+    <xsd:choice>
+      <xsd:element name="tr" type="CT_Row" minOccurs="0" maxOccurs="unbounded"/>
+      <xsd:element name="customXml" type="CT_CustomXmlRow"/>
+      <xsd:element name="sdt" type="CT_SdtRow"/>
+      <xsd:group ref="EG_RunLevelElts" minOccurs="0" maxOccurs="unbounded"/>
+    </xsd:choice>
+  </xsd:group>
+*/
+#[derive(Debug, Clone, PartialEq)]
+pub enum ContentRowContent {
+    Table(Row),
+    // CustomXml(CustomXmlRow),
+    // Sdt(SdtRow),
+    RunLevelElements(RunLevelElts),
+}
+
+/*
+<xsd:complexType name="CT_Tbl">
+    <xsd:sequence>
+      <xsd:group ref="EG_RangeMarkupElements" minOccurs="0" maxOccurs="unbounded"/>
+      <xsd:element name="tblPr" type="CT_TblPr"/>
+      <xsd:element name="tblGrid" type="CT_TblGrid"/>
+      <xsd:group ref="EG_ContentRowContent" minOccurs="0" maxOccurs="unbounded"/>
+    </xsd:sequence>
+  </xsd:complexType>
+*/
+#[derive(Debug, Clone, PartialEq)]
+pub struct Tbl {
+    pub range_markup_elements: Vec<RangeMarkupElements>,
+    pub properties: TblPr,
+    pub grid: TblGrid,
+    pub row_contents: Vec<ContentRowContent>,
 }
 
 /*
@@ -5266,7 +6320,7 @@ pub enum ContentBlockContent {
     CustomXml(CustomXmlBlock),
     Sdt(SdtBlock),
     Paragraph(P),
-    // Table(Tbl),
+    Table(Tbl),
     RunLevelElement(RunLevelElts),
 }
 
@@ -7688,10 +8742,9 @@ mod tests {
     }
 
     impl PPrBase {
-        pub fn test_xml(node_name: &'static str) -> String {
+        pub fn test_xml_nodes() -> String {
             format!(
-                r#"<{node_name}>
-                <pStyle val="Normal" />
+                r#"<pStyle val="Normal" />
                 <keepNext val="true" />
                 <keepLines val="true" />
                 <pageBreakBefore val="true" />
@@ -7723,8 +8776,7 @@ mod tests {
                 <textboxTightWrap val="none" />
                 <outlineLvl val="1" />
                 <divId val="1" />
-                {}
-            </{node_name}>"#,
+                {}"#,
                 FramePr::test_xml("framePr"),
                 NumPr::test_xml("numPr"),
                 PBdr::test_xml("pBdr"),
@@ -7733,6 +8785,15 @@ mod tests {
                 Spacing::test_xml("spacing"),
                 Ind::test_xml("ind"),
                 Cnf::test_xml("cnfStyle"),
+            )
+        }
+
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name}>
+                {}
+            </{node_name}>"#,
+                Self::test_xml_nodes(),
                 node_name = node_name,
             )
         }
@@ -7802,8 +8863,8 @@ mod tests {
 
         pub fn test_instance() -> Self {
             Self {
-                insert: Some(TrackChange::test_instance()),
-                deletion: Some(TrackChange::test_instance()),
+                inserted: Some(TrackChange::test_instance()),
+                deleted: Some(TrackChange::test_instance()),
                 move_from: Some(TrackChange::test_instance()),
                 move_to: Some(TrackChange::test_instance()),
             }
@@ -8580,6 +9641,873 @@ mod tests {
         assert_eq!(
             SectPr::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
             SectPr::test_instance(),
+        );
+    }
+
+    impl PPrChange {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} {}>
+                {}
+            </{node_name}>"#,
+                TrackChange::TEST_ATTRIBUTES,
+                PPrBase::test_xml("pPr"),
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                base: TrackChange::test_instance(),
+                properties: PPrBase::test_instance(),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_p_pr_change_from_xml() {
+        let xml = PPrChange::test_xml("pPrChange");
+        assert_eq!(
+            PPrChange::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            PPrChange::test_instance(),
+        );
+    }
+
+    impl PPr {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name}>
+                {}
+                {}
+                {}
+                {}
+            </{node_name}>"#,
+                PPrBase::test_xml_nodes(),
+                ParaRPr::test_xml("rPr"),
+                SectPr::test_xml("sectPr"),
+                PPrChange::test_xml("pPrChange"),
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                base: PPrBase::test_instance(),
+                run_properties: Some(ParaRPr::test_instance()),
+                section_properties: Some(SectPr::test_instance()),
+                properties_change: Some(PPrChange::test_instance()),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_p_pr_from_xml() {
+        let xml = PPr::test_xml("pPr");
+        assert_eq!(
+            PPr::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            PPr::test_instance(),
+        );
+    }
+
+    impl P {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(r#"<{node_name} rsidRPr="ffffffff" rsidR="fefefefe" rsidDel="fdfdfdfd" rsidP="fcfcfcfc" rsidRDefault="fbfbfbfb">
+                {}
+                {}
+            </{node_name}>"#,
+                PPr::test_xml("pPr"),
+                PContent::test_simple_field_xml(),
+                node_name=node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                properties: Some(PPr::test_instance()),
+                contents: vec![PContent::test_simple_field_instance()],
+                run_properties_revision_id: Some(0xffffffff),
+                run_revision_id: Some(0xfefefefe),
+                deletion_revision_id: Some(0xfdfdfdfd),
+                paragraph_revision_id: Some(0xfcfcfcfc),
+                run_default_revision_id: Some(0xfbfbfbfb),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_p_from_xml() {
+        let xml = P::test_xml("p");
+        assert_eq!(
+            P::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            P::test_instance(),
+        );
+    }
+
+    impl TblPPr {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} leftFromText="10" rightFromText="10" topFromText="10" bottomFromText="10"
+                vertAnchor="text" horzAnchor="text" tblpXSpec="left" tblpX="10" tblpYSpec="top" tblpY="10">
+            </{node_name}>"#,
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                left_from_text: Some(TwipsMeasure::Decimal(10)),
+                right_from_text: Some(TwipsMeasure::Decimal(10)),
+                top_from_text: Some(TwipsMeasure::Decimal(10)),
+                bottom_from_text: Some(TwipsMeasure::Decimal(10)),
+                vertical_anchor: Some(VAnchor::Text),
+                horizontal_anchor: Some(HAnchor::Text),
+                horizontal_alignment: Some(XAlign::Left),
+                horizontal_distance: Some(SignedTwipsMeasure::Decimal(10)),
+                vertical_alignment: Some(YAlign::Top),
+                vertical_distance: Some(SignedTwipsMeasure::Decimal(10)),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_tbl_p_pr_from_xml() {
+        let xml = TblPPr::test_xml("tblPPr");
+        assert_eq!(
+            TblPPr::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TblPPr::test_instance(),
+        );
+    }
+
+    #[test]
+    pub fn test_decimal_number_or_percent_from_str() {
+        assert_eq!(
+            "123".parse::<DecimalNumberOrPercent>().unwrap(),
+            DecimalNumberOrPercent::Decimal(123),
+        );
+        assert_eq!(
+            "-123".parse::<DecimalNumberOrPercent>().unwrap(),
+            DecimalNumberOrPercent::Decimal(-123),
+        );
+        assert_eq!(
+            "123%".parse::<DecimalNumberOrPercent>().unwrap(),
+            DecimalNumberOrPercent::Percentage(Percentage(123.0)),
+        );
+        assert_eq!(
+            "-123%".parse::<DecimalNumberOrPercent>().unwrap(),
+            DecimalNumberOrPercent::Percentage(Percentage(-123.0)),
+        );
+
+        match DecimalNumberOrPercent::Percentage(Percentage(100.0)) {
+            DecimalNumberOrPercent::Percentage(Percentage(value)) => println!("{}", value),
+            _ => (),
+        }
+    }
+
+    #[test]
+    pub fn test_measurement_or_percent_from_str() {
+        assert_eq!(
+            "123".parse::<MeasurementOrPercent>().unwrap(),
+            MeasurementOrPercent::DecimalOrPercent(DecimalNumberOrPercent::Decimal(123)),
+        );
+        assert_eq!(
+            "-123".parse::<MeasurementOrPercent>().unwrap(),
+            MeasurementOrPercent::DecimalOrPercent(DecimalNumberOrPercent::Decimal(-123)),
+        );
+        assert_eq!(
+            "123%".parse::<MeasurementOrPercent>().unwrap(),
+            MeasurementOrPercent::DecimalOrPercent(DecimalNumberOrPercent::Percentage(Percentage(123.0))),
+        );
+        assert_eq!(
+            "-123%".parse::<MeasurementOrPercent>().unwrap(),
+            MeasurementOrPercent::DecimalOrPercent(DecimalNumberOrPercent::Percentage(Percentage(-123.0))),
+        );
+        assert_eq!(
+            "123mm".parse::<MeasurementOrPercent>().unwrap(),
+            MeasurementOrPercent::UniversalMeasure(UniversalMeasure::new(123.0, UniversalMeasureUnit::Millimeter)),
+        );
+        assert_eq!(
+            "-123mm".parse::<MeasurementOrPercent>().unwrap(),
+            MeasurementOrPercent::UniversalMeasure(UniversalMeasure::new(-123.0, UniversalMeasureUnit::Millimeter)),
+        );
+    }
+
+    impl TblWidth {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} w="100" type="auto"></{node_name}>"#,
+                node_name = node_name
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                width: Some(MeasurementOrPercent::DecimalOrPercent(DecimalNumberOrPercent::Decimal(
+                    100,
+                ))),
+                width_type: Some(TblWidthType::Auto),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_tbl_width_from_xml() {
+        let xml = TblWidth::test_xml("tblWidth");
+        assert_eq!(
+            TblWidth::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TblWidth::test_instance(),
+        );
+    }
+
+    impl TblBorders {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name}>
+                {}
+                {}
+                {}
+                {}
+                {}
+                {}
+            </{node_name}>"#,
+                Border::test_xml("top"),
+                Border::test_xml("start"),
+                Border::test_xml("bottom"),
+                Border::test_xml("end"),
+                Border::test_xml("insideH"),
+                Border::test_xml("insideV"),
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                top: Some(Border::test_instance()),
+                start: Some(Border::test_instance()),
+                bottom: Some(Border::test_instance()),
+                end: Some(Border::test_instance()),
+                inside_horizontal: Some(Border::test_instance()),
+                inside_vertical: Some(Border::test_instance()),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_tbl_borders_from_xml() {
+        let xml = TblBorders::test_xml("tblBorders");
+        assert_eq!(
+            TblBorders::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TblBorders::test_instance(),
+        );
+    }
+
+    impl TblCellMar {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name}>
+                {}
+                {}
+                {}
+                {}
+            </{node_name}>"#,
+                TblWidth::test_xml("top"),
+                TblWidth::test_xml("start"),
+                TblWidth::test_xml("bottom"),
+                TblWidth::test_xml("end"),
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                top: Some(TblWidth::test_instance()),
+                start: Some(TblWidth::test_instance()),
+                bottom: Some(TblWidth::test_instance()),
+                end: Some(TblWidth::test_instance()),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_tbl_cell_mar_from_xml() {
+        let xml = TblCellMar::test_xml("tblCellMar");
+        assert_eq!(
+            TblCellMar::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TblCellMar::test_instance(),
+        );
+    }
+
+    impl TblLook {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(r#"<{node_name} firstRow="true" lastRow="true" firstColumn="true" lastColumn="true" noHBand="true" noVBand="true">
+            </{node_name}>"#,
+                node_name=node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                first_row: Some(true),
+                last_row: Some(true),
+                first_column: Some(true),
+                last_column: Some(true),
+                no_horizontal_band: Some(true),
+                no_vertical_band: Some(true),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_tbl_look_from_xml() {
+        let xml = TblLook::test_xml("tblLook");
+        assert_eq!(
+            TblLook::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TblLook::test_instance(),
+        );
+    }
+
+    impl TblPrBase {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name}>{}</{node_name}>"#,
+                Self::test_extension_xml(),
+                node_name = node_name
+            )
+        }
+
+        pub fn test_extension_xml() -> String {
+            format!(
+                r#"<tblStyle val="Normal" />
+                {}
+                <tblOverlap val="never" />
+                <bidiVisual val="false" />
+                <tblStyleRowBandSize val="100" />
+                <tblStyleColBandSize val="100" />
+                {}
+                <jc val="center" />
+                {}
+                {}
+                {}
+                {}
+                <tblLayout val="autofit" />
+                {}
+                {}
+                <tblCaption val="Some caption" />
+                <tblDescription val="Some description" />"#,
+                TblPPr::test_xml("tblpPr"),
+                TblWidth::test_xml("tblW"),
+                TblWidth::test_xml("tblCellSpacing"),
+                TblWidth::test_xml("tblInd"),
+                TblBorders::test_xml("tblBorders"),
+                Shd::test_xml("shd"),
+                TblCellMar::test_xml("tblCellMar"),
+                TblLook::test_xml("tblLook"),
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                style: Some(String::from("Normal")),
+                paragraph_properties: Some(TblPPr::test_instance()),
+                overlap: Some(TblOverlap::Never),
+                bidirectional_visual: Some(false),
+                style_row_band_size: Some(100),
+                style_column_band_size: Some(100),
+                width: Some(TblWidth::test_instance()),
+                alignment: Some(JcTable::Center),
+                cell_spacing: Some(TblWidth::test_instance()),
+                indent: Some(TblWidth::test_instance()),
+                borders: Some(TblBorders::test_instance()),
+                shading: Some(Shd::test_instance()),
+                layout: Some(TblLayoutType::Autofit),
+                cell_margin: Some(TblCellMar::test_instance()),
+                look: Some(TblLook::test_instance()),
+                caption: Some(String::from("Some caption")),
+                description: Some(String::from("Some description")),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_tbl_pr_base_from_xml() {
+        let xml = TblPrBase::test_xml("tblPrBase");
+        assert_eq!(
+            TblPrBase::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TblPrBase::test_instance(),
+        );
+    }
+
+    impl TblPrChange {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} {}>
+                {}
+            </{node_name}>"#,
+                TrackChange::TEST_ATTRIBUTES,
+                TblPrBase::test_xml("tblPr"),
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                base: TrackChange::test_instance(),
+                properties: TblPrBase::test_instance(),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_tbl_pr_change_from_xml() {
+        let xml = TblPrChange::test_xml("tblPrChange");
+        assert_eq!(
+            TblPrChange::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TblPrChange::test_instance(),
+        );
+    }
+
+    impl TblPr {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name}>
+                {}
+                {}
+            </{node_name}>"#,
+                TblPrBase::test_extension_xml(),
+                TblPrChange::test_xml("tblPrChange"),
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                base: TblPrBase::test_instance(),
+                change: Some(TblPrChange::test_instance()),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_tbl_pr_from_xml() {
+        let xml = TblPr::test_xml("tblPr");
+        assert_eq!(
+            TblPr::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TblPr::test_instance(),
+        );
+    }
+
+    impl TblGridCol {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(r#"<{node_name} w="100"></{node_name}>"#, node_name = node_name)
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                width: Some(TwipsMeasure::Decimal(100)),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_tbl_grid_col_from_xml() {
+        let xml = TblGridCol::test_xml("tblGridCol");
+        assert_eq!(
+            TblGridCol::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TblGridCol::test_instance(),
+        );
+    }
+
+    impl TblGridBase {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name}>
+                {}
+            </{node_name}>"#,
+                Self::test_extension_xml(),
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_extension_xml() -> String {
+            format!("{grid_col}{grid_col}", grid_col = TblGridCol::test_xml("gridCol"))
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                columns: vec![TblGridCol::test_instance(), TblGridCol::test_instance()],
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_tbl_grid_base_from_xml() {
+        let xml = TblGridBase::test_xml("tblGridBase");
+        assert_eq!(
+            TblGridBase::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TblGridBase::test_instance(),
+        );
+    }
+
+    impl TblGridChange {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} id="0">{}</{node_name}>"#,
+                TblGridBase::test_extension_xml(),
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                base: Markup::test_instance(),
+                grid: TblGridBase::test_instance(),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_tbl_grid_change_from_xml() {
+        let xml = TblGridChange::test_xml("tblGridChange");
+        assert_eq!(
+            TblGridChange::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TblGridChange::test_instance(),
+        );
+    }
+
+    impl TblGrid {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name}>
+                {}
+                {}
+            </{node_name}>"#,
+                TblGridBase::test_extension_xml(),
+                TblGridChange::test_xml("tblGridChange"),
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                base: TblGridBase::test_instance(),
+                change: Some(TblGridChange::test_instance()),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_tbl_grid_from_xml() {
+        let xml = TblGrid::test_xml("tblGrid");
+        assert_eq!(
+            TblGrid::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TblGrid::test_instance(),
+        );
+    }
+
+    impl TblPrExBase {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name}>{}</{node_name}>"#,
+                Self::test_extension_xml(),
+                node_name = node_name
+            )
+        }
+
+        pub fn test_extension_xml() -> String {
+            format!(
+                r#"
+                {}
+                <jc val="center" />
+                {}
+                {}
+                {}
+                {}
+                <tblLayout val="autofit" />
+                {}
+                {}"#,
+                TblWidth::test_xml("tblW"),
+                TblWidth::test_xml("tblCellSpacing"),
+                TblWidth::test_xml("tblInd"),
+                TblBorders::test_xml("tblBorders"),
+                Shd::test_xml("shd"),
+                TblCellMar::test_xml("tblCellMar"),
+                TblLook::test_xml("tblLook"),
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                width: Some(TblWidth::test_instance()),
+                alignment: Some(JcTable::Center),
+                cell_spacing: Some(TblWidth::test_instance()),
+                indent: Some(TblWidth::test_instance()),
+                borders: Some(TblBorders::test_instance()),
+                shading: Some(Shd::test_instance()),
+                layout: Some(TblLayoutType::Autofit),
+                cell_margin: Some(TblCellMar::test_instance()),
+                look: Some(TblLook::test_instance()),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_tbl_pr_ex_base_from_xml() {
+        let xml = TblPrExBase::test_xml("tblPrExBase");
+        assert_eq!(
+            TblPrExBase::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TblPrExBase::test_instance(),
+        );
+    }
+
+    impl TblPrExChange {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} {}>
+                {}
+            </{node_name}>"#,
+                TrackChange::TEST_ATTRIBUTES,
+                TblPrExBase::test_xml("tblPrEx"),
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                base: TrackChange::test_instance(),
+                properties_ex: TblPrExBase::test_instance(),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_tbl_pr_ex_change_from_xml() {
+        let xml = TblPrExChange::test_xml("tblPrExChange");
+        assert_eq!(
+            TblPrExChange::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TblPrExChange::test_instance(),
+        );
+    }
+
+    impl TblPrEx {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name}>
+                {}
+                {}
+            </{node_name}>"#,
+                TblPrExBase::test_extension_xml(),
+                TblPrExChange::test_xml("tblPrExChange"),
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                base: TblPrExBase::test_instance(),
+                change: Some(TblPrExChange::test_instance()),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_tbl_pr_ex_from_xml() {
+        let xml = TblPrEx::test_xml("tblPrEx");
+        assert_eq!(
+            TblPrEx::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TblPrEx::test_instance(),
+        );
+    }
+
+    impl Height {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} val="100" hRule="auto"></{node_name}>"#,
+                node_name = node_name
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                value: Some(TwipsMeasure::Decimal(100)),
+                height_rule: Some(HeightRule::Auto),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_height_from_xml() {
+        let xml = Height::test_xml("height");
+        assert_eq!(
+            Height::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            Height::test_instance(),
+        );
+    }
+
+    impl TrPrBase {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name}>{}</{node_name}>"#,
+                Self::test_extension_xml(),
+                node_name = node_name
+            )
+        }
+
+        pub fn test_extension_xml() -> String {
+            format!(
+                r#"{}
+                <divId val="1" />
+                <gridBefore val="1" />
+                <gridAfter val="1" />
+                {}
+                {}
+                <cantSplit val="false" />
+                {}
+                <tblHeader val="true" />
+                {}
+                <jc val="center" />
+                <hidden val="false" />"#,
+                Cnf::test_xml("cnfStyle"),
+                TblWidth::test_xml("wBefore"),
+                TblWidth::test_xml("wAfter"),
+                Height::test_xml("trHeight"),
+                TblWidth::test_xml("tblCellSpacing"),
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                conditional_formatting: Some(Cnf::test_instance()),
+                div_id: Some(1),
+                grid_column_before_first_cell: Some(1),
+                grid_column_after_last_cell: Some(1),
+                width_before_row: Some(TblWidth::test_instance()),
+                width_after_row: Some(TblWidth::test_instance()),
+                cant_split: Some(false),
+                row_height: Some(Height::test_instance()),
+                header: Some(true),
+                cell_spacing: Some(TblWidth::test_instance()),
+                alignment: Some(JcTable::Center),
+                hidden: Some(false),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_tr_pr_base_from_xml() {
+        let xml = TrPrBase::test_xml("trPrBase");
+        assert_eq!(
+            TrPrBase::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TrPrBase::test_instance(),
+        );
+    }
+
+    impl TrPrChange {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} {}>{}</{node_name}>"#,
+                TrackChange::TEST_ATTRIBUTES,
+                TrPrBase::test_xml("trPr"),
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                base: TrackChange::test_instance(),
+                properties: TrPrBase::test_instance(),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_tr_pr_change_from_xml() {
+        let xml = TrPrChange::test_xml("trPrChange");
+        assert_eq!(
+            TrPrChange::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TrPrChange::test_instance(),
+        );
+    }
+
+    impl TrPr {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name}>
+                {}
+                {}
+                {}
+                {}
+            </{node_name}>"#,
+                TrPrBase::test_extension_xml(),
+                TrackChange::test_xml("ins"),
+                TrackChange::test_xml("del"),
+                TrPrChange::test_xml("trPrChange"),
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                base: TrPrBase::test_instance(),
+                inserted: Some(TrackChange::test_instance()),
+                deleted: Some(TrackChange::test_instance()),
+                change: Some(TrPrChange::test_instance()),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_tr_pr_from_xml() {
+        let xml = TrPr::test_xml("trPr");
+        assert_eq!(
+            TrPr::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TrPr::test_instance(),
+        );
+    }
+
+    impl TcBorders {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name}>
+                {}
+                {}
+                {}
+                {}
+                {}
+                {}
+                {}
+                {}
+            </{node_name}>"#,
+                Border::test_xml("top"),
+                Border::test_xml("start"),
+                Border::test_xml("bottom"),
+                Border::test_xml("end"),
+                Border::test_xml("insideH"),
+                Border::test_xml("insideV"),
+                Border::test_xml("tl2br"),
+                Border::test_xml("tr2bl"),
+                node_name = node_name
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                top: Some(Border::test_instance()),
+                start: Some(Border::test_instance()),
+                bottom: Some(Border::test_instance()),
+                end: Some(Border::test_instance()),
+                inside_horizontal: Some(Border::test_instance()),
+                inside_vertical: Some(Border::test_instance()),
+                top_left_to_bottom_right: Some(Border::test_instance()),
+                top_right_to_bottom_left: Some(Border::test_instance()),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_tc_borders_from_xml() {
+        let xml = TcBorders::test_xml("tcBorders");
+        assert_eq!(
+            TcBorders::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TcBorders::test_instance(),
         );
     }
 }
