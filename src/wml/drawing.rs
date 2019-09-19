@@ -8,6 +8,7 @@ use msoffice_shared::{
     error::{LimitViolationError, MaxOccurs, MissingAttributeError, MissingChildNodeError, NotGroupMemberError},
     relationship::RelationshipId,
     xml::{parse_xml_bool, XmlNode},
+    xsdtypes::XsdChoice,
 };
 
 type Result<T> = ::std::result::Result<T, Box<dyn std::error::Error>>;
@@ -158,17 +159,16 @@ impl WrapPath {
         }
 
         let start = start.ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "start"))?;
-        if line_to.len() < 2 {
-            return Err(Box::new(LimitViolationError::new(
+        match line_to.len() {
+            occurs @ _ if occurs < 2 => Err(Box::new(LimitViolationError::new(
                 xml_node.name.clone(),
                 "lineTo",
                 2,
                 MaxOccurs::Unbounded,
-                line_to.len() as u32,
-            )));
+                occurs as u32,
+            ))),
+            _ => Ok(Self { start, line_to, edited }),
         }
-
-        Ok(Self { start, line_to, edited })
     }
 }
 
@@ -204,8 +204,9 @@ impl WrapSquare {
 
         let effect_extent = xml_node
             .child_nodes
-            .first()
-            .map(|child_node| EffectExtent::from_xml_element(child_node))
+            .iter()
+            .find(|child_node| child_node.local_name() == "effectExtent")
+            .map(EffectExtent::from_xml_element)
             .transpose()?;
 
         Ok(Self {
@@ -243,13 +244,16 @@ impl WrapTight {
             }
         }
 
-        let wrap_polygon_node = xml_node
+        let wrap_polygon = xml_node
             .child_nodes
-            .first()
+            .iter()
+            .find(|child_node| child_node.local_name() == "wrapPolygon")
+            .map(WrapPath::from_xml_element)
+            .transpose()?
             .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "wrapPolygon"))?;
 
         Ok(Self {
-            wrap_polygon: WrapPath::from_xml_element(wrap_polygon_node)?,
+            wrap_polygon,
             wrap_text: wrap_text.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "wrapText"))?,
             distance_left,
             distance_right,
@@ -281,13 +285,16 @@ impl WrapThrough {
             }
         }
 
-        let wrap_polygon_node = xml_node
+        let wrap_polygon = xml_node
             .child_nodes
-            .first()
+            .iter()
+            .find(|child_node| child_node.local_name() == "wrapPolygon")
+            .map(WrapPath::from_xml_element)
+            .transpose()?
             .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "wrapPolygon"))?;
 
         Ok(Self {
-            wrap_polygon: WrapPath::from_xml_element(wrap_polygon_node)?,
+            wrap_polygon,
             wrap_text: wrap_text.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "wrapText"))?,
             distance_left,
             distance_right,
@@ -317,8 +324,9 @@ impl WrapTopBottom {
 
         let effect_extent = xml_node
             .child_nodes
-            .first()
-            .map(|child_node| EffectExtent::from_xml_element(child_node))
+            .iter()
+            .find(|child_node| child_node.local_name() == "effectExtent")
+            .map(EffectExtent::from_xml_element)
             .transpose()?;
 
         Ok(Self {
@@ -399,16 +407,33 @@ pub enum PosHChoice {
 }
 
 impl PosHChoice {
+    pub fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
+        match node_name.as_ref() {
+            "align" | "posOffset" => true,
+            _ => false,
+        }
+    }
+
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
         match xml_node.local_name() {
-            "align" => match &xml_node.text {
-                Some(text) => Ok(PosHChoice::Align(text.parse()?)),
-                None => Err(Box::new(MissingChildNodeError::new(xml_node.name.clone(), "Text node"))),
-            },
-            "posOffset" => match &xml_node.text {
-                Some(text) => Ok(PosHChoice::PositionOffset(text.parse()?)),
-                None => Err(Box::new(MissingChildNodeError::new(xml_node.name.clone(), "Text node"))),
-            },
+            "align" => {
+                let alignment = xml_node
+                    .text
+                    .as_ref()
+                    .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "Text node"))?
+                    .parse()?;
+
+                Ok(PosHChoice::Align(alignment))
+            }
+            "posOffset" => {
+                let offset = xml_node
+                    .text
+                    .as_ref()
+                    .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "Text node"))?
+                    .parse()?;
+
+                Ok(PosHChoice::PositionOffset(offset))
+            }
             _ => Err(Box::new(NotGroupMemberError::new(xml_node.name.clone(), "PosHChoice"))),
         }
     }
@@ -422,19 +447,23 @@ pub struct PosH {
 
 impl PosH {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
-        let relative_from_attr = xml_node
+        let relative_from = xml_node
             .attributes
             .get("relativeFrom")
-            .ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "relativeFrom"))?;
+            .ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "relativeFrom"))?
+            .parse()?;
 
-        let align_or_offset_node = xml_node
+        let align_or_offset = xml_node
             .child_nodes
-            .first()
+            .iter()
+            .find(|child_node| PosHChoice::is_choice_member(child_node.local_name()))
+            .map(PosHChoice::from_xml_element)
+            .transpose()?
             .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "align|posOffset"))?;
 
         Ok(Self {
-            align_or_offset: PosHChoice::from_xml_element(align_or_offset_node)?,
-            relative_from: relative_from_attr.parse()?,
+            align_or_offset,
+            relative_from,
         })
     }
 }
@@ -479,16 +508,33 @@ pub enum PosVChoice {
 }
 
 impl PosVChoice {
+    pub fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
+        match node_name.as_ref() {
+            "align" | "posOffset" => true,
+            _ => false,
+        }
+    }
+
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
         match xml_node.local_name() {
-            "align" => match &xml_node.text {
-                Some(text) => Ok(PosVChoice::Align(text.parse()?)),
-                None => Err(Box::new(MissingChildNodeError::new(xml_node.name.clone(), "Text node"))),
-            },
-            "posOffset" => match &xml_node.text {
-                Some(text) => Ok(PosVChoice::PositionOffset(text.parse()?)),
-                None => Err(Box::new(MissingChildNodeError::new(xml_node.name.clone(), "Text node"))),
-            },
+            "align" => {
+                let alignment = xml_node
+                    .text
+                    .as_ref()
+                    .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "Text node"))?
+                    .parse()?;
+
+                Ok(PosVChoice::Align(alignment))
+            }
+            "posOffset" => {
+                let offset = xml_node
+                    .text
+                    .as_ref()
+                    .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "Text node"))?
+                    .parse()?;
+
+                Ok(PosVChoice::PositionOffset(offset))
+            }
             _ => Err(Box::new(NotGroupMemberError::new(xml_node.name.clone(), "PosVChoice"))),
         }
     }
@@ -502,19 +548,23 @@ pub struct PosV {
 
 impl PosV {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
-        let relative_from_attr = xml_node
+        let relative_from = xml_node
             .attributes
             .get("relativeFrom")
-            .ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "relativeFrom"))?;
+            .ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "relativeFrom"))?
+            .parse()?;
 
-        let align_or_offset_node = xml_node
+        let align_or_offset = xml_node
             .child_nodes
-            .first()
+            .iter()
+            .find(|child_node| PosVChoice::is_choice_member(child_node.local_name()))
+            .map(PosVChoice::from_xml_element)
+            .transpose()?
             .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "align|posOffset"))?;
 
         Ok(Self {
-            align_or_offset: PosVChoice::from_xml_element(align_or_offset_node)?,
-            relative_from: relative_from_attr.parse()?,
+            align_or_offset,
+            relative_from,
         })
     }
 }
@@ -653,6 +703,28 @@ impl Anchor {
 #[derive(Debug, Clone, PartialEq)]
 pub struct TxbxContent {
     pub block_level_elements: Vec<super::BlockLevelElts>, // minOccurs=1
+}
+
+impl TxbxContent {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let block_level_elements = xml_node
+            .child_nodes
+            .iter()
+            .filter_map(super::BlockLevelElts::try_from_xml_element)
+            .collect::<Result<Vec<_>>>()?;
+
+        if block_level_elements.is_empty() {
+            Err(Box::new(LimitViolationError::new(
+                xml_node.name.clone(),
+                "BlockLevelElts",
+                1,
+                MaxOccurs::Unbounded,
+                0,
+            )))
+        } else {
+            Ok(Self { block_level_elements })
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -1188,5 +1260,36 @@ mod tests {
         let xml = Anchor::test_xml("anchor");
         let anchor = Anchor::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
         assert_eq!(anchor, Anchor::test_instance());
+    }
+
+    impl TxbxContent {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name}>
+                {}
+            </{node_name}>"#,
+                crate::wml::P::test_xml("p"),
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                block_level_elements: vec![crate::wml::BlockLevelElts::Chunk(
+                    crate::wml::BlockLevelChunkElts::Content(crate::wml::ContentBlockContent::Paragraph(
+                        crate::wml::P::test_instance(),
+                    )),
+                )],
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_txbx_content_from_xml() {
+        let xml = TxbxContent::test_xml("txbxContent");
+        assert_eq!(
+            TxbxContent::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TxbxContent::test_instance()
+        );
     }
 }

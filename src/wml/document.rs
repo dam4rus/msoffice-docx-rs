@@ -46,11 +46,7 @@ fn parse_text_scale_percent(s: &str) -> Result<f64> {
 }
 
 fn parse_on_off_xml_element(xml_node: &XmlNode) -> std::result::Result<Option<OnOff>, ParseBoolError> {
-    xml_node
-        .attributes
-        .get("val")
-        .map(|val| parse_xml_bool(val))
-        .transpose()
+    xml_node.attributes.get("val").map(parse_xml_bool).transpose()
 }
 
 #[derive(Default, Debug, Clone, PartialEq)]
@@ -637,7 +633,7 @@ impl SimpleField {
         let paragraph_contents = xml_node
             .child_nodes
             .iter()
-            .filter_map(|child_node| PContent::try_from_xml_element(child_node))
+            .filter_map(PContent::try_from_xml_element)
             .collect::<Result<Vec<_>>>()?;
 
         let field_codes = field_codes.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "instr"))?;
@@ -686,7 +682,7 @@ impl Hyperlink {
         let paragraph_contents = xml_node
             .child_nodes
             .iter()
-            .filter_map(|child_node| PContent::try_from_xml_element(child_node))
+            .filter_map(PContent::try_from_xml_element)
             .collect::<Result<Vec<_>>>()?;
 
         let rel_id = rel_id.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "r:id"))?;
@@ -1809,7 +1805,7 @@ impl RPrOriginal {
         let r_pr_bases = xml_node
             .child_nodes
             .iter()
-            .filter_map(|child_node| RPrBase::try_from_xml_element(child_node))
+            .filter_map(RPrBase::try_from_xml_element)
             .collect::<Result<Vec<_>>>()?;
 
         Ok(Self { r_pr_bases })
@@ -1829,7 +1825,7 @@ impl RPrChange {
             .child_nodes
             .iter()
             .find(|child_node| child_node.local_name() == "rPr")
-            .map(|child_node| RPrOriginal::from_xml_element(child_node))
+            .map(RPrOriginal::from_xml_element)
             .transpose()?
             .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "rPr"))?;
 
@@ -1896,7 +1892,7 @@ impl SdtComboBox {
             .child_nodes
             .iter()
             .filter(|child_node| child_node.local_name() == "listItem")
-            .map(|child_node| SdtListItem::from_xml_element(child_node))
+            .map(SdtListItem::from_xml_element)
             .collect::<Result<Vec<_>>>()?;
 
         Ok(Self { list_items, last_value })
@@ -1990,7 +1986,7 @@ impl SdtDropDownList {
             .child_nodes
             .iter()
             .filter(|child_node| child_node.local_name() == "listItem")
-            .map(|child_node| SdtListItem::from_xml_element(child_node))
+            .map(SdtListItem::from_xml_element)
             .collect::<Result<Vec<_>>>()?;
 
         Ok(Self { list_items, last_value })
@@ -2185,7 +2181,7 @@ impl SdtEndPr {
             .child_nodes
             .iter()
             .filter(|child_node| child_node.local_name() == "rPr")
-            .map(|child_node| RPr::from_xml_element(child_node))
+            .map(RPr::from_xml_element)
             .collect::<Result<Vec<_>>>()?;
 
         Ok(Self { run_properties_vec })
@@ -2202,7 +2198,7 @@ impl SdtContentRun {
         let p_contents = xml_node
             .child_nodes
             .iter()
-            .filter_map(|child_node| PContent::try_from_xml_element(child_node))
+            .filter_map(PContent::try_from_xml_element)
             .collect::<Result<Vec<_>>>()?;
 
         Ok(Self { p_contents })
@@ -2254,7 +2250,7 @@ impl DirContentRun {
         let p_contents = xml_node
             .child_nodes
             .iter()
-            .filter_map(|child_node| PContent::try_from_xml_element(child_node))
+            .filter_map(PContent::try_from_xml_element)
             .collect::<Result<Vec<_>>>()?;
 
         Ok(Self { p_contents, value })
@@ -2274,7 +2270,7 @@ impl BdoContentRun {
         let p_contents = xml_node
             .child_nodes
             .iter()
-            .filter_map(|child_node| PContent::try_from_xml_element(child_node))
+            .filter_map(PContent::try_from_xml_element)
             .collect::<Result<Vec<_>>>()?;
 
         Ok(Self { p_contents, value })
@@ -2543,7 +2539,7 @@ impl Drawing {
         let anchor_or_inline_vec = xml_node
             .child_nodes
             .iter()
-            .filter_map(|child_node| DrawingChoice::try_from_xml_element(child_node))
+            .filter_map(DrawingChoice::try_from_xml_element)
             .collect::<Result<Vec<_>>>()?;
 
         Ok(Self { anchor_or_inline_vec })
@@ -2960,7 +2956,7 @@ impl RubyContent {
         let ruby_contents = xml_node
             .child_nodes
             .iter()
-            .filter_map(|child_node| RubyContentChoice::try_from_xml_element(child_node))
+            .filter_map(RubyContentChoice::try_from_xml_element)
             .collect::<Result<Vec<_>>>()?;
 
         Ok(Self { ruby_contents })
@@ -3334,7 +3330,7 @@ impl RunTrackChange {
         let choices = xml_node
             .child_nodes
             .iter()
-            .filter_map(|child_node| RunTrackChangeChoice::try_from_xml_element(child_node))
+            .filter_map(RunTrackChangeChoice::try_from_xml_element)
             .collect::<Result<Vec<_>>>()?;
 
         Ok(Self { base, choices })
@@ -3556,7 +3552,7 @@ impl SdtContentBlock {
         let block_contents = xml_node
             .child_nodes
             .iter()
-            .filter_map(|child_node| ContentBlockContent::try_from_xml_element(child_node))
+            .filter_map(ContentBlockContent::try_from_xml_element)
             .collect::<Result<Vec<_>>>()?;
 
         Ok(Self { block_contents })
@@ -3812,9 +3808,7 @@ impl TabStop {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Tabs {
-    pub tabs: Vec<TabStop>,
-}
+pub struct Tabs(pub Vec<TabStop>);
 
 impl Tabs {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
@@ -3822,7 +3816,7 @@ impl Tabs {
             .child_nodes
             .iter()
             .filter(|child_node| child_node.local_name() == "tab")
-            .map(|child_node| TabStop::from_xml_element(child_node))
+            .map(TabStop::from_xml_element)
             .collect::<Result<Vec<_>>>()?;
 
         if tabs.is_empty() {
@@ -3834,7 +3828,7 @@ impl Tabs {
                 0,
             )))
         } else {
-            Ok(Self { tabs })
+            Ok(Self(tabs))
         }
     }
 }
@@ -4066,151 +4060,51 @@ pub struct PPrBase {
 
 impl PPrBase {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
-        let mut instance: Self = Default::default();
-
-        for child_node in &xml_node.child_nodes {
-            instance.try_update_from_xml_element(child_node)?;
-        }
-
-        Ok(instance)
+        xml_node
+            .child_nodes
+            .iter()
+            .try_fold(Default::default(), Self::try_update_from_xml_element)
     }
 
-    pub fn try_update_from_xml_element(&mut self, xml_node: &XmlNode) -> Result<bool> {
+    pub fn try_update_from_xml_element(mut self, xml_node: &XmlNode) -> Result<Self> {
         match xml_node.local_name() {
-            "pStyle" => {
-                self.style = Some(xml_node.get_val_attribute()?.clone());
-                Ok(true)
-            }
-            "keepNext" => {
-                self.keep_with_next = parse_on_off_xml_element(xml_node)?;
-                Ok(true)
-            }
-            "keepLines" => {
-                self.keep_lines_on_one_page = parse_on_off_xml_element(xml_node)?;
-                Ok(true)
-            }
-            "pageBreakBefore" => {
-                self.start_on_next_page = parse_on_off_xml_element(xml_node)?;
-                Ok(true)
-            }
-            "framePr" => {
-                self.frame_properties = Some(FramePr::from_xml_element(xml_node)?);
-                Ok(true)
-            }
-            "widowControl" => {
-                self.widow_control = parse_on_off_xml_element(xml_node)?;
-                Ok(true)
-            }
-            "numPr" => {
-                self.numbering_properties = Some(NumPr::from_xml_element(xml_node)?);
-                Ok(true)
-            }
-            "suppressLineNumbers" => {
-                self.suppress_line_numbers = parse_on_off_xml_element(xml_node)?;
-                Ok(true)
-            }
-            "pBdr" => {
-                self.borders = Some(PBdr::from_xml_element(xml_node)?);
-                Ok(true)
-            }
-            "shd" => {
-                self.shading = Some(Shd::from_xml_element(xml_node)?);
-                Ok(true)
-            }
-            "tabs" => {
-                self.tabs = Some(Tabs::from_xml_element(xml_node)?);
-                Ok(true)
-            }
-            "suppressAutoHyphens" => {
-                self.suppress_auto_hyphens = parse_on_off_xml_element(xml_node)?;
-                Ok(true)
-            }
-            "kinsoku" => {
-                self.kinsoku = parse_on_off_xml_element(xml_node)?;
-                Ok(true)
-            }
-            "wordWrap" => {
-                self.word_wrapping = parse_on_off_xml_element(xml_node)?;
-                Ok(true)
-            }
-            "overflowPunct" => {
-                self.overflow_punctuations = parse_on_off_xml_element(xml_node)?;
-                Ok(true)
-            }
-            "topLinePunct" => {
-                self.top_line_punctuations = parse_on_off_xml_element(xml_node)?;
-                Ok(true)
-            }
-            "autoSpaceDE" => {
-                self.auto_space_latin_and_east_asian = parse_on_off_xml_element(xml_node)?;
-                Ok(true)
-            }
-            "autoSpaceDN" => {
-                self.auto_space_east_asian_and_numbers = parse_on_off_xml_element(xml_node)?;
-                Ok(true)
-            }
-            "bidi" => {
-                self.bidirectional = parse_on_off_xml_element(xml_node)?;
-                Ok(true)
-            }
-            "adjustRightInd" => {
-                self.adjust_right_indent = parse_on_off_xml_element(xml_node)?;
-                Ok(true)
-            }
-            "snapToGrid" => {
-                self.snap_to_grid = parse_on_off_xml_element(xml_node)?;
-                Ok(true)
-            }
-            "spacing" => {
-                self.spacing = Some(Spacing::from_xml_element(xml_node)?);
-                Ok(true)
-            }
-            "ind" => {
-                self.indent = Some(Ind::from_xml_element(xml_node)?);
-                Ok(true)
-            }
-            "contextualSpacing" => {
-                self.contextual_spacing = parse_on_off_xml_element(xml_node)?;
-                Ok(true)
-            }
-            "mirrorIndents" => {
-                self.mirror_indents = parse_on_off_xml_element(xml_node)?;
-                Ok(true)
-            }
-            "suppressOverlap" => {
-                self.suppress_overlapping = parse_on_off_xml_element(xml_node)?;
-                Ok(true)
-            }
-            "jc" => {
-                self.alignment = Some(xml_node.get_val_attribute()?.parse()?);
-                Ok(true)
-            }
-            "textDirection" => {
-                self.text_direction = Some(xml_node.get_val_attribute()?.parse()?);
-                Ok(true)
-            }
-            "textAlignment" => {
-                self.text_alignment = Some(xml_node.get_val_attribute()?.parse()?);
-                Ok(true)
-            }
-            "textboxTightWrap" => {
-                self.textbox_tight_wrap = Some(xml_node.get_val_attribute()?.parse()?);
-                Ok(true)
-            }
-            "outlineLvl" => {
-                self.outline_level = Some(xml_node.get_val_attribute()?.parse()?);
-                Ok(true)
-            }
-            "divId" => {
-                self.div_id = Some(xml_node.get_val_attribute()?.parse()?);
-                Ok(true)
-            }
-            "cnfStyle" => {
-                self.conditional_formatting = Some(Cnf::from_xml_element(xml_node)?);
-                Ok(true)
-            }
-            _ => Ok(false),
+            "pStyle" => self.style = Some(xml_node.get_val_attribute()?.clone()),
+            "keepNext" => self.keep_with_next = parse_on_off_xml_element(xml_node)?,
+            "keepLines" => self.keep_lines_on_one_page = parse_on_off_xml_element(xml_node)?,
+            "pageBreakBefore" => self.start_on_next_page = parse_on_off_xml_element(xml_node)?,
+            "framePr" => self.frame_properties = Some(FramePr::from_xml_element(xml_node)?),
+            "widowControl" => self.widow_control = parse_on_off_xml_element(xml_node)?,
+            "numPr" => self.numbering_properties = Some(NumPr::from_xml_element(xml_node)?),
+            "suppressLineNumbers" => self.suppress_line_numbers = parse_on_off_xml_element(xml_node)?,
+            "pBdr" => self.borders = Some(PBdr::from_xml_element(xml_node)?),
+            "shd" => self.shading = Some(Shd::from_xml_element(xml_node)?),
+            "tabs" => self.tabs = Some(Tabs::from_xml_element(xml_node)?),
+            "suppressAutoHyphens" => self.suppress_auto_hyphens = parse_on_off_xml_element(xml_node)?,
+            "kinsoku" => self.kinsoku = parse_on_off_xml_element(xml_node)?,
+            "wordWrap" => self.word_wrapping = parse_on_off_xml_element(xml_node)?,
+            "overflowPunct" => self.overflow_punctuations = parse_on_off_xml_element(xml_node)?,
+            "topLinePunct" => self.top_line_punctuations = parse_on_off_xml_element(xml_node)?,
+            "autoSpaceDE" => self.auto_space_latin_and_east_asian = parse_on_off_xml_element(xml_node)?,
+            "autoSpaceDN" => self.auto_space_east_asian_and_numbers = parse_on_off_xml_element(xml_node)?,
+            "bidi" => self.bidirectional = parse_on_off_xml_element(xml_node)?,
+            "adjustRightInd" => self.adjust_right_indent = parse_on_off_xml_element(xml_node)?,
+            "snapToGrid" => self.snap_to_grid = parse_on_off_xml_element(xml_node)?,
+            "spacing" => self.spacing = Some(Spacing::from_xml_element(xml_node)?),
+            "ind" => self.indent = Some(Ind::from_xml_element(xml_node)?),
+            "contextualSpacing" => self.contextual_spacing = parse_on_off_xml_element(xml_node)?,
+            "mirrorIndents" => self.mirror_indents = parse_on_off_xml_element(xml_node)?,
+            "suppressOverlap" => self.suppress_overlapping = parse_on_off_xml_element(xml_node)?,
+            "jc" => self.alignment = Some(xml_node.get_val_attribute()?.parse()?),
+            "textDirection" => self.text_direction = Some(xml_node.get_val_attribute()?.parse()?),
+            "textAlignment" => self.text_alignment = Some(xml_node.get_val_attribute()?.parse()?),
+            "textboxTightWrap" => self.textbox_tight_wrap = Some(xml_node.get_val_attribute()?.parse()?),
+            "outlineLvl" => self.outline_level = Some(xml_node.get_val_attribute()?.parse()?),
+            "divId" => self.div_id = Some(xml_node.get_val_attribute()?.parse()?),
+            "cnfStyle" => self.conditional_formatting = Some(Cnf::from_xml_element(xml_node)?),
+            _ => (),
         }
+
+        Ok(self)
     }
 }
 
@@ -4294,7 +4188,7 @@ impl ParaRPrChange {
             .child_nodes
             .iter()
             .find(|child_node| child_node.local_name() == "rPr")
-            .map(|child_node| ParaRPrOriginal::from_xml_element(child_node))
+            .map(ParaRPrOriginal::from_xml_element)
             .transpose()?
             .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "rPr"))?;
 
@@ -5020,7 +4914,7 @@ impl Columns {
             .child_nodes
             .iter()
             .filter(|child_node| child_node.local_name() == "col")
-            .map(|child_node| Column::from_xml_element(child_node))
+            .map(Column::from_xml_element)
             .collect::<Result<Vec<_>>>()?;
 
         match instance.columns.len() {
@@ -5265,7 +5159,7 @@ impl SectPrChange {
             .child_nodes
             .iter()
             .find(|child_node| child_node.local_name() == "sectPr")
-            .map(|child_node| SectPrBase::from_xml_element(child_node))
+            .map(SectPrBase::from_xml_element)
             .transpose()?;
 
         Ok(Self {
@@ -5330,7 +5224,7 @@ impl PPrChange {
             .child_nodes
             .iter()
             .find(|child_node| child_node.local_name() == "pPr")
-            .map(|child_node| PPrBase::from_xml_element(child_node))
+            .map(PPrBase::from_xml_element)
             .transpose()?
             .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "pPr"))?;
 
@@ -5355,9 +5249,7 @@ impl PPr {
                 "rPr" => instance.run_properties = Some(ParaRPr::from_xml_element(child_node)?),
                 "sectPr" => instance.section_properties = Some(SectPr::from_xml_element(child_node)?),
                 "pPrChange" => instance.properties_change = Some(PPrChange::from_xml_element(child_node)?),
-                _ => {
-                    instance.base.try_update_from_xml_element(child_node)?;
-                }
+                _ => instance.base = instance.base.try_update_from_xml_element(child_node)?,
             }
         }
 
@@ -5630,87 +5522,35 @@ pub struct TblPrBase {
 
 impl TblPrBase {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
-        let mut instance: Self = Default::default();
-
-        for child_node in &xml_node.child_nodes {
-            instance.try_update_from_xml_element(child_node)?;
-        }
-
-        Ok(instance)
+        xml_node
+            .child_nodes
+            .iter()
+            .try_fold(Default::default(), Self::try_update_from_xml_element)
     }
 
-    pub fn try_update_from_xml_element(&mut self, xml_node: &XmlNode) -> Result<bool> {
+    pub fn try_update_from_xml_element(mut self, xml_node: &XmlNode) -> Result<Self> {
         match xml_node.local_name() {
-            "tblStyle" => {
-                self.style = Some(xml_node.get_val_attribute()?.clone());
-                Ok(true)
-            }
-            "tblpPr" => {
-                self.paragraph_properties = Some(TblPPr::from_xml_element(xml_node)?);
-                Ok(true)
-            }
-            "tblOverlap" => {
-                self.overlap = Some(xml_node.get_val_attribute()?.parse()?);
-                Ok(true)
-            }
-            "bidiVisual" => {
-                self.bidirectional_visual = parse_on_off_xml_element(xml_node)?;
-                Ok(true)
-            }
-            "tblStyleRowBandSize" => {
-                self.style_row_band_size = Some(xml_node.get_val_attribute()?.parse()?);
-                Ok(true)
-            }
-            "tblStyleColBandSize" => {
-                self.style_column_band_size = Some(xml_node.get_val_attribute()?.parse()?);
-                Ok(true)
-            }
-            "tblW" => {
-                self.width = Some(TblWidth::from_xml_element(xml_node)?);
-                Ok(true)
-            }
-            "jc" => {
-                self.alignment = Some(xml_node.get_val_attribute()?.parse()?);
-                Ok(true)
-            }
-            "tblCellSpacing" => {
-                self.cell_spacing = Some(TblWidth::from_xml_element(xml_node)?);
-                Ok(true)
-            }
-            "tblInd" => {
-                self.indent = Some(TblWidth::from_xml_element(xml_node)?);
-                Ok(true)
-            }
-            "tblBorders" => {
-                self.borders = Some(TblBorders::from_xml_element(xml_node)?);
-                Ok(true)
-            }
-            "shd" => {
-                self.shading = Some(Shd::from_xml_element(xml_node)?);
-                Ok(true)
-            }
-            "tblLayout" => {
-                self.layout = Some(xml_node.get_val_attribute()?.parse()?);
-                Ok(true)
-            }
-            "tblCellMar" => {
-                self.cell_margin = Some(TblCellMar::from_xml_element(xml_node)?);
-                Ok(true)
-            }
-            "tblLook" => {
-                self.look = Some(TblLook::from_xml_element(xml_node)?);
-                Ok(true)
-            }
-            "tblCaption" => {
-                self.caption = Some(xml_node.get_val_attribute()?.clone());
-                Ok(true)
-            }
-            "tblDescription" => {
-                self.description = Some(xml_node.get_val_attribute()?.clone());
-                Ok(true)
-            }
-            _ => Ok(false),
+            "tblStyle" => self.style = Some(xml_node.get_val_attribute()?.clone()),
+            "tblpPr" => self.paragraph_properties = Some(TblPPr::from_xml_element(xml_node)?),
+            "tblOverlap" => self.overlap = Some(xml_node.get_val_attribute()?.parse()?),
+            "bidiVisual" => self.bidirectional_visual = parse_on_off_xml_element(xml_node)?,
+            "tblStyleRowBandSize" => self.style_row_band_size = Some(xml_node.get_val_attribute()?.parse()?),
+            "tblStyleColBandSize" => self.style_column_band_size = Some(xml_node.get_val_attribute()?.parse()?),
+            "tblW" => self.width = Some(TblWidth::from_xml_element(xml_node)?),
+            "jc" => self.alignment = Some(xml_node.get_val_attribute()?.parse()?),
+            "tblCellSpacing" => self.cell_spacing = Some(TblWidth::from_xml_element(xml_node)?),
+            "tblInd" => self.indent = Some(TblWidth::from_xml_element(xml_node)?),
+            "tblBorders" => self.borders = Some(TblBorders::from_xml_element(xml_node)?),
+            "shd" => self.shading = Some(Shd::from_xml_element(xml_node)?),
+            "tblLayout" => self.layout = Some(xml_node.get_val_attribute()?.parse()?),
+            "tblCellMar" => self.cell_margin = Some(TblCellMar::from_xml_element(xml_node)?),
+            "tblLook" => self.look = Some(TblLook::from_xml_element(xml_node)?),
+            "tblCaption" => self.caption = Some(xml_node.get_val_attribute()?.clone()),
+            "tblDescription" => self.description = Some(xml_node.get_val_attribute()?.clone()),
+            _ => (),
         }
+
+        Ok(self)
     }
 }
 
@@ -5727,7 +5567,7 @@ impl TblPrChange {
             .child_nodes
             .iter()
             .find(|child_node| child_node.local_name() == "tblPr")
-            .map(|child_node| TblPrBase::from_xml_element(child_node))
+            .map(TblPrBase::from_xml_element)
             .transpose()?
             .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "tblPr"))?;
 
@@ -5748,9 +5588,7 @@ impl TblPr {
         for child_node in &xml_node.child_nodes {
             match child_node.local_name() {
                 "tblPrChange" => instance.change = Some(TblPrChange::from_xml_element(child_node)?),
-                _ => {
-                    instance.base.try_update_from_xml_element(child_node)?;
-                }
+                _ => instance.base = instance.base.try_update_from_xml_element(child_node)?,
             }
         }
 
@@ -5793,24 +5631,19 @@ pub struct TblGridBase {
 
 impl TblGridBase {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
-        let columns = xml_node
+        xml_node
             .child_nodes
             .iter()
-            .filter(|child_node| child_node.local_name() == "gridCol")
-            .map(|child_node| TblGridCol::from_xml_element(child_node))
-            .collect::<Result<Vec<_>>>()?;
-
-        Ok(Self { columns })
+            .try_fold(Default::default(), Self::try_update_from_xml_element)
     }
 
-    pub fn try_update_from_xml_element(&mut self, xml_node: &XmlNode) -> Result<bool> {
+    pub fn try_update_from_xml_element(mut self, xml_node: &XmlNode) -> Result<Self> {
         match xml_node.local_name() {
-            "gridCol" => {
-                self.columns.push(TblGridCol::from_xml_element(xml_node)?);
-                Ok(true)
-            }
-            _ => Ok(false),
+            "gridCol" => self.columns.push(TblGridCol::from_xml_element(xml_node)?),
+            _ => (),
         }
+
+        Ok(self)
     }
 }
 
@@ -5827,9 +5660,7 @@ impl TblGrid {
         for child_node in &xml_node.child_nodes {
             match child_node.local_name() {
                 "tblGridChange" => instance.change = Some(TblGridChange::from_xml_element(child_node)?),
-                _ => {
-                    instance.base.try_update_from_xml_element(child_node)?;
-                }
+                _ => instance.base = instance.base.try_update_from_xml_element(child_node)?,
             }
         }
 
@@ -5852,55 +5683,27 @@ pub struct TblPrExBase {
 
 impl TblPrExBase {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
-        let mut instance: Self = Default::default();
-
-        for child_node in &xml_node.child_nodes {
-            instance.try_update_from_xml_element(child_node)?;
-        }
-
-        Ok(instance)
+        xml_node
+            .child_nodes
+            .iter()
+            .try_fold(Default::default(), Self::try_update_from_xml_element)
     }
 
-    pub fn try_update_from_xml_element(&mut self, xml_node: &XmlNode) -> Result<bool> {
+    pub fn try_update_from_xml_element(mut self, xml_node: &XmlNode) -> Result<Self> {
         match xml_node.local_name() {
-            "tblW" => {
-                self.width = Some(TblWidth::from_xml_element(xml_node)?);
-                Ok(true)
-            }
-            "jc" => {
-                self.alignment = Some(xml_node.get_val_attribute()?.parse()?);
-                Ok(true)
-            }
-            "tblCellSpacing" => {
-                self.cell_spacing = Some(TblWidth::from_xml_element(xml_node)?);
-                Ok(true)
-            }
-            "tblInd" => {
-                self.indent = Some(TblWidth::from_xml_element(xml_node)?);
-                Ok(true)
-            }
-            "tblBorders" => {
-                self.borders = Some(TblBorders::from_xml_element(xml_node)?);
-                Ok(true)
-            }
-            "shd" => {
-                self.shading = Some(Shd::from_xml_element(xml_node)?);
-                Ok(true)
-            }
-            "tblLayout" => {
-                self.layout = Some(xml_node.get_val_attribute()?.parse()?);
-                Ok(true)
-            }
-            "tblCellMar" => {
-                self.cell_margin = Some(TblCellMar::from_xml_element(xml_node)?);
-                Ok(true)
-            }
-            "tblLook" => {
-                self.look = Some(TblLook::from_xml_element(xml_node)?);
-                Ok(true)
-            }
-            _ => Ok(false),
+            "tblW" => self.width = Some(TblWidth::from_xml_element(xml_node)?),
+            "jc" => self.alignment = Some(xml_node.get_val_attribute()?.parse()?),
+            "tblCellSpacing" => self.cell_spacing = Some(TblWidth::from_xml_element(xml_node)?),
+            "tblInd" => self.indent = Some(TblWidth::from_xml_element(xml_node)?),
+            "tblBorders" => self.borders = Some(TblBorders::from_xml_element(xml_node)?),
+            "shd" => self.shading = Some(Shd::from_xml_element(xml_node)?),
+            "tblLayout" => self.layout = Some(xml_node.get_val_attribute()?.parse()?),
+            "tblCellMar" => self.cell_margin = Some(TblCellMar::from_xml_element(xml_node)?),
+            "tblLook" => self.look = Some(TblLook::from_xml_element(xml_node)?),
+            _ => (),
         }
+
+        Ok(self)
     }
 }
 
@@ -5917,7 +5720,7 @@ impl TblPrExChange {
             .child_nodes
             .iter()
             .find(|child_node| child_node.local_name() == "tblPrEx")
-            .map(|child_node| TblPrExBase::from_xml_element(child_node))
+            .map(TblPrExBase::from_xml_element)
             .transpose()?
             .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "tblPrEx"))?;
 
@@ -5938,9 +5741,7 @@ impl TblPrEx {
         for child_node in &xml_node.child_nodes {
             match child_node.local_name() {
                 "tblPrExChange" => instance.change = Some(TblPrExChange::from_xml_element(child_node)?),
-                _ => {
-                    instance.base.try_update_from_xml_element(child_node)?;
-                }
+                _ => instance.base = instance.base.try_update_from_xml_element(child_node)?,
             }
         }
 
@@ -5988,67 +5789,30 @@ pub struct TrPrBase {
 
 impl TrPrBase {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
-        let mut instance: Self = Default::default();
-
-        for child_node in &xml_node.child_nodes {
-            instance.try_update_from_xml_element(child_node)?;
-        }
-
-        Ok(instance)
+        xml_node
+            .child_nodes
+            .iter()
+            .try_fold(Default::default(), Self::try_update_from_xml_element)
     }
 
-    pub fn try_update_from_xml_element(&mut self, xml_node: &XmlNode) -> Result<bool> {
+    pub fn try_update_from_xml_element(mut self, xml_node: &XmlNode) -> Result<Self> {
         match xml_node.local_name() {
-            "cnfStyle" => {
-                self.conditional_formatting = Some(Cnf::from_xml_element(xml_node)?);
-                Ok(true)
-            }
-            "divId" => {
-                self.div_id = Some(xml_node.get_val_attribute()?.parse()?);
-                Ok(true)
-            }
-            "gridBefore" => {
-                self.grid_column_before_first_cell = Some(xml_node.get_val_attribute()?.parse()?);
-                Ok(true)
-            }
-            "gridAfter" => {
-                self.grid_column_after_last_cell = Some(xml_node.get_val_attribute()?.parse()?);
-                Ok(true)
-            }
-            "wBefore" => {
-                self.width_before_row = Some(TblWidth::from_xml_element(xml_node)?);
-                Ok(true)
-            }
-            "wAfter" => {
-                self.width_after_row = Some(TblWidth::from_xml_element(xml_node)?);
-                Ok(true)
-            }
-            "cantSplit" => {
-                self.cant_split = parse_on_off_xml_element(xml_node)?;
-                Ok(true)
-            }
-            "trHeight" => {
-                self.row_height = Some(Height::from_xml_element(xml_node)?);
-                Ok(true)
-            }
-            "tblHeader" => {
-                self.header = parse_on_off_xml_element(xml_node)?;
-                Ok(true)
-            }
-            "tblCellSpacing" => {
-                self.cell_spacing = Some(TblWidth::from_xml_element(xml_node)?);
-                Ok(true)
-            }
-            "jc" => {
-                self.alignment = Some(xml_node.get_val_attribute()?.parse()?);
-                Ok(true)
-            }
-            "hidden" => {
-                self.hidden = parse_on_off_xml_element(xml_node)?;
-                Ok(true)
-            }
-            _ => Ok(false),
+            "cnfStyle" => self.conditional_formatting = Some(Cnf::from_xml_element(xml_node)?),
+            "divId" => self.div_id = Some(xml_node.get_val_attribute()?.parse()?),
+            "gridBefore" => self.grid_column_before_first_cell = Some(xml_node.get_val_attribute()?.parse()?),
+            "gridAfter" => self.grid_column_after_last_cell = Some(xml_node.get_val_attribute()?.parse()?),
+            "wBefore" => self.width_before_row = Some(TblWidth::from_xml_element(xml_node)?),
+            "wAfter" => self.width_after_row = Some(TblWidth::from_xml_element(xml_node)?),
+            "cantSplit" => self.cant_split = parse_on_off_xml_element(xml_node)?,
+            "trHeight" => self.row_height = Some(Height::from_xml_element(xml_node)?),
+            "tblHeader" => self.header = parse_on_off_xml_element(xml_node)?,
+            "tblCellSpacing" => self.cell_spacing = Some(TblWidth::from_xml_element(xml_node)?),
+            "jc" => self.alignment = Some(xml_node.get_val_attribute()?.parse()?),
+            "hidden" => self.hidden = parse_on_off_xml_element(xml_node)?,
+            _ => (),
         }
+
+        Ok(self)
     }
 }
 
@@ -6065,7 +5829,7 @@ impl TrPrChange {
             .child_nodes
             .iter()
             .find(|child_node| child_node.local_name() == "trPr")
-            .map(|child_node| TrPrBase::from_xml_element(child_node))
+            .map(TrPrBase::from_xml_element)
             .transpose()?
             .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "trPr"))?;
 
@@ -6090,9 +5854,7 @@ impl TrPr {
                 "ins" => instance.inserted = Some(TrackChange::from_xml_element(child_node)?),
                 "del" => instance.deleted = Some(TrackChange::from_xml_element(child_node)?),
                 "trPrChange" => instance.change = Some(TrPrChange::from_xml_element(child_node)?),
-                _ => {
-                    instance.base.try_update_from_xml_element(child_node)?;
-                }
+                _ => instance.base = instance.base.try_update_from_xml_element(child_node)?,
             }
         }
 
@@ -6142,25 +5904,48 @@ impl TcBorders {
     }
 }
 
-/*
-<xsd:complexType name="CT_TcPrBase">
-    <xsd:sequence>
-      <xsd:element name="cnfStyle" type="CT_Cnf" minOccurs="0" maxOccurs="1"/>
-      <xsd:element name="tcW" type="CT_TblWidth" minOccurs="0" maxOccurs="1"/>
-      <xsd:element name="gridSpan" type="CT_DecimalNumber" minOccurs="0"/>
-      <xsd:element name="vMerge" type="CT_VMerge" minOccurs="0"/>
-      <xsd:element name="tcBorders" type="CT_TcBorders" minOccurs="0" maxOccurs="1"/>
-      <xsd:element name="shd" type="CT_Shd" minOccurs="0"/>
-      <xsd:element name="noWrap" type="CT_OnOff" minOccurs="0"/>
-      <xsd:element name="tcMar" type="CT_TcMar" minOccurs="0" maxOccurs="1"/>
-      <xsd:element name="textDirection" type="CT_TextDirection" minOccurs="0" maxOccurs="1"/>
-      <xsd:element name="tcFitText" type="CT_OnOff" minOccurs="0" maxOccurs="1"/>
-      <xsd:element name="vAlign" type="CT_VerticalJc" minOccurs="0"/>
-      <xsd:element name="hideMark" type="CT_OnOff" minOccurs="0"/>
-      <xsd:element name="headers" type="CT_Headers" minOccurs="0"/>
-    </xsd:sequence>
-  </xsd:complexType>
-  */
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct TcMar {
+    pub top: Option<TblWidth>,
+    pub start: Option<TblWidth>,
+    pub bottom: Option<TblWidth>,
+    pub end: Option<TblWidth>,
+}
+
+impl TcMar {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: Self = Default::default();
+
+        for child_node in &xml_node.child_nodes {
+            match child_node.local_name() {
+                "top" => instance.top = Some(TblWidth::from_xml_element(child_node)?),
+                "start" => instance.start = Some(TblWidth::from_xml_element(child_node)?),
+                "bottom" => instance.bottom = Some(TblWidth::from_xml_element(child_node)?),
+                "end" => instance.end = Some(TblWidth::from_xml_element(child_node)?),
+                _ => (),
+            }
+        }
+
+        Ok(instance)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct Headers(pub Vec<String>);
+
+impl Headers {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let headers = xml_node
+            .child_nodes
+            .iter()
+            .filter(|child_node| child_node.local_name() == "header")
+            .map(|child_node| Ok(child_node.get_val_attribute()?.clone()))
+            .collect::<Result<Vec<_>>>()?;
+
+        Ok(Self(headers))
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct TcPrBase {
     pub conditional_formatting: Option<Cnf>,
@@ -6170,93 +5955,341 @@ pub struct TcPrBase {
     pub borders: Option<TcBorders>,
     pub shading: Option<Shd>,
     pub no_wrapping: Option<OnOff>,
-    //pub margin: Option<TcMar>,
+    pub margin: Option<TcMar>,
     pub text_direction: Option<TextDirection>,
     pub fit_text: Option<OnOff>,
     pub vertical_alignment: Option<VerticalJc>,
     pub hide_marker: Option<OnOff>,
-    //pub headers: Option<Headers>,
+    pub headers: Option<Headers>,
 }
 
-/*
-<xsd:complexType name="CT_TcPr">
-  <xsd:complexContent>
-    <xsd:extension base="CT_TcPrInner">
-      <xsd:sequence>
-        <xsd:element name="tcPrChange" type="CT_TcPrChange" minOccurs="0"/>
-      </xsd:sequence>
-    </xsd:extension>
-  </xsd:complexContent>
-</xsd:complexType>
-*/
-#[derive(Debug, Clone, PartialEq, Default)]
-pub struct TcPr {
-    pub base: TcPrInner,
-    //pub change: Option<TcPrChange>,
+impl TcPrBase {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        xml_node
+            .child_nodes
+            .iter()
+            .try_fold(Default::default(), Self::try_update_from_xml_element)
+    }
+
+    pub fn try_update_from_xml_element(mut self, xml_node: &XmlNode) -> Result<Self> {
+        match xml_node.local_name() {
+            "cnfStyle" => self.conditional_formatting = Some(Cnf::from_xml_element(xml_node)?),
+            "tcW" => self.width = Some(TblWidth::from_xml_element(xml_node)?),
+            "gridSpan" => self.grid_span = Some(xml_node.get_val_attribute()?.parse()?),
+            "vMerge" => self.vertical_merge = Some(xml_node.get_val_attribute()?.parse()?),
+            "tcBorders" => self.borders = Some(TcBorders::from_xml_element(xml_node)?),
+            "shd" => self.shading = Some(Shd::from_xml_element(xml_node)?),
+            "noWrap" => self.no_wrapping = parse_on_off_xml_element(xml_node)?,
+            "tcMar" => self.margin = Some(TcMar::from_xml_element(xml_node)?),
+            "textDirection" => self.text_direction = Some(xml_node.get_val_attribute()?.parse()?),
+            "tcFitText" => self.fit_text = parse_on_off_xml_element(xml_node)?,
+            "vAlign" => self.vertical_alignment = Some(xml_node.get_val_attribute()?.parse()?),
+            "hideMark" => self.hide_marker = parse_on_off_xml_element(xml_node)?,
+            "headers" => self.headers = Some(Headers::from_xml_element(xml_node)?),
+            _ => (),
+        }
+
+        Ok(self)
+    }
 }
-/*
-  <xsd:complexType name="CT_TcPrInner">
-    <xsd:complexContent>
-      <xsd:extension base="CT_TcPrBase">
-        <xsd:sequence>
-          <xsd:group ref="EG_CellMarkupElements" minOccurs="0" maxOccurs="1"/>
-        </xsd:sequence>
-      </xsd:extension>
-    </xsd:complexContent>
-  </xsd:complexType>
-*/
+
+#[derive(Debug, Clone, PartialEq, EnumString)]
+pub enum AnnotationVMerge {
+    #[strum(serialize = "cont")]
+    Merge,
+    #[strum(serialize = "rest")]
+    Split,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CellMergeTrackChange {
+    pub base: TrackChange,
+    pub vertical_merge: Option<AnnotationVMerge>,
+    pub vertical_merge_original: Option<AnnotationVMerge>,
+}
+
+impl CellMergeTrackChange {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let base = TrackChange::from_xml_element(xml_node)?;
+        let vertical_merge = xml_node
+            .attributes
+            .get("vMerge")
+            .map(|value| value.parse())
+            .transpose()?;
+
+        let vertical_merge_original = xml_node
+            .attributes
+            .get("vMergeOrig")
+            .map(|value| value.parse())
+            .transpose()?;
+
+        Ok(Self {
+            base,
+            vertical_merge,
+            vertical_merge_original,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum CellMarkupElements {
+    Insertion(TrackChange),
+    Deletion(TrackChange),
+    Merge(CellMergeTrackChange),
+}
+
+impl XsdChoice for CellMarkupElements {
+    fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
+        match node_name.as_ref() {
+            "cellIns" | "cellDel" | "cellMerge" => true,
+            _ => false,
+        }
+    }
+
+    fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        match xml_node.local_name() {
+            "cellIns" => Ok(CellMarkupElements::Insertion(TrackChange::from_xml_element(xml_node)?)),
+            "cellDel" => Ok(CellMarkupElements::Deletion(TrackChange::from_xml_element(xml_node)?)),
+            "cellMerge" => Ok(CellMarkupElements::Merge(CellMergeTrackChange::from_xml_element(
+                xml_node,
+            )?)),
+            _ => Err(Box::new(NotGroupMemberError::new(
+                xml_node.name.clone(),
+                "CellMarkupElements",
+            ))),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct TcPrInner {
     pub base: TcPrBase,
-    //pub markup_element: Option<CellMarkupElements>,
+    pub markup_element: Option<CellMarkupElements>,
 }
 
-/*
-<xsd:complexType name="CT_Tc">
-    <xsd:sequence>
-      <xsd:element name="tcPr" type="CT_TcPr" minOccurs="0" maxOccurs="1"/>
-      <xsd:group ref="EG_BlockLevelElts" minOccurs="1" maxOccurs="unbounded"/>
-    </xsd:sequence>
-    <xsd:attribute name="id" type="s:ST_String" use="optional"/>
-  </xsd:complexType>
-*/
+impl TcPrInner {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        xml_node
+            .child_nodes
+            .iter()
+            .try_fold(Default::default(), Self::try_update_from_xml_element)
+    }
+
+    pub fn try_update_from_xml_element(mut self, xml_node: &XmlNode) -> Result<Self> {
+        if CellMarkupElements::is_choice_member(xml_node.local_name()) {
+            self.markup_element = Some(CellMarkupElements::from_xml_element(xml_node)?);
+        } else {
+            self.base = self.base.try_update_from_xml_element(xml_node)?;
+        }
+
+        Ok(self)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct TcPrChange {
+    pub base: TrackChange,
+    pub properties: TcPrInner,
+}
+
+impl TcPrChange {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let base = TrackChange::from_xml_element(xml_node)?;
+        let properties = xml_node
+            .child_nodes
+            .iter()
+            .find(|child_node| child_node.local_name() == "tcPr")
+            .map(TcPrInner::from_xml_element)
+            .transpose()?
+            .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "tcPr"))?;
+
+        Ok(Self { base, properties })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct TcPr {
+    pub base: TcPrInner,
+    pub change: Option<TcPrChange>,
+}
+
+impl TcPr {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        xml_node
+            .child_nodes
+            .iter()
+            .try_fold(Default::default(), |mut instance: Self, child_node| {
+                if child_node.local_name() == "tcPrChange" {
+                    instance.change = Some(TcPrChange::from_xml_element(child_node)?);
+                } else {
+                    instance.base = instance.base.try_update_from_xml_element(child_node)?;
+                }
+
+                Ok(instance)
+            })
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct Tc {
     pub properties: Option<TcPr>,
-    pub block_level_elements: Vec<BlockLevelElts>, // minOccurs="1"
+    pub block_level_elements: Vec<BlockLevelElts>,
+    pub id: Option<String>,
 }
 
-/*
-<xsd:group name="EG_ContentCellContent">
-    <xsd:choice>
-      <xsd:element name="tc" type="CT_Tc" minOccurs="0" maxOccurs="unbounded"/>
-      <xsd:element name="customXml" type="CT_CustomXmlCell"/>
-      <xsd:element name="sdt" type="CT_SdtCell"/>
-      <xsd:group ref="EG_RunLevelElts" minOccurs="0" maxOccurs="unbounded"/>
-    </xsd:choice>
-  </xsd:group>
-*/
+impl Tc {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: Self = Default::default();
+
+        instance.id = xml_node.attributes.get("id").cloned();
+
+        for child_node in &xml_node.child_nodes {
+            match child_node.local_name() {
+                "tcPr" => instance.properties = Some(TcPr::from_xml_element(child_node)?),
+                node_name @ _ if BlockLevelElts::is_choice_member(node_name) => {
+                    instance
+                        .block_level_elements
+                        .push(BlockLevelElts::from_xml_element(child_node)?);
+                }
+                _ => (),
+            }
+        }
+
+        if instance.block_level_elements.is_empty() {
+            Err(Box::new(LimitViolationError::new(
+                xml_node.name.clone(),
+                "BlockLevelElts",
+                1,
+                MaxOccurs::Unbounded,
+                0,
+            )))
+        } else {
+            Ok(instance)
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CustomXmlCell {
+    pub custom_xml_properties: Option<CustomXmlPr>,
+    pub contents: Vec<ContentCellContent>,
+    pub uri: Option<String>,
+    pub element: XmlName,
+}
+
+impl CustomXmlCell {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut uri = None;
+        let mut element = None;
+
+        for (attr, value) in &xml_node.attributes {
+            match attr.as_ref() {
+                "uri" => uri = Some(value.clone()),
+                "element" => element = Some(value.clone()),
+                _ => (),
+            }
+        }
+
+        let element = element.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "element"))?;
+
+        let mut custom_xml_properties = None;
+        let mut contents = Vec::new();
+
+        for child_node in &xml_node.child_nodes {
+            match child_node.local_name() {
+                "customXmlPr" => custom_xml_properties = Some(CustomXmlPr::from_xml_element(child_node)?),
+                node_name @ _ if ContentCellContent::is_choice_member(node_name) => {
+                    contents.push(ContentCellContent::from_xml_element(child_node)?);
+                }
+                _ => (),
+            }
+        }
+
+        Ok(Self {
+            custom_xml_properties,
+            contents,
+            uri,
+            element,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct SdtContentCell {
+    pub contents: Vec<ContentCellContent>,
+}
+
+impl SdtContentCell {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let contents = xml_node
+            .child_nodes
+            .iter()
+            .filter_map(ContentCellContent::try_from_xml_element)
+            .collect::<Result<Vec<_>>>()?;
+
+        Ok(Self { contents })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct SdtCell {
+    pub properties: Option<SdtPr>,
+    pub end_properties: Option<SdtEndPr>,
+    pub content: Option<SdtContentCell>,
+}
+
+impl SdtCell {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        xml_node
+            .child_nodes
+            .iter()
+            .try_fold(Default::default(), |mut instance: Self, child_node| {
+                match child_node.local_name() {
+                    "sdtPr" => instance.properties = Some(SdtPr::from_xml_element(child_node)?),
+                    "sdtEndPr" => instance.end_properties = Some(SdtEndPr::from_xml_element(child_node)?),
+                    "sdtContent" => instance.content = Some(SdtContentCell::from_xml_element(child_node)?),
+                    _ => (),
+                }
+
+                Ok(instance)
+            })
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum ContentCellContent {
     Cell(Tc),
-    // CustomXml(CustomXmlCell),
-    // Sdt(SdtCell),
-    RunLevelElements(RunLevelElts),
+    CustomXml(CustomXmlCell),
+    Sdt(SdtCell),
+    RunLevelElement(RunLevelElts),
 }
 
-/*
-<xsd:complexType name="CT_Row">
-    <xsd:sequence>
-      <xsd:element name="tblPrEx" type="CT_TblPrEx" minOccurs="0" maxOccurs="1"/>
-      <xsd:element name="trPr" type="CT_TrPr" minOccurs="0" maxOccurs="1"/>
-      <xsd:group ref="EG_ContentCellContent" minOccurs="0" maxOccurs="unbounded"/>
-    </xsd:sequence>
-    <xsd:attribute name="rsidRPr" type="ST_LongHexNumber"/>
-    <xsd:attribute name="rsidR" type="ST_LongHexNumber"/>
-    <xsd:attribute name="rsidDel" type="ST_LongHexNumber"/>
-    <xsd:attribute name="rsidTr" type="ST_LongHexNumber"/>
-  </xsd:complexType>
-*/
+impl XsdChoice for ContentCellContent {
+    fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
+        match node_name.as_ref() {
+            "tc" | "customXml" | "sdt" => true,
+            _ => RunLevelElts::is_choice_member(&node_name),
+        }
+    }
+
+    fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        match xml_node.local_name() {
+            "tc" => Ok(ContentCellContent::Cell(Tc::from_xml_element(xml_node)?)),
+            "customXml" => Ok(ContentCellContent::CustomXml(CustomXmlCell::from_xml_element(
+                xml_node,
+            )?)),
+            "sdt" => Ok(ContentCellContent::Sdt(SdtCell::from_xml_element(xml_node)?)),
+            node_name @ _ if RunLevelElts::is_choice_member(node_name) => Ok(ContentCellContent::RunLevelElement(
+                RunLevelElts::from_xml_element(xml_node)?,
+            )),
+            _ => Err(Box::new(NotGroupMemberError::new(
+                xml_node.name.clone(),
+                "ContentCellContent",
+            ))),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct Row {
     pub property_exceptions: Option<TblPrEx>,
@@ -6268,34 +6301,154 @@ pub struct Row {
     pub row_revision_id: Option<LongHexNumber>,
 }
 
-/*
-<xsd:group name="EG_ContentRowContent">
-    <xsd:choice>
-      <xsd:element name="tr" type="CT_Row" minOccurs="0" maxOccurs="unbounded"/>
-      <xsd:element name="customXml" type="CT_CustomXmlRow"/>
-      <xsd:element name="sdt" type="CT_SdtRow"/>
-      <xsd:group ref="EG_RunLevelElts" minOccurs="0" maxOccurs="unbounded"/>
-    </xsd:choice>
-  </xsd:group>
-*/
+impl Row {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut instance: Self = Default::default();
+
+        for (attr, value) in &xml_node.attributes {
+            match attr.as_ref() {
+                "rsidRPr" => instance.run_properties_revision_id = Some(LongHexNumber::from_str_radix(value, 16)?),
+                "rsidR" => instance.run_revision_id = Some(LongHexNumber::from_str_radix(value, 16)?),
+                "rsidDel" => instance.deletion_revision_id = Some(LongHexNumber::from_str_radix(value, 16)?),
+                "rsidTr" => instance.row_revision_id = Some(LongHexNumber::from_str_radix(value, 16)?),
+                _ => (),
+            }
+        }
+
+        for child_node in &xml_node.child_nodes {
+            match child_node.local_name() {
+                "tblPrEx" => instance.property_exceptions = Some(TblPrEx::from_xml_element(child_node)?),
+                "trPr" => instance.properties = Some(TrPr::from_xml_element(child_node)?),
+                node_name @ _ if ContentCellContent::is_choice_member(node_name) => instance
+                    .contents
+                    .push(ContentCellContent::from_xml_element(child_node)?),
+                _ => (),
+            }
+        }
+
+        Ok(instance)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CustomXmlRow {
+    pub custom_xml_properties: Option<CustomXmlPr>,
+    pub contents: Vec<ContentRowContent>,
+    pub uri: Option<String>,
+    pub element: XmlName,
+}
+
+impl CustomXmlRow {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut uri = None;
+        let mut element = None;
+
+        for (attr, value) in &xml_node.attributes {
+            match attr.as_ref() {
+                "uri" => uri = Some(value.clone()),
+                "element" => element = Some(value.clone()),
+                _ => (),
+            }
+        }
+
+        let element = element.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "element"))?;
+
+        let mut custom_xml_properties = None;
+        let mut contents = Vec::new();
+
+        for child_node in &xml_node.child_nodes {
+            match child_node.local_name() {
+                "customXmlPr" => custom_xml_properties = Some(CustomXmlPr::from_xml_element(child_node)?),
+                node_name @ _ if ContentRowContent::is_choice_member(node_name) => {
+                    contents.push(ContentRowContent::from_xml_element(child_node)?)
+                }
+                _ => (),
+            }
+        }
+
+        Ok(Self {
+            custom_xml_properties,
+            contents,
+            uri,
+            element,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct SdtContentRow {
+    pub contents: Vec<ContentRowContent>,
+}
+
+impl SdtContentRow {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let contents = xml_node
+            .child_nodes
+            .iter()
+            .filter_map(ContentRowContent::try_from_xml_element)
+            .collect::<Result<Vec<_>>>()?;
+
+        Ok(Self { contents })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct SdtRow {
+    pub properties: Option<SdtPr>,
+    pub end_properties: Option<SdtEndPr>,
+    pub content: Option<SdtContentRow>,
+}
+
+impl SdtRow {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        xml_node
+            .child_nodes
+            .iter()
+            .try_fold(Default::default(), |mut instance: Self, child_node| {
+                match child_node.local_name() {
+                    "sdtPr" => instance.properties = Some(SdtPr::from_xml_element(child_node)?),
+                    "sdtEndPr" => instance.end_properties = Some(SdtEndPr::from_xml_element(child_node)?),
+                    "sdtContent" => instance.content = Some(SdtContentRow::from_xml_element(child_node)?),
+                    _ => (),
+                }
+
+                Ok(instance)
+            })
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum ContentRowContent {
     Table(Row),
-    // CustomXml(CustomXmlRow),
-    // Sdt(SdtRow),
+    CustomXml(CustomXmlRow),
+    Sdt(SdtRow),
     RunLevelElements(RunLevelElts),
 }
 
-/*
-<xsd:complexType name="CT_Tbl">
-    <xsd:sequence>
-      <xsd:group ref="EG_RangeMarkupElements" minOccurs="0" maxOccurs="unbounded"/>
-      <xsd:element name="tblPr" type="CT_TblPr"/>
-      <xsd:element name="tblGrid" type="CT_TblGrid"/>
-      <xsd:group ref="EG_ContentRowContent" minOccurs="0" maxOccurs="unbounded"/>
-    </xsd:sequence>
-  </xsd:complexType>
-*/
+impl XsdChoice for ContentRowContent {
+    fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
+        match node_name.as_ref() {
+            "tr" | "customXml" | "sdt" => true,
+            _ => RunLevelElts::is_choice_member(&node_name),
+        }
+    }
+
+    fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        match xml_node.local_name() {
+            "tr" => Ok(ContentRowContent::Table(Row::from_xml_element(xml_node)?)),
+            "customXml" => Ok(ContentRowContent::CustomXml(CustomXmlRow::from_xml_element(xml_node)?)),
+            "sdt" => Ok(ContentRowContent::Sdt(SdtRow::from_xml_element(xml_node)?)),
+            node_name @ _ if RunLevelElts::is_choice_member(node_name) => Ok(ContentRowContent::RunLevelElements(
+                RunLevelElts::from_xml_element(xml_node)?,
+            )),
+            _ => Err(Box::new(NotGroupMemberError::new(
+                xml_node.name.clone(),
+                "ContentRowContent",
+            ))),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Tbl {
     pub range_markup_elements: Vec<RangeMarkupElements>,
@@ -6304,17 +6457,39 @@ pub struct Tbl {
     pub row_contents: Vec<ContentRowContent>,
 }
 
-/*
-<xsd:group name="EG_ContentBlockContent">
-    <xsd:choice>
-      <xsd:element name="customXml" type="CT_CustomXmlBlock"/>
-      <xsd:element name="sdt" type="CT_SdtBlock"/>
-      <xsd:element name="p" type="CT_P" minOccurs="0" maxOccurs="unbounded"/>
-      <xsd:element name="tbl" type="CT_Tbl" minOccurs="0" maxOccurs="unbounded"/>
-      <xsd:group ref="EG_RunLevelElts" minOccurs="0" maxOccurs="unbounded"/>
-    </xsd:choice>
-  </xsd:group>
-*/
+impl Tbl {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let mut range_markup_elements = Vec::new();
+        let mut properties = None;
+        let mut grid = None;
+        let mut row_contents = Vec::new();
+
+        for child_node in &xml_node.child_nodes {
+            match child_node.local_name() {
+                "tblPr" => properties = Some(TblPr::from_xml_element(child_node)?),
+                "tblGrid" => grid = Some(TblGrid::from_xml_element(child_node)?),
+                node_name @ _ => {
+                    if RangeMarkupElements::is_choice_member(node_name) {
+                        range_markup_elements.push(RangeMarkupElements::from_xml_element(child_node)?);
+                    } else if ContentRowContent::is_choice_member(node_name) {
+                        row_contents.push(ContentRowContent::from_xml_element(child_node)?);
+                    }
+                }
+            }
+        }
+
+        let properties = properties.ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "tblPr"))?;
+        let grid = grid.ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "tblGrid"))?;
+
+        Ok(Self {
+            range_markup_elements,
+            properties,
+            grid,
+            row_contents,
+        })
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum ContentBlockContent {
     CustomXml(CustomXmlBlock),
@@ -6337,6 +6512,9 @@ impl XsdChoice for ContentBlockContent {
             "customXml" => Ok(ContentBlockContent::CustomXml(CustomXmlBlock::from_xml_element(
                 xml_node,
             )?)),
+            "sdt" => Ok(ContentBlockContent::Sdt(SdtBlock::from_xml_element(xml_node)?)),
+            "p" => Ok(ContentBlockContent::Paragraph(P::from_xml_element(xml_node)?)),
+            "tbl" => Ok(ContentBlockContent::Table(Tbl::from_xml_element(xml_node)?)),
             node_name @ _ if RunLevelElts::is_choice_member(&node_name) => Ok(ContentBlockContent::RunLevelElement(
                 RunLevelElts::from_xml_element(xml_node)?,
             )),
@@ -6348,27 +6526,95 @@ impl XsdChoice for ContentBlockContent {
     }
 }
 
-/*
-<xsd:group name="EG_BlockLevelChunkElts">
-    <xsd:choice>
-      <xsd:group ref="EG_ContentBlockContent" minOccurs="0" maxOccurs="unbounded"/>
-    </xsd:choice>
-  </xsd:group>
-*/
 #[derive(Debug, Clone, PartialEq)]
 pub enum BlockLevelChunkElts {
     Content(ContentBlockContent),
 }
-// <xsd:group name="EG_BlockLevelElts">
-//     <xsd:choice>
-//       <xsd:group ref="EG_BlockLevelChunkElts" minOccurs="0" maxOccurs="unbounded"/>
-//       <xsd:element name="altChunk" type="CT_AltChunk" minOccurs="0" maxOccurs="unbounded"/>
-//     </xsd:choice>
-//   </xsd:group>
+
+impl XsdChoice for BlockLevelChunkElts {
+    fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
+        ContentBlockContent::is_choice_member(node_name)
+    }
+
+    fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        if ContentBlockContent::is_choice_member(xml_node.local_name()) {
+            Ok(BlockLevelChunkElts::Content(ContentBlockContent::from_xml_element(
+                xml_node,
+            )?))
+        } else {
+            Err(Box::new(NotGroupMemberError::new(
+                xml_node.name.clone(),
+                "BlockLevelChunksElts",
+            )))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct AltChunkPr {
+    pub match_source: Option<OnOff>,
+}
+
+impl AltChunkPr {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let match_source = xml_node
+            .child_nodes
+            .iter()
+            .find(|child_node| child_node.local_name() == "matchSrc")
+            .map(parse_on_off_xml_element)
+            .transpose()?
+            .into_iter() // TODO: use Option::flatten when stabilized
+            .flatten()
+            .next();
+
+        Ok(Self { match_source })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct AltChunk {
+    pub properties: Option<AltChunkPr>,
+    pub rel_id: Option<RelationshipId>,
+}
+
+impl AltChunk {
+    pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        let rel_id = xml_node.attributes.get("r:id").cloned();
+
+        let properties = xml_node
+            .child_nodes
+            .iter()
+            .find(|child_node| child_node.local_name() == "altChunkPr")
+            .map(AltChunkPr::from_xml_element)
+            .transpose()?;
+
+        Ok(Self { properties, rel_id })
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum BlockLevelElts {
-    Chunks(BlockLevelChunkElts),
-    //AltChunks(AltChunk),
+    Chunk(BlockLevelChunkElts),
+    AltChunk(AltChunk),
+}
+
+impl XsdChoice for BlockLevelElts {
+    fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
+        node_name.as_ref() == "altChunk" || BlockLevelChunkElts::is_choice_member(node_name)
+    }
+
+    fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        match xml_node.local_name() {
+            "altChunk" => Ok(BlockLevelElts::AltChunk(AltChunk::from_xml_element(xml_node)?)),
+            node_name @ _ if BlockLevelChunkElts::is_choice_member(node_name) => {
+                Ok(BlockLevelElts::Chunk(BlockLevelChunkElts::from_xml_element(xml_node)?))
+            }
+            _ => Err(Box::new(NotGroupMemberError::new(
+                xml_node.name.clone(),
+                "BlockLevelElts",
+            ))),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -8622,9 +8868,7 @@ mod tests {
         }
 
         pub fn test_instance() -> Self {
-            Self {
-                tabs: vec![TabStop::test_instance(), TabStop::test_instance()],
-            }
+            Self(vec![TabStop::test_instance(), TabStop::test_instance()])
         }
     }
 
@@ -10484,7 +10728,7 @@ mod tests {
                 Border::test_xml("insideV"),
                 Border::test_xml("tl2br"),
                 Border::test_xml("tr2bl"),
-                node_name = node_name
+                node_name = node_name,
             )
         }
 
@@ -10508,6 +10752,589 @@ mod tests {
         assert_eq!(
             TcBorders::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
             TcBorders::test_instance(),
+        );
+    }
+
+    impl TcMar {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                "<{node_name}>
+                {}
+                {}
+                {}
+                {}
+            </{node_name}>",
+                TblWidth::test_xml("top"),
+                TblWidth::test_xml("start"),
+                TblWidth::test_xml("bottom"),
+                TblWidth::test_xml("end"),
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                top: Some(TblWidth::test_instance()),
+                start: Some(TblWidth::test_instance()),
+                bottom: Some(TblWidth::test_instance()),
+                end: Some(TblWidth::test_instance()),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_tc_mar_from_xml() {
+        let xml = TcMar::test_xml("tcMar");
+        assert_eq!(
+            TcMar::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TcMar::test_instance(),
+        );
+    }
+
+    impl Headers {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name}><header val="Header1" /><header val="Header2" /></{node_name}>"#,
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self(vec![String::from("Header1"), String::from("Header2")])
+        }
+    }
+
+    #[test]
+    pub fn test_headers_from_xml() {
+        let xml = Headers::test_xml("headers");
+        assert_eq!(
+            Headers::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            Headers::test_instance(),
+        );
+    }
+
+    impl TcPrBase {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name}>{}</{node_name}>"#,
+                Self::test_extension_xml(),
+                node_name = node_name
+            )
+        }
+
+        pub fn test_extension_xml() -> String {
+            format!(
+                r#"{}
+                {}
+                <gridSpan val="1" />
+                <vMerge val="continue" />
+                {}
+                {}
+                <noWrap val="true" />
+                {}
+                <textDirection val="lr" />
+                <tcFitText val="true" />
+                <vAlign val="top" />
+                <hideMark val="true" />
+                {}"#,
+                Cnf::test_xml("cnfStyle"),
+                TblWidth::test_xml("tcW"),
+                TcBorders::test_xml("tcBorders"),
+                Shd::test_xml("shd"),
+                TcMar::test_xml("tcMar"),
+                Headers::test_xml("headers"),
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                conditional_formatting: Some(Cnf::test_instance()),
+                width: Some(TblWidth::test_instance()),
+                grid_span: Some(1),
+                vertical_merge: Some(Merge::Continue),
+                borders: Some(TcBorders::test_instance()),
+                shading: Some(Shd::test_instance()),
+                no_wrapping: Some(true),
+                margin: Some(TcMar::test_instance()),
+                text_direction: Some(TextDirection::LeftToRight),
+                fit_text: Some(true),
+                vertical_alignment: Some(VerticalJc::Top),
+                hide_marker: Some(true),
+                headers: Some(Headers::test_instance()),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_tc_pr_base_from_xml() {
+        let xml = TcPrBase::test_xml("tcPrBase");
+        assert_eq!(
+            TcPrBase::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TcPrBase::test_instance(),
+        );
+    }
+
+    impl CellMergeTrackChange {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} {} vMerge="cont" vMergeOrig="cont"></{node_name}>"#,
+                TrackChange::TEST_ATTRIBUTES,
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                base: TrackChange::test_instance(),
+                vertical_merge: Some(AnnotationVMerge::Merge),
+                vertical_merge_original: Some(AnnotationVMerge::Merge),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_cell_merge_track_change_from_xml() {
+        let xml = CellMergeTrackChange::test_xml("cellMergeTrackChange");
+        assert_eq!(
+            CellMergeTrackChange::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            CellMergeTrackChange::test_instance(),
+        );
+    }
+
+    impl TcPrInner {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name}>{}</{node_name}>"#,
+                Self::test_extension_xml(),
+                node_name = node_name
+            )
+        }
+
+        pub fn test_extension_xml() -> String {
+            format!("{}{}", TcPrBase::test_extension_xml(), TrackChange::test_xml("cellIns"),)
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                base: TcPrBase::test_instance(),
+                markup_element: Some(CellMarkupElements::Insertion(TrackChange::test_instance())),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_tc_pr_inner_from_xml() {
+        let xml = TcPrInner::test_xml("tcPrInner");
+        assert_eq!(
+            TcPrInner::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TcPrInner::test_instance(),
+        );
+    }
+
+    impl TcPrChange {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} {}>{}</{node_name}>"#,
+                TrackChange::TEST_ATTRIBUTES,
+                TcPrInner::test_xml("tcPr"),
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                base: TrackChange::test_instance(),
+                properties: TcPrInner::test_instance(),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_tc_pr_change_from_xml() {
+        let xml = TcPrChange::test_xml("tcPrChange");
+        assert_eq!(
+            TcPrChange::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TcPrChange::test_instance(),
+        );
+    }
+
+    impl TcPr {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name}>
+                {}
+                {}
+            </{node_name}>"#,
+                TcPrInner::test_extension_xml(),
+                TcPrChange::test_xml("tcPrChange"),
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                base: TcPrInner::test_instance(),
+                change: Some(TcPrChange::test_instance()),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_tc_pr_from_xml() {
+        let xml = TcPr::test_xml("tcPr");
+        assert_eq!(
+            TcPr::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TcPr::test_instance(),
+        );
+    }
+
+    impl Tc {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} id="Some id">
+                {}
+                {}
+            </{node_name}>"#,
+                TcPr::test_xml("tcPr"),
+                ProofErr::test_xml("proofErr"),
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                properties: Some(TcPr::test_instance()),
+                block_level_elements: vec![BlockLevelElts::Chunk(BlockLevelChunkElts::Content(
+                    ContentBlockContent::RunLevelElement(RunLevelElts::ProofError(ProofErr::test_instance())),
+                ))],
+                id: Some(String::from("Some id")),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_tc_from_xml() {
+        let xml = Tc::test_xml("tc");
+        assert_eq!(
+            Tc::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            Tc::test_instance(),
+        );
+    }
+
+    impl CustomXmlCell {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} uri="https://some/uri" element="Xml name">
+                {}
+                {}
+            </{node_name}>"#,
+                CustomXmlPr::test_xml("customXmlPr"),
+                Tc::test_xml("tc"),
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                custom_xml_properties: Some(CustomXmlPr::test_instance()),
+                contents: vec![ContentCellContent::Cell(Tc::test_instance())],
+                uri: Some(String::from("https://some/uri")),
+                element: XmlName::from("Xml name"),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_custom_xml_cell_from_xml() {
+        let xml = CustomXmlCell::test_xml("customXmlCell");
+        assert_eq!(
+            CustomXmlCell::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            CustomXmlCell::test_instance(),
+        );
+    }
+
+    impl SdtContentCell {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name}>
+                {tc}
+                {tc}
+            </{node_name}>"#,
+                tc = Tc::test_xml("tc"),
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                contents: vec![
+                    ContentCellContent::Cell(Tc::test_instance()),
+                    ContentCellContent::Cell(Tc::test_instance()),
+                ],
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_std_content_cell_from_xml() {
+        let xml = SdtContentCell::test_xml("sdtContentCell");
+        assert_eq!(
+            SdtContentCell::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            SdtContentCell::test_instance(),
+        );
+    }
+
+    impl SdtCell {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name}>
+                {}
+                {}
+                {}
+            </{node_name}>"#,
+                SdtPr::test_xml("sdtPr"),
+                SdtEndPr::test_xml("sdtEndPr"),
+                SdtContentCell::test_xml("sdtContent"),
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                properties: Some(SdtPr::test_instance()),
+                end_properties: Some(SdtEndPr::test_instance()),
+                content: Some(SdtContentCell::test_instance()),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_std_cell_from_xml() {
+        let xml = SdtCell::test_xml("sdtCell");
+        assert_eq!(
+            SdtCell::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            SdtCell::test_instance(),
+        );
+    }
+
+    impl Row {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} rsidRPr="ffffffff" rsidR="fefefefe" rsidDel="fdfdfdfd" rsidTr="fcfcfcfc">
+                {}
+                {}
+                {}
+            </{node_name}>"#,
+                TblPrEx::test_xml("tblPrEx"),
+                TrPr::test_xml("trPr"),
+                Tc::test_xml("tc"),
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                property_exceptions: Some(TblPrEx::test_instance()),
+                properties: Some(TrPr::test_instance()),
+                contents: vec![ContentCellContent::Cell(Tc::test_instance())],
+                run_properties_revision_id: Some(0xffffffff),
+                run_revision_id: Some(0xfefefefe),
+                deletion_revision_id: Some(0xfdfdfdfd),
+                row_revision_id: Some(0xfcfcfcfc),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_row_from_xml() {
+        let xml = Row::test_xml("row");
+        assert_eq!(
+            Row::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            Row::test_instance(),
+        );
+    }
+
+    impl CustomXmlRow {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} uri="https://some/uri" element="Xml name">
+                {}
+                {}
+            </{node_name}>"#,
+                CustomXmlPr::test_xml("customXmlPr"),
+                Row::test_xml("tr"),
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                custom_xml_properties: Some(CustomXmlPr::test_instance()),
+                contents: vec![ContentRowContent::Table(Row::test_instance())],
+                uri: Some(String::from("https://some/uri")),
+                element: String::from("Xml name"),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_custom_xml_row_from_xml() {
+        let xml = CustomXmlRow::test_xml("customXmlRow");
+        assert_eq!(
+            CustomXmlRow::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            CustomXmlRow::test_instance(),
+        );
+    }
+
+    impl SdtContentRow {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name}>
+                {tr}
+                {tr}
+            </{node_name}>"#,
+                tr = Row::test_xml("tr"),
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                contents: vec![
+                    ContentRowContent::Table(Row::test_instance()),
+                    ContentRowContent::Table(Row::test_instance()),
+                ],
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_sdt_content_row_from_xml() {
+        let xml = SdtContentRow::test_xml("sdtContentRow");
+        assert_eq!(
+            SdtContentRow::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            SdtContentRow::test_instance(),
+        );
+    }
+
+    impl SdtRow {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name}>
+                {}
+                {}
+                {}
+            </{node_name}>"#,
+                SdtPr::test_xml("sdtPr"),
+                SdtEndPr::test_xml("sdtEndPr"),
+                SdtContentRow::test_xml("sdtContent"),
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                properties: Some(SdtPr::test_instance()),
+                end_properties: Some(SdtEndPr::test_instance()),
+                content: Some(SdtContentRow::test_instance()),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_std_row_from_xml() {
+        let xml = SdtRow::test_xml("sdtRow");
+        assert_eq!(
+            SdtRow::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            SdtRow::test_instance(),
+        );
+    }
+
+    impl Tbl {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name}>
+                {}
+                {}
+                {}
+                {}
+            </{node_name}>"#,
+                Bookmark::test_xml("bookmarkStart"),
+                TblPr::test_xml("tblPr"),
+                TblGrid::test_xml("tblGrid"),
+                Row::test_xml("tr"),
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                range_markup_elements: vec![RangeMarkupElements::BookmarkStart(Bookmark::test_instance())],
+                properties: TblPr::test_instance(),
+                grid: TblGrid::test_instance(),
+                row_contents: vec![ContentRowContent::Table(Row::test_instance())],
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_tbl_from_xml() {
+        let xml = Tbl::test_xml("tbl");
+        assert_eq!(
+            Tbl::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            Tbl::test_instance(),
+        );
+    }
+
+    impl AltChunkPr {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name}>
+                <matchSrc val="true" />
+            </{node_name}>"#,
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                match_source: Some(true),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_alt_chunk_pr_from_xml() {
+        let xml = AltChunkPr::test_xml("altChunkPr");
+        assert_eq!(
+            AltChunkPr::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            AltChunkPr::test_instance(),
+        );
+    }
+
+    impl AltChunk {
+        pub fn test_xml(node_name: &'static str) -> String {
+            format!(
+                r#"<{node_name} r:id="rId1">{}</{node_name}>"#,
+                AltChunkPr::test_xml("altChunkPr"),
+                node_name = node_name,
+            )
+        }
+
+        pub fn test_instance() -> Self {
+            Self {
+                properties: Some(AltChunkPr::test_instance()),
+                rel_id: Some(RelationshipId::from("rId1")),
+            }
+        }
+    }
+
+    #[test]
+    pub fn test_alt_chunk_from_xml() {
+        let xml = AltChunk::test_xml("altChunk");
+        assert_eq!(
+            AltChunk::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            AltChunk::test_instance(),
         );
     }
 }
