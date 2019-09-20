@@ -13,12 +13,27 @@ use msoffice_shared::{
         CalendarType, Lang, OnOff, Percentage, PositiveUniversalMeasure, TwipsMeasure, UniversalMeasure,
         VerticalAlignRun, XAlign, XmlName, YAlign, ConformanceClass,
     },
-    util::XmlNodeExt,
     xml::{parse_xml_bool, XmlNode},
     xsdtypes::XsdChoice,
 };
 use regex::Regex;
 use std::str::FromStr;
+use log::info;
+
+pub trait XmlNodeExt {
+    // It's a common pattern throughout the OpenOffice XML file format that a simple type is wrapped in a complex type
+    // with a single attribute called `val`. This is a small wrapper function to reduce the boiler plate for such
+    // complex types
+    fn get_val_attribute(&self) -> std::result::Result<&String, MissingAttributeError>;
+}
+
+impl XmlNodeExt for XmlNode {
+    fn get_val_attribute(&self) -> std::result::Result<&String, MissingAttributeError> {
+        self.attributes
+            .get("w:val")
+            .ok_or_else(|| MissingAttributeError::new(self.name.clone(), "val"))
+    }
+}
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -42,11 +57,11 @@ pub type TextScale = TextScalePercent;
 fn parse_text_scale_percent(s: &str) -> Result<f64> {
     let re = Regex::new("^0*(600|([0-5]?[0-9]?[0-9]))%$").expect("valid regexp should be provided");
     let captures = re.captures(s).ok_or_else(|| PatternRestrictionError::NoMatch)?;
-    Ok(f64::from(captures[1].parse::<i32>()?) / 100.0)
+    Ok(f64::from(captures[1].parse::<i32>()?))
 }
 
-fn parse_on_off_xml_element(xml_node: &XmlNode) -> std::result::Result<Option<OnOff>, ParseBoolError> {
-    xml_node.attributes.get("val").map(parse_xml_bool).transpose()
+fn parse_on_off_xml_element(xml_node: &XmlNode) -> std::result::Result<OnOff, ParseBoolError> {
+    Ok(xml_node.attributes.get("w:val").map(parse_xml_bool).transpose()?.unwrap_or(true))
 }
 
 #[derive(Default, Debug, Clone, PartialEq)]
@@ -57,12 +72,14 @@ pub struct Charset {
 
 impl Charset {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing Charset");
+
         let mut instance: Charset = Default::default();
 
         for (attr, value) in &xml_node.attributes {
             match attr.as_ref() {
-                "val" => instance.value = Some(UcharHexNumber::from_str_radix(value, 16)?),
-                "characterSet" => instance.character_set = Some(value.clone()),
+                "w:val" => instance.value = Some(UcharHexNumber::from_str_radix(value, 16)?),
+                "w:characterSet" => instance.character_set = Some(value.clone()),
                 _ => (),
             }
         }
@@ -273,6 +290,8 @@ pub struct Color {
 
 impl Color {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing Color");
+
         let mut value = None;
         let mut theme_color = None;
         let mut theme_tint = None;
@@ -280,10 +299,10 @@ impl Color {
 
         for (attr, attr_value) in &xml_node.attributes {
             match attr.as_ref() {
-                "val" => value = Some(attr_value.parse()?),
-                "themeColor" => theme_color = Some(attr_value.parse()?),
-                "themeTint" => theme_tint = Some(UcharHexNumber::from_str_radix(attr_value, 16)?),
-                "themeShade" => theme_shade = Some(UcharHexNumber::from_str_radix(attr_value, 16)?),
+                "w:val" => value = Some(attr_value.parse()?),
+                "w:themeColor" => theme_color = Some(attr_value.parse()?),
+                "w:themeTint" => theme_tint = Some(UcharHexNumber::from_str_radix(attr_value, 16)?),
+                "w:themeShade" => theme_shade = Some(UcharHexNumber::from_str_radix(attr_value, 16)?),
                 _ => (),
             }
         }
@@ -318,9 +337,11 @@ pub struct ProofErr {
 
 impl ProofErr {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing ProofErr");
+
         let type_attr = xml_node
             .attributes
-            .get("type")
+            .get("w:type")
             .ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "type"))?;
 
         Ok(Self {
@@ -363,12 +384,14 @@ pub struct Perm {
 
 impl Perm {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing Perm");
+
         let mut id = None;
         let mut displaced_by_custom_xml = None;
         for (attr, value) in &xml_node.attributes {
             match attr.as_ref() {
-                "id" => id = Some(value.clone()),
-                "displacedByCustomXml" => displaced_by_custom_xml = Some(value.parse()?),
+                "w:id" => id = Some(value.clone()),
+                "w:displacedByCustomXml" => displaced_by_custom_xml = Some(value.parse()?),
                 _ => (),
             }
         }
@@ -391,6 +414,8 @@ pub struct PermStart {
 
 impl PermStart {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing PermStart");
+
         let permission = Perm::from_xml_element(xml_node)?;
         let mut editor_group = None;
         let mut editor = None;
@@ -398,10 +423,10 @@ impl PermStart {
         let mut last_column = None;
         for (attr, value) in &xml_node.attributes {
             match attr.as_ref() {
-                "edGrp" => editor_group = Some(value.parse()?),
-                "ed" => editor = Some(value.clone()),
-                "colFirst" => first_column = Some(value.parse()?),
-                "colLast" => last_column = Some(value.parse()?),
+                "w:edGrp" => editor_group = Some(value.parse()?),
+                "w:ed" => editor = Some(value.clone()),
+                "w:colFirst" => first_column = Some(value.parse()?),
+                "w:colLast" => last_column = Some(value.parse()?),
                 _ => (),
             }
         }
@@ -423,9 +448,11 @@ pub struct Markup {
 
 impl Markup {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing Markup");
+
         let id_attr = xml_node
             .attributes
-            .get("id")
+            .get("w:id")
             .ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "id"))?;
 
         Ok(Self { id: id_attr.parse()? })
@@ -440,10 +467,12 @@ pub struct MarkupRange {
 
 impl MarkupRange {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing MarkupRange");
+
         let base = Markup::from_xml_element(xml_node)?;
         let displaced_by_custom_xml = xml_node
             .attributes
-            .get("displacedByCustomXml")
+            .get("w:displacedByCustomXml")
             .map(|value| value.parse())
             .transpose()?;
 
@@ -463,16 +492,18 @@ pub struct BookmarkRange {
 
 impl BookmarkRange {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing BookmarkRange");
+
         let base = MarkupRange::from_xml_element(xml_node)?;
         let first_column = xml_node
             .attributes
-            .get("colFirst")
+            .get("w:colFirst")
             .map(|value| value.parse())
             .transpose()?;
 
         let last_column = xml_node
             .attributes
-            .get("colLast")
+            .get("w:colLast")
             .map(|value| value.parse())
             .transpose()?;
 
@@ -492,10 +523,12 @@ pub struct Bookmark {
 
 impl Bookmark {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing Bookmark");
+
         let base = BookmarkRange::from_xml_element(xml_node)?;
         let name = xml_node
             .attributes
-            .get("name")
+            .get("w:name")
             .ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "name"))?
             .clone();
 
@@ -512,16 +545,18 @@ pub struct MoveBookmark {
 
 impl MoveBookmark {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing MoveBookmark");
+
         let base = Bookmark::from_xml_element(xml_node)?;
         let author = xml_node
             .attributes
-            .get("author")
+            .get("w:author")
             .ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "author"))?
             .clone();
 
         let date = xml_node
             .attributes
-            .get("date")
+            .get("w:date")
             .ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "date"))?
             .clone();
 
@@ -538,14 +573,16 @@ pub struct TrackChange {
 
 impl TrackChange {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing TrackChange");
+
         let base = Markup::from_xml_element(xml_node)?;
         let author = xml_node
             .attributes
-            .get("author")
+            .get("w:author")
             .ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "author"))?
             .clone();
 
-        let date = xml_node.attributes.get("date").cloned();
+        let date = xml_node.attributes.get("w:date").cloned();
 
         Ok(Self { base, author, date })
     }
@@ -560,15 +597,17 @@ pub struct Attr {
 
 impl Attr {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing Attr");
+
         let mut uri = None;
         let mut name = None;
         let mut value = None;
 
         for (attr, attr_value) in &xml_node.attributes {
             match attr.as_ref() {
-                "uri" => uri = Some(attr_value.clone()),
-                "name" => name = Some(attr_value.clone()),
-                "val" => value = Some(attr_value.clone()),
+                "w:uri" => uri = Some(attr_value.clone()),
+                "w:name" => name = Some(attr_value.clone()),
+                "w:val" => value = Some(attr_value.clone()),
                 _ => (),
             }
         }
@@ -589,6 +628,8 @@ pub struct CustomXmlPr {
 
 impl CustomXmlPr {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing CustomXmlPr");
+
         let mut placeholder = None;
         let mut attributes = Vec::new();
 
@@ -617,15 +658,17 @@ pub struct SimpleField {
 
 impl SimpleField {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing SimpleField");
+
         let mut field_codes = None;
         let mut field_lock = None;
         let mut dirty = None;
 
         for (attr, value) in &xml_node.attributes {
             match attr.as_ref() {
-                "instr" => field_codes = Some(value.clone()),
-                "fldLock" => field_lock = Some(parse_xml_bool(value)?),
-                "dirty" => dirty = Some(parse_xml_bool(value)?),
+                "w:instr" => field_codes = Some(value.clone()),
+                "w:fldLock" => field_lock = Some(parse_xml_bool(value)?),
+                "w:dirty" => dirty = Some(parse_xml_bool(value)?),
                 _ => (),
             }
         }
@@ -647,7 +690,7 @@ impl SimpleField {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct Hyperlink {
     pub paragraph_contents: Vec<PContent>,
     pub target_frame: Option<String>,
@@ -655,46 +698,34 @@ pub struct Hyperlink {
     pub document_location: Option<String>,
     pub history: Option<OnOff>,
     pub anchor: Option<String>,
-    pub rel_id: RelationshipId,
+    pub rel_id: Option<RelationshipId>,
 }
 
 impl Hyperlink {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
-        let mut target_frame = None;
-        let mut tooltip = None;
-        let mut document_location = None;
-        let mut history = None;
-        let mut anchor = None;
-        let mut rel_id = None;
+        info!("parsing Hyperlink");
+
+        let mut instance: Self = Default::default();
 
         for (attr, value) in &xml_node.attributes {
             match attr.as_ref() {
-                "tgtFrame" => target_frame = Some(value.clone()),
-                "tooltip" => tooltip = Some(value.clone()),
-                "docLocation" => document_location = Some(value.clone()),
-                "history" => history = Some(parse_xml_bool(value)?),
-                "anchor" => anchor = Some(value.clone()),
-                "r:id" => rel_id = Some(value.clone()),
+                "w:tgtFrame" => instance.target_frame = Some(value.clone()),
+                "w:tooltip" => instance.tooltip = Some(value.clone()),
+                "w:docLocation" => instance.document_location = Some(value.clone()),
+                "w:history" => instance.history = Some(parse_xml_bool(value)?),
+                "w:anchor" => instance.anchor = Some(value.clone()),
+                "r:id" => instance.rel_id = Some(value.clone()),
                 _ => (),
             }
         }
 
-        let paragraph_contents = xml_node
+        instance.paragraph_contents = xml_node
             .child_nodes
             .iter()
             .filter_map(PContent::try_from_xml_element)
             .collect::<Result<Vec<_>>>()?;
 
-        let rel_id = rel_id.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "r:id"))?;
-        Ok(Self {
-            paragraph_contents,
-            target_frame,
-            tooltip,
-            document_location,
-            history,
-            anchor,
-            rel_id,
-        })
+        Ok(instance)
     }
 }
 
@@ -705,6 +736,8 @@ pub struct Rel {
 
 impl Rel {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing Rel");
+
         let rel_id = xml_node
             .attributes
             .get("r:id")
@@ -732,6 +765,8 @@ impl XsdChoice for PContent {
     }
 
     fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing PContent");
+
         match xml_node.local_name() {
             "fldSimple" => Ok(PContent::SimpleField(SimpleField::from_xml_element(xml_node)?)),
             "hyperlink" => Ok(PContent::Hyperlink(Hyperlink::from_xml_element(xml_node)?)),
@@ -755,13 +790,15 @@ pub struct CustomXmlRun {
 
 impl CustomXmlRun {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing CustomXmlRun");
+
         let mut uri = None;
         let mut element = None;
 
         for (attr, value) in &xml_node.attributes {
             match attr.as_ref() {
-                "uri" => uri = Some(value.clone()),
-                "element" => element = Some(value.clone()),
+                "w:uri" => uri = Some(value.clone()),
+                "w:element" => element = Some(value.clone()),
                 _ => (),
             }
         }
@@ -797,6 +834,8 @@ pub struct SmartTagPr {
 
 impl SmartTagPr {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing SmartTagPr");
+
         let mut attributes = Vec::new();
         for child_node in &xml_node.child_nodes {
             if child_node.local_name() == "attr" {
@@ -818,13 +857,15 @@ pub struct SmartTagRun {
 
 impl SmartTagRun {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing SmartTagRun");
+
         let mut uri = None;
         let mut element = None;
 
         for (attr, value) in &xml_node.attributes {
             match attr.as_ref() {
-                "uri" => uri = Some(value.clone()),
-                "element" => element = Some(value.clone()),
+                "w:uri" => uri = Some(value.clone()),
+                "w:element" => element = Some(value.clone()),
                 _ => (),
             }
         }
@@ -899,18 +940,20 @@ pub struct Fonts {
 
 impl Fonts {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing Fonts");
+
         let mut instance: Fonts = Default::default();
         for (attr, value) in &xml_node.attributes {
             match attr.as_ref() {
-                "hint" => instance.hint = Some(value.parse()?),
-                "ascii" => instance.ascii = Some(value.clone()),
-                "hAnsi" => instance.high_ansi = Some(value.clone()),
-                "eastAsia" => instance.east_asia = Some(value.clone()),
-                "cs" => instance.complex_script = Some(value.clone()),
-                "asciiTheme" => instance.ascii_theme = Some(value.parse()?),
-                "hAnsiTheme" => instance.high_ansi_theme = Some(value.parse()?),
-                "eastAsiaTheme" => instance.east_asia_theme = Some(value.parse()?),
-                "cstheme" => instance.complex_script_theme = Some(value.parse()?),
+                "w:hint" => instance.hint = Some(value.parse()?),
+                "w:ascii" => instance.ascii = Some(value.clone()),
+                "w:hAnsi" => instance.high_ansi = Some(value.clone()),
+                "w:eastAsia" => instance.east_asia = Some(value.clone()),
+                "w:cs" => instance.complex_script = Some(value.clone()),
+                "w:asciiTheme" => instance.ascii_theme = Some(value.parse()?),
+                "w:hAnsiTheme" => instance.high_ansi_theme = Some(value.parse()?),
+                "w:eastAsiaTheme" => instance.east_asia_theme = Some(value.parse()?),
+                "w:cstheme" => instance.complex_script_theme = Some(value.parse()?),
                 _ => (),
             }
         }
@@ -970,14 +1013,16 @@ pub struct Underline {
 
 impl Underline {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing Underline");
+
         let mut instance: Underline = Default::default();
         for (attr, attr_value) in &xml_node.attributes {
             match attr.as_ref() {
-                "val" => instance.value = Some(attr_value.parse()?),
-                "color" => instance.color = Some(attr_value.parse()?),
-                "themeColor" => instance.theme_color = Some(attr_value.parse()?),
-                "themeTint" => instance.theme_tint = Some(u8::from_str_radix(attr_value, 16)?),
-                "themeShade" => instance.theme_shade = Some(u8::from_str_radix(attr_value, 16)?),
+                "w:val" => instance.value = Some(attr_value.parse()?),
+                "w:color" => instance.color = Some(attr_value.parse()?),
+                "w:themeColor" => instance.theme_color = Some(attr_value.parse()?),
+                "w:themeTint" => instance.theme_tint = Some(u8::from_str_radix(attr_value, 16)?),
+                "w:themeShade" => instance.theme_shade = Some(u8::from_str_radix(attr_value, 16)?),
                 _ => (),
             }
         }
@@ -1409,6 +1454,8 @@ pub struct Border {
 
 impl Border {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing Border");
+
         let mut value = None;
         let mut color = None;
         let mut theme_color = None;
@@ -1421,15 +1468,15 @@ impl Border {
 
         for (attr, attr_value) in &xml_node.attributes {
             match attr.as_ref() {
-                "val" => value = Some(attr_value.parse()?),
-                "color" => color = Some(attr_value.parse()?),
-                "themeColor" => theme_color = Some(attr_value.parse()?),
-                "themeTint" => theme_tint = Some(u8::from_str_radix(attr_value, 16)?),
-                "themeShade" => theme_shade = Some(u8::from_str_radix(attr_value, 16)?),
-                "sz" => size = Some(attr_value.parse()?),
-                "space" => spacing = Some(attr_value.parse()?),
-                "shadow" => shadow = Some(parse_xml_bool(attr_value)?),
-                "frame" => frame = Some(parse_xml_bool(attr_value)?),
+                "w:val" => value = Some(attr_value.parse()?),
+                "w:color" => color = Some(attr_value.parse()?),
+                "w:themeColor" => theme_color = Some(attr_value.parse()?),
+                "w:themeTint" => theme_tint = Some(u8::from_str_radix(attr_value, 16)?),
+                "w:themeShade" => theme_shade = Some(u8::from_str_radix(attr_value, 16)?),
+                "w:sz" => size = Some(attr_value.parse()?),
+                "w:space" => spacing = Some(attr_value.parse()?),
+                "w:shadow" => shadow = Some(parse_xml_bool(attr_value)?),
+                "w:frame" => frame = Some(parse_xml_bool(attr_value)?),
                 _ => (),
             }
         }
@@ -1543,6 +1590,8 @@ pub struct Shd {
 
 impl Shd {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing Shd");
+
         let mut value = None;
         let mut color = None;
         let mut theme_color = None;
@@ -1555,15 +1604,15 @@ impl Shd {
 
         for (attr, attr_value) in &xml_node.attributes {
             match attr.as_ref() {
-                "val" => value = Some(attr_value.parse()?),
-                "color" => color = Some(attr_value.parse()?),
-                "themeColor" => theme_color = Some(attr_value.parse()?),
-                "themeTint" => theme_tint = Some(UcharHexNumber::from_str_radix(attr_value, 16)?),
-                "themeShade" => theme_shade = Some(UcharHexNumber::from_str_radix(attr_value, 16)?),
-                "fill" => fill = Some(attr_value.parse()?),
-                "themeFill" => theme_fill = Some(attr_value.parse()?),
-                "themeFillTint" => theme_fill_tint = Some(UcharHexNumber::from_str_radix(attr_value, 16)?),
-                "themeFillShade" => theme_fill_shade = Some(UcharHexNumber::from_str_radix(attr_value, 16)?),
+                "w:val" => value = Some(attr_value.parse()?),
+                "w:color" => color = Some(attr_value.parse()?),
+                "w:themeColor" => theme_color = Some(attr_value.parse()?),
+                "w:themeTint" => theme_tint = Some(UcharHexNumber::from_str_radix(attr_value, 16)?),
+                "w:themeShade" => theme_shade = Some(UcharHexNumber::from_str_radix(attr_value, 16)?),
+                "w:fill" => fill = Some(attr_value.parse()?),
+                "w:themeFill" => theme_fill = Some(attr_value.parse()?),
+                "w:themeFillTint" => theme_fill_tint = Some(UcharHexNumber::from_str_radix(attr_value, 16)?),
+                "w:themeFillShade" => theme_fill_shade = Some(UcharHexNumber::from_str_radix(attr_value, 16)?),
                 _ => (),
             }
         }
@@ -1591,13 +1640,15 @@ pub struct FitText {
 
 impl FitText {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing FitText");
+
         let mut value = None;
         let mut id = None;
 
         for (attr, attr_value) in &xml_node.attributes {
             match attr.as_ref() {
-                "val" => value = Some(attr_value.parse()?),
-                "id" => id = Some(attr_value.parse()?),
+                "w:val" => value = Some(attr_value.parse()?),
+                "w:id" => id = Some(attr_value.parse()?),
                 _ => (),
             }
         }
@@ -1631,12 +1682,14 @@ pub struct Language {
 
 impl Language {
     pub fn from_xml_element(xml_node: &XmlNode) -> Self {
+        info!("parsing Language");
+
         let mut instance: Self = Default::default();
         for (attr, value) in &xml_node.attributes {
             match attr.as_ref() {
-                "val" => instance.value = Some(value.clone()),
-                "eastAsia" => instance.east_asia = Some(value.clone()),
-                "bidi" => instance.bidirectional = Some(value.clone()),
+                "w:val" => instance.value = Some(value.clone()),
+                "w:eastAsia" => instance.east_asia = Some(value.clone()),
+                "w:bidi" => instance.bidirectional = Some(value.clone()),
                 _ => (),
             }
         }
@@ -1670,15 +1723,17 @@ pub struct EastAsianLayout {
 
 impl EastAsianLayout {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing EastAsianLayout");
+
         let mut instance: Self = Default::default();
 
         for (attr, value) in &xml_node.attributes {
             match attr.as_ref() {
-                "id" => instance.id = Some(value.parse()?),
-                "combine" => instance.combine = Some(parse_xml_bool(value)?),
-                "combineBrackets" => instance.combine_brackets = Some(value.parse()?),
-                "vert" => instance.vertical = Some(parse_xml_bool(value)?),
-                "vertCompress" => instance.vertical_compress = Some(parse_xml_bool(value)?),
+                "w:id" => instance.id = Some(value.parse()?),
+                "w:combine" => instance.combine = Some(parse_xml_bool(value)?),
+                "w:combineBrackets" => instance.combine_brackets = Some(value.parse()?),
+                "w:vert" => instance.vertical = Some(parse_xml_bool(value)?),
+                "w:vertCompress" => instance.vertical_compress = Some(parse_xml_bool(value)?),
                 _ => (),
             }
         }
@@ -1691,25 +1746,25 @@ impl EastAsianLayout {
 pub enum RPrBase {
     RunStyle(String),
     RunFonts(Fonts),
-    Bold(Option<OnOff>),
-    ComplexScriptBold(Option<OnOff>),
-    Italic(Option<OnOff>),
-    ComplexScriptItalic(Option<OnOff>),
-    Capitals(Option<OnOff>),
-    SmallCapitals(Option<OnOff>),
-    Strikethrough(Option<OnOff>),
-    DoubleStrikethrough(Option<OnOff>),
-    Outline(Option<OnOff>),
-    Shadow(Option<OnOff>),
-    Emboss(Option<OnOff>),
-    Imprint(Option<OnOff>),
-    NoProofing(Option<OnOff>),
-    SnapToGrid(Option<OnOff>),
-    Vanish(Option<OnOff>),
-    WebHidden(Option<OnOff>),
+    Bold(OnOff),
+    ComplexScriptBold(OnOff),
+    Italic(OnOff),
+    ComplexScriptItalic(OnOff),
+    Capitals(OnOff),
+    SmallCapitals(OnOff),
+    Strikethrough(OnOff),
+    DoubleStrikethrough(OnOff),
+    Outline(OnOff),
+    Shadow(OnOff),
+    Emboss(OnOff),
+    Imprint(OnOff),
+    NoProofing(OnOff),
+    SnapToGrid(OnOff),
+    Vanish(OnOff),
+    WebHidden(OnOff),
     Color(Color),
     Spacing(SignedTwipsMeasure),
-    Width(Option<TextScale>),
+    Width(TextScale),
     Kerning(HpsMeasure),
     Position(SignedHpsMeasure),
     Size(HpsMeasure),
@@ -1721,13 +1776,13 @@ pub enum RPrBase {
     Shading(Shd),
     FitText(FitText),
     VerticalAlignment(VerticalAlignRun),
-    Rtl(Option<OnOff>),
-    ComplexScript(Option<OnOff>),
+    Rtl(OnOff),
+    ComplexScript(OnOff),
     EmphasisMark(Em),
     Language(Language),
     EastAsianLayout(EastAsianLayout),
-    SpecialVanish(Option<OnOff>),
-    OMath(Option<OnOff>),
+    SpecialVanish(OnOff),
+    OMath(OnOff),
 }
 
 impl XsdChoice for RPrBase {
@@ -1743,6 +1798,8 @@ impl XsdChoice for RPrBase {
     }
 
     fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing RPrBase");
+
         match xml_node.local_name() {
             "rStyle" => Ok(RPrBase::RunStyle(xml_node.get_val_attribute()?.clone())),
             "rFonts" => Ok(RPrBase::RunFonts(Fonts::from_xml_element(xml_node)?)),
@@ -1767,9 +1824,10 @@ impl XsdChoice for RPrBase {
             "w" => {
                 let val = xml_node
                     .attributes
-                    .get("val")
+                    .get("w:val")
                     .map(|val| parse_text_scale_percent(val))
-                    .transpose()?;
+                    .transpose()?
+                    .unwrap_or(100.0);
                 Ok(RPrBase::Width(val))
             }
             "kern" => Ok(RPrBase::Kerning(HpsMeasure::from_xml_element(xml_node)?)),
@@ -1802,6 +1860,8 @@ pub struct RPrOriginal {
 
 impl RPrOriginal {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing RPrOriginal");
+
         let r_pr_bases = xml_node
             .child_nodes
             .iter()
@@ -1820,6 +1880,8 @@ pub struct RPrChange {
 
 impl RPrChange {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing RPrChange");
+
         let base = TrackChange::from_xml_element(xml_node)?;
         let run_properties = xml_node
             .child_nodes
@@ -1841,6 +1903,8 @@ pub struct RPr {
 
 impl RPr {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing RPr");
+
         let mut instance: RPr = Default::default();
         for child_node in &xml_node.child_nodes {
             let child_node_name = child_node.local_name();
@@ -1862,15 +1926,17 @@ pub struct SdtListItem {
 
 impl SdtListItem {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing SdtListItem");
+
         let display_text = xml_node
             .attributes
-            .get("displayText")
+            .get("w:displayText")
             .ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "displayText"))?
             .clone();
 
         let value = xml_node
             .attributes
-            .get("value")
+            .get("w:value")
             .ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "value"))?
             .clone();
 
@@ -1886,7 +1952,9 @@ pub struct SdtComboBox {
 
 impl SdtComboBox {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
-        let last_value = xml_node.attributes.get("lastValue").cloned();
+        info!("parsing SdtComboBox");
+
+        let last_value = xml_node.attributes.get("w:lastValue").cloned();
 
         let list_items = xml_node
             .child_nodes
@@ -1911,7 +1979,9 @@ pub enum SdtDateMappingType {
 
 impl SdtDateMappingType {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Option<Self>> {
-        Ok(xml_node.attributes.get("val").map(|val| val.parse()).transpose()?)
+        info!("parsing SdtDateMappingType");
+
+        Ok(xml_node.attributes.get("w:val").map(|val| val.parse()).transpose()?)
     }
 }
 
@@ -1927,8 +1997,10 @@ pub struct SdtDate {
 
 impl SdtDate {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing SdtDate");
+
         let mut instance: Self = Default::default();
-        instance.full_date = xml_node.attributes.get("fullDate").cloned();
+        instance.full_date = xml_node.attributes.get("w:fullDate").cloned();
 
         for child_node in &xml_node.child_nodes {
             match child_node.local_name() {
@@ -1938,7 +2010,7 @@ impl SdtDate {
                     instance.store_mapped_data_as = SdtDateMappingType::from_xml_element(child_node)?
                 }
                 "calendar" => {
-                    instance.calendar = child_node.attributes.get("val").map(|val| val.parse()).transpose()?;
+                    instance.calendar = child_node.attributes.get("w:val").map(|val| val.parse()).transpose()?;
                 }
                 _ => (),
             }
@@ -1957,13 +2029,15 @@ pub struct SdtDocPart {
 
 impl SdtDocPart {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing SdtDocPart");
+
         let mut instance: Self = Default::default();
 
         for child_node in &xml_node.child_nodes {
             match child_node.local_name() {
                 "docPartGallery" => instance.doc_part_gallery = Some(child_node.get_val_attribute()?.clone()),
                 "docPartCategory" => instance.doc_part_category = Some(child_node.get_val_attribute()?.clone()),
-                "docPartUnique" => instance.doc_part_unique = parse_on_off_xml_element(child_node)?,
+                "docPartUnique" => instance.doc_part_unique = Some(parse_on_off_xml_element(child_node)?),
                 _ => (),
             }
         }
@@ -1980,7 +2054,9 @@ pub struct SdtDropDownList {
 
 impl SdtDropDownList {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
-        let last_value = xml_node.attributes.get("lastValue").cloned();
+        info!("parsing SdtDropDownList");
+
+        let last_value = xml_node.attributes.get("w:lastValue").cloned();
 
         let list_items = xml_node
             .child_nodes
@@ -2000,9 +2076,11 @@ pub struct SdtText {
 
 impl SdtText {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing SdtText");
+
         let is_multi_line_attr = xml_node
             .attributes
-            .get("multiLine")
+            .get("w:multiLine")
             .ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "multiLine"))?;
 
         Ok(Self {
@@ -2037,6 +2115,8 @@ impl SdtPrChoice {
     }
 
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing SdtPrChoice");
+
         match xml_node.local_name() {
             "equation" => Ok(SdtPrChoice::Equation),
             "comboBox" => Ok(SdtPrChoice::ComboBox(SdtComboBox::from_xml_element(xml_node)?)),
@@ -2069,7 +2149,9 @@ pub enum Lock {
 
 impl Lock {
     pub fn from_xml_element(xml_node: &XmlNode) -> std::result::Result<Option<Self>, strum::ParseError> {
-        xml_node.attributes.get("val").map(|val| val.parse()).transpose()
+        info!("parsing Lock");
+
+        xml_node.attributes.get("w:val").map(|val| val.parse()).transpose()
     }
 }
 
@@ -2080,6 +2162,8 @@ pub struct Placeholder {
 
 impl Placeholder {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing Placeholder");
+
         let document_part = xml_node
             .child_nodes
             .iter()
@@ -2101,15 +2185,17 @@ pub struct DataBinding {
 
 impl DataBinding {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing DataBinding");
+
         let mut prefix_mappings = None;
         let mut xpath = None;
         let mut store_item_id = None;
 
         for (attr, value) in &xml_node.attributes {
             match attr.as_ref() {
-                "prefixMappings" => prefix_mappings = Some(value.clone()),
-                "xpath" => xpath = Some(value.clone()),
-                "storeItemID" => store_item_id = Some(value.clone()),
+                "w:prefixMappings" => prefix_mappings = Some(value.clone()),
+                "w:xpath" => xpath = Some(value.clone()),
+                "w:storeItemID" => store_item_id = Some(value.clone()),
                 _ => (),
             }
         }
@@ -2144,6 +2230,8 @@ pub struct SdtPr {
 
 impl SdtPr {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing SdtPr");
+
         let mut instance: Self = Default::default();
 
         for child_node in &xml_node.child_nodes {
@@ -2152,10 +2240,10 @@ impl SdtPr {
                 "alias" => instance.alias = Some(child_node.get_val_attribute()?.clone()),
                 "tag" => instance.tag = Some(child_node.get_val_attribute()?.clone()),
                 "id" => instance.id = Some(child_node.get_val_attribute()?.parse()?),
-                "lock" => instance.lock = child_node.attributes.get("val").map(|val| val.parse()).transpose()?,
+                "lock" => instance.lock = child_node.attributes.get("w:val").map(|val| val.parse()).transpose()?,
                 "placeholder" => instance.placeholder = Some(Placeholder::from_xml_element(child_node)?),
-                "temporary" => instance.temporary = parse_on_off_xml_element(child_node)?,
-                "showingPlcHdr" => instance.showing_placeholder_header = parse_on_off_xml_element(child_node)?,
+                "temporary" => instance.temporary = Some(parse_on_off_xml_element(child_node)?),
+                "showingPlcHdr" => instance.showing_placeholder_header = Some(parse_on_off_xml_element(child_node)?),
                 "dataBinding" => instance.data_binding = Some(DataBinding::from_xml_element(child_node)?),
                 "label" => instance.label = Some(child_node.get_val_attribute()?.parse()?),
                 "tabIndex" => instance.tab_index = Some(child_node.get_val_attribute()?.parse()?),
@@ -2177,6 +2265,8 @@ pub struct SdtEndPr {
 
 impl SdtEndPr {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing SdtEndPr");
+
         let run_properties_vec = xml_node
             .child_nodes
             .iter()
@@ -2195,6 +2285,8 @@ pub struct SdtContentRun {
 
 impl SdtContentRun {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing SdtContentRun");
+
         let p_contents = xml_node
             .child_nodes
             .iter()
@@ -2214,6 +2306,8 @@ pub struct SdtRun {
 
 impl SdtRun {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing SdtRun");
+
         let mut instance: Self = Default::default();
 
         for child_node in &xml_node.child_nodes {
@@ -2245,7 +2339,9 @@ pub struct DirContentRun {
 
 impl DirContentRun {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
-        let value = xml_node.attributes.get("val").map(|val| val.parse()).transpose()?;
+        info!("parsing DirContentRun");
+
+        let value = xml_node.attributes.get("w:val").map(|val| val.parse()).transpose()?;
 
         let p_contents = xml_node
             .child_nodes
@@ -2265,7 +2361,9 @@ pub struct BdoContentRun {
 
 impl BdoContentRun {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
-        let value = xml_node.attributes.get("val").map(|val| val.parse()).transpose()?;
+        info!("parsing BdoContentRun");
+
+        let value = xml_node.attributes.get("w:val").map(|val| val.parse()).transpose()?;
 
         let p_contents = xml_node
             .child_nodes
@@ -2307,11 +2405,13 @@ pub struct Br {
 
 impl Br {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing Br");
+
         let mut instance: Self = Default::default();
         for (attr, value) in &xml_node.attributes {
             match attr.as_ref() {
-                "type" => instance.break_type = Some(value.parse()?),
-                "clear" => instance.clear = Some(value.parse()?),
+                "w:type" => instance.break_type = Some(value.parse()?),
+                "w:clear" => instance.clear = Some(value.parse()?),
                 _ => (),
             }
         }
@@ -2328,6 +2428,8 @@ pub struct Text {
 
 impl Text {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing Text");
+
         let xml_space = xml_node.attributes.get("xml:space").cloned();
 
         let text = xml_node
@@ -2348,12 +2450,14 @@ pub struct Sym {
 
 impl Sym {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing Sym");
+
         let mut instance: Self = Default::default();
 
         for (attr, value) in &xml_node.attributes {
             match attr.as_ref() {
-                "font" => instance.font = Some(value.clone()),
-                "char" => instance.character = Some(ShortHexNumber::from_str_radix(value, 16)?),
+                "w:font" => instance.font = Some(value.clone()),
+                "w:char" => instance.character = Some(ShortHexNumber::from_str_radix(value, 16)?),
                 _ => (),
             }
         }
@@ -2375,8 +2479,8 @@ impl Control {
 
         for (attr, value) in &xml_node.attributes {
             match attr.as_ref() {
-                "name" => instance.name = Some(value.clone()),
-                "shapeid" => instance.shapeid = Some(value.clone()),
+                "w:name" => instance.name = Some(value.clone()),
+                "w:shapeid" => instance.shapeid = Some(value.clone()),
                 "r:id" => instance.rel_id = Some(value.clone()),
                 _ => (),
             }
@@ -2405,6 +2509,8 @@ pub struct ObjectEmbed {
 
 impl ObjectEmbed {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing ObjectEmbed");
+
         let mut draw_aspect = None;
         let mut rel_id = None;
         let mut application_id = None;
@@ -2413,11 +2519,11 @@ impl ObjectEmbed {
 
         for (attr, value) in &xml_node.attributes {
             match attr.as_ref() {
-                "drawAspect" => draw_aspect = Some(value.parse()?),
+                "w:drawAspect" => draw_aspect = Some(value.parse()?),
                 "r:id" => rel_id = Some(value.clone()),
-                "progId" => application_id = Some(value.clone()),
-                "shapeId" => shape_id = Some(value.clone()),
-                "fieldCodes" => field_codes = Some(value.clone()),
+                "w:progId" => application_id = Some(value.clone()),
+                "w:shapeId" => shape_id = Some(value.clone()),
+                "w:fieldCodes" => field_codes = Some(value.clone()),
                 _ => (),
             }
         }
@@ -2451,14 +2557,16 @@ pub struct ObjectLink {
 
 impl ObjectLink {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing ObjectLink");
+
         let base = ObjectEmbed::from_xml_element(xml_node)?;
         let mut update_mode = None;
         let mut locked_field = None;
 
         for (attr, value) in &xml_node.attributes {
             match attr.as_ref() {
-                "updateMode" => update_mode = Some(value.parse()?),
-                "lockedField" => locked_field = Some(parse_xml_bool(value)?),
+                "w:updateMode" => update_mode = Some(value.parse()?),
+                "w:lockedField" => locked_field = Some(parse_xml_bool(value)?),
                 _ => (),
             }
         }
@@ -2490,6 +2598,8 @@ impl ObjectChoice {
     }
 
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing ObjectChoice");
+
         match xml_node.local_name() {
             "control" => Ok(ObjectChoice::Control(Control::from_xml_element(xml_node))),
             "objectLink" => Ok(ObjectChoice::ObjectLink(ObjectLink::from_xml_element(xml_node)?)),
@@ -2536,6 +2646,8 @@ pub struct Drawing {
 
 impl Drawing {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing Drawing");
+
         let anchor_or_inline_vec = xml_node
             .child_nodes
             .iter()
@@ -2556,12 +2668,14 @@ pub struct Object {
 
 impl Object {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing Object");
+
         let mut instance: Self = Default::default();
 
         for (attr, value) in &xml_node.attributes {
             match attr.as_ref() {
-                "dxaOrig" => instance.original_image_width = Some(value.parse()?),
-                "dyaOrig" => instance.original_image_height = Some(value.parse()?),
+                "w:dxaOrig" => instance.original_image_width = Some(value.parse()?),
+                "w:dyaOrig" => instance.original_image_height = Some(value.parse()?),
                 _ => (),
             }
         }
@@ -2596,12 +2710,14 @@ pub struct FFHelpText {
 
 impl FFHelpText {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing FFHelpText");
+
         let mut instance: Self = Default::default();
 
         for (attr, value) in &xml_node.attributes {
             match attr.as_ref() {
-                "type" => instance.info_text_type = Some(value.parse()?),
-                "val" => instance.value = Some(value.clone()),
+                "w:type" => instance.info_text_type = Some(value.parse()?),
+                "w:val" => instance.value = Some(value.clone()),
                 _ => (),
             }
         }
@@ -2618,12 +2734,14 @@ pub struct FFStatusText {
 
 impl FFStatusText {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing FFStatusText");
+
         let mut instance: Self = Default::default();
 
         for (attr, value) in &xml_node.attributes {
             match attr.as_ref() {
-                "type" => instance.info_text_type = Some(value.parse()?),
-                "val" => instance.value = Some(value.clone()),
+                "w:type" => instance.info_text_type = Some(value.parse()?),
+                "w:val" => instance.value = Some(value.clone()),
                 _ => (),
             }
         }
@@ -2635,7 +2753,7 @@ impl FFStatusText {
 #[derive(Debug, Clone, PartialEq)]
 pub enum FFCheckBoxSizeChoice {
     Explicit(HpsMeasure),
-    Auto(Option<OnOff>),
+    Auto(OnOff),
 }
 
 impl FFCheckBoxSizeChoice {
@@ -2647,6 +2765,8 @@ impl FFCheckBoxSizeChoice {
     }
 
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing FFCheckBoxSizeChoice");
+
         match xml_node.local_name() {
             "size" => Ok(FFCheckBoxSizeChoice::Explicit(HpsMeasure::from_xml_element(xml_node)?)),
             "sizeAuto" => Ok(FFCheckBoxSizeChoice::Auto(parse_on_off_xml_element(xml_node)?)),
@@ -2667,6 +2787,8 @@ pub struct FFCheckBox {
 
 impl FFCheckBox {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing FFCheckBox");
+
         let mut size = None;
         let mut is_default = None;
         let mut is_checked = None;
@@ -2676,8 +2798,8 @@ impl FFCheckBox {
                 node_name if FFCheckBoxSizeChoice::is_choice_member(node_name) => {
                     size = Some(FFCheckBoxSizeChoice::from_xml_element(child_node)?)
                 }
-                "default" => is_default = parse_on_off_xml_element(child_node)?,
-                "checked" => is_checked = parse_on_off_xml_element(child_node)?,
+                "default" => is_default = Some(parse_on_off_xml_element(child_node)?),
+                "checked" => is_checked = Some(parse_on_off_xml_element(child_node)?),
                 _ => (),
             }
         }
@@ -2701,6 +2823,8 @@ pub struct FFDDList {
 
 impl FFDDList {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing FFDDList");
+
         let mut instance: Self = Default::default();
 
         for child_node in &xml_node.child_nodes {
@@ -2742,6 +2866,8 @@ pub struct FFTextInput {
 
 impl FFTextInput {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing FFTextInput");
+
         let mut instance: Self = Default::default();
 
         for child_node in &xml_node.child_nodes {
@@ -2763,8 +2889,8 @@ pub enum FFData {
     Name(FFName),
     Label(DecimalNumber),
     TabIndex(UnsignedDecimalNumber),
-    Enabled(Option<OnOff>),
-    RecalculateOnExit(Option<OnOff>),
+    Enabled(OnOff),
+    RecalculateOnExit(OnOff),
     EntryMacro(MacroName),
     ExitMacro(MacroName),
     HelpText(FFHelpText),
@@ -2822,15 +2948,17 @@ pub struct FldChar {
 
 impl FldChar {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing FldChar");
+
         let mut field_char_type = None;
         let mut field_lock = None;
         let mut dirty = None;
 
         for (attr, value) in &xml_node.attributes {
             match attr.as_ref() {
-                "fldCharType" => field_char_type = Some(value.parse()?),
-                "fldLock" => field_lock = Some(parse_xml_bool(value)?),
-                "dirty" => dirty = Some(parse_xml_bool(value)?),
+                "w:fldCharType" => field_char_type = Some(value.parse()?),
+                "w:fldLock" => field_lock = Some(parse_xml_bool(value)?),
+                "w:dirty" => dirty = Some(parse_xml_bool(value)?),
                 _ => (),
             }
         }
@@ -2881,6 +3009,8 @@ pub struct RubyPr {
 
 impl RubyPr {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing RubyPr");
+
         let mut ruby_align = None;
         let mut hps = None;
         let mut hps_raise = None;
@@ -2895,7 +3025,7 @@ impl RubyPr {
                 "hpsRaise" => hps_raise = Some(child_node.get_val_attribute()?.parse()?),
                 "hpsBaseText" => hps_base_text = Some(child_node.get_val_attribute()?.parse()?),
                 "lid" => language_id = Some(child_node.get_val_attribute()?.clone()),
-                "dirty" => dirty = parse_on_off_xml_element(child_node)?,
+                "dirty" => dirty = Some(parse_on_off_xml_element(child_node)?),
                 _ => (),
             }
         }
@@ -2953,6 +3083,8 @@ pub struct RubyContent {
 
 impl RubyContent {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing RubyContent");
+
         let ruby_contents = xml_node
             .child_nodes
             .iter()
@@ -2972,6 +3104,8 @@ pub struct Ruby {
 
 impl Ruby {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing Ruby");
+
         let mut ruby_properties = None;
         let mut ruby_content = None;
         let mut ruby_base = None;
@@ -3006,13 +3140,15 @@ pub struct FtnEdnRef {
 
 impl FtnEdnRef {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing FtnEdnRef");
+
         let mut custom_mark_follows = None;
         let mut id = None;
 
         for (attr, value) in &xml_node.attributes {
             match attr.as_ref() {
-                "customMarkFollows" => custom_mark_follows = Some(parse_xml_bool(value)?),
-                "id" => id = Some(value.parse()?),
+                "w:customMarkFollows" => custom_mark_follows = Some(parse_xml_bool(value)?),
+                "w:id" => id = Some(value.parse()?),
                 _ => (),
             }
         }
@@ -3065,15 +3201,17 @@ pub struct PTab {
 
 impl PTab {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing PTab");
+
         let mut alignment = None;
         let mut relative_to = None;
         let mut leader = None;
 
         for (attr, value) in &xml_node.attributes {
             match attr.as_ref() {
-                "alignment" => alignment = Some(value.parse()?),
-                "relativeTo" => relative_to = Some(value.parse()?),
-                "leader" => leader = Some(value.parse()?),
+                "w:alignment" => alignment = Some(value.parse()?),
+                "w:relativeTo" => relative_to = Some(value.parse()?),
+                "w:leader" => leader = Some(value.parse()?),
                 _ => (),
             }
         }
@@ -3166,6 +3304,8 @@ impl RunInnerContent {
     }
 
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing RunInnerContent");
+
         match xml_node.local_name() {
             "br" => Ok(RunInnerContent::Break(Br::from_xml_element(xml_node)?)),
             "t" => Ok(RunInnerContent::Text(Text::from_xml_element(xml_node)?)),
@@ -3224,13 +3364,15 @@ pub struct R {
 
 impl R {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing R");
+
         let mut instance: Self = Default::default();
 
         for (attr, value) in &xml_node.attributes {
             match attr.as_ref() {
-                "rsidRPr" => instance.run_properties_revision_id = Some(LongHexNumber::from_str_radix(value, 16)?),
-                "rsidDel" => instance.deletion_revision_id = Some(LongHexNumber::from_str_radix(value, 16)?),
-                "rsidR" => instance.run_revision_id = Some(LongHexNumber::from_str_radix(value, 16)?),
+                "w:rsidRPr" => instance.run_properties_revision_id = Some(LongHexNumber::from_str_radix(value, 16)?),
+                "w:rsidDel" => instance.deletion_revision_id = Some(LongHexNumber::from_str_radix(value, 16)?),
+                "w:rsidR" => instance.run_revision_id = Some(LongHexNumber::from_str_radix(value, 16)?),
                 _ => (),
             }
         }
@@ -3269,6 +3411,8 @@ impl ContentRunContent {
     }
 
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing ContentRunContent");
+
         match xml_node.local_name() {
             "customXml" => Ok(ContentRunContent::CustomXml(CustomXmlRun::from_xml_element(xml_node)?)),
             "smartTag" => Ok(ContentRunContent::SmartTag(SmartTagRun::from_xml_element(xml_node)?)),
@@ -3326,6 +3470,8 @@ pub struct RunTrackChange {
 
 impl RunTrackChange {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing RunTrackChange");
+
         let base = TrackChange::from_xml_element(xml_node)?;
         let choices = xml_node
             .child_nodes
@@ -3381,6 +3527,8 @@ impl RangeMarkupElements {
     }
 
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing RangeMarkupElements");
+
         match xml_node.local_name() {
             "bookmarkStart" => Ok(RangeMarkupElements::BookmarkStart(Bookmark::from_xml_element(
                 xml_node,
@@ -3476,6 +3624,8 @@ impl RunLevelElts {
     }
 
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing RunLevelElts");
+
         let local_name = xml_node.local_name();
         match local_name {
             "proofErr" => Ok(RunLevelElts::ProofError(ProofErr::from_xml_element(xml_node)?)),
@@ -3507,13 +3657,15 @@ pub struct CustomXmlBlock {
 
 impl CustomXmlBlock {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing CustomXmlBlock");
+
         let mut uri = None;
         let mut element = None;
 
         for (attr, value) in &xml_node.attributes {
             match attr.as_ref() {
-                "uri" => uri = Some(value.clone()),
-                "element" => element = Some(value.clone()),
+                "w:uri" => uri = Some(value.clone()),
+                "w:element" => element = Some(value.clone()),
                 _ => (),
             }
         }
@@ -3549,6 +3701,8 @@ pub struct SdtContentBlock {
 
 impl SdtContentBlock {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing SdtContentBlock");
+
         let block_contents = xml_node
             .child_nodes
             .iter()
@@ -3568,6 +3722,8 @@ pub struct SdtBlock {
 
 impl SdtBlock {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing SdtBlock");
+
         let mut instance: Self = Default::default();
 
         for child_node in &xml_node.child_nodes {
@@ -3660,25 +3816,27 @@ pub struct FramePr {
 
 impl FramePr {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing FramePr");
+
         let mut instance: Self = Default::default();
 
         for (attr, value) in &xml_node.attributes {
             match attr.as_ref() {
-                "dropCap" => instance.drop_cap = Some(value.parse()?),
-                "lines" => instance.lines = Some(value.parse()?),
-                "w" => instance.width = Some(value.parse()?),
-                "h" => instance.height = Some(value.parse()?),
-                "vSpace" => instance.vertical_space = Some(value.parse()?),
-                "hSpace" => instance.horizontal_space = Some(value.parse()?),
-                "wrap" => instance.wrap = Some(value.parse()?),
-                "hAnchor" => instance.horizontal_anchor = Some(value.parse()?),
-                "vAnchor" => instance.vertical_anchor = Some(value.parse()?),
-                "x" => instance.x = Some(value.parse()?),
-                "xAlign" => instance.x_align = Some(value.parse()?),
-                "y" => instance.y = Some(value.parse()?),
-                "yAlign" => instance.y_align = Some(value.parse()?),
-                "hRule" => instance.height_rule = Some(value.parse()?),
-                "anchorLock" => instance.anchor_lock = Some(parse_xml_bool(value)?),
+                "w:dropCap" => instance.drop_cap = Some(value.parse()?),
+                "w:lines" => instance.lines = Some(value.parse()?),
+                "w:w" => instance.width = Some(value.parse()?),
+                "w:h" => instance.height = Some(value.parse()?),
+                "w:vSpace" => instance.vertical_space = Some(value.parse()?),
+                "w:hSpace" => instance.horizontal_space = Some(value.parse()?),
+                "w:wrap" => instance.wrap = Some(value.parse()?),
+                "w:hAnchor" => instance.horizontal_anchor = Some(value.parse()?),
+                "w:vAnchor" => instance.vertical_anchor = Some(value.parse()?),
+                "w:x" => instance.x = Some(value.parse()?),
+                "w:xAlign" => instance.x_align = Some(value.parse()?),
+                "w:y" => instance.y = Some(value.parse()?),
+                "w:yAlign" => instance.y_align = Some(value.parse()?),
+                "w:hRule" => instance.height_rule = Some(value.parse()?),
+                "w:anchorLock" => instance.anchor_lock = Some(parse_xml_bool(value)?),
                 _ => (),
             }
         }
@@ -3696,6 +3854,8 @@ pub struct NumPr {
 
 impl NumPr {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing NumPr");
+
         let mut instance: Self = Default::default();
         for child_node in &xml_node.child_nodes {
             match child_node.local_name() {
@@ -3722,6 +3882,8 @@ pub struct PBdr {
 
 impl PBdr {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing PBdr");
+
         let mut instance: Self = Default::default();
 
         for child_node in &xml_node.child_nodes {
@@ -3746,10 +3908,14 @@ pub enum TabJc {
     Clear,
     #[strum(serialize = "start")]
     Start,
+    #[strum(serialize = "left")]
+    Left,
     #[strum(serialize = "center")]
     Center,
     #[strum(serialize = "end")]
     End,
+    #[strum(serialize = "right")]
+    Right,
     #[strum(serialize = "decimal")]
     Decimal,
     #[strum(serialize = "bar")]
@@ -3783,15 +3949,17 @@ pub struct TabStop {
 
 impl TabStop {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing TabStop");
+
         let mut value = None;
         let mut leader = None;
         let mut position = None;
 
         for (attr, attr_value) in &xml_node.attributes {
             match attr.as_ref() {
-                "val" => value = Some(attr_value.parse()?),
-                "leader" => leader = Some(attr_value.parse()?),
-                "pos" => position = Some(attr_value.parse()?),
+                "w:val" => value = Some(attr_value.parse()?),
+                "w:leader" => leader = Some(attr_value.parse()?),
+                "w:pos" => position = Some(attr_value.parse()?),
                 _ => (),
             }
         }
@@ -3812,6 +3980,8 @@ pub struct Tabs(pub Vec<TabStop>);
 
 impl Tabs {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing Tabs");
+
         let tabs = xml_node
             .child_nodes
             .iter()
@@ -3857,18 +4027,20 @@ pub struct Spacing {
 
 impl Spacing {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing Spacing");
+
         let mut instance: Self = Default::default();
 
         for (attr, value) in &xml_node.attributes {
             match attr.as_ref() {
-                "before" => instance.before = Some(value.parse()?),
-                "beforeLines" => instance.before_lines = Some(value.parse()?),
-                "beforeAutospacing" => instance.before_autospacing = Some(parse_xml_bool(value)?),
-                "after" => instance.after = Some(value.parse()?),
-                "afterLines" => instance.after_lines = Some(value.parse()?),
-                "afterAutospacing" => instance.after_autospacing = Some(parse_xml_bool(value)?),
-                "line" => instance.line = Some(value.parse()?),
-                "lineRule" => instance.line_rule = Some(value.parse()?),
+                "w:before" => instance.before = Some(value.parse()?),
+                "w:beforeLines" => instance.before_lines = Some(value.parse()?),
+                "w:beforeAutospacing" => instance.before_autospacing = Some(parse_xml_bool(value)?),
+                "w:after" => instance.after = Some(value.parse()?),
+                "w:afterLines" => instance.after_lines = Some(value.parse()?),
+                "w:afterAutospacing" => instance.after_autospacing = Some(parse_xml_bool(value)?),
+                "w:line" => instance.line = Some(value.parse()?),
+                "w:lineRule" => instance.line_rule = Some(value.parse()?),
                 _ => (),
             }
         }
@@ -3891,18 +4063,20 @@ pub struct Ind {
 
 impl Ind {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing Ind");
+
         let mut instance: Self = Default::default();
 
         for (attr, value) in &xml_node.attributes {
             match attr.as_ref() {
-                "start" => instance.start = Some(value.parse()?),
-                "startChars" => instance.start_chars = Some(value.parse()?),
-                "end" => instance.end = Some(value.parse()?),
-                "endChars" => instance.end_chars = Some(value.parse()?),
-                "hanging" => instance.hanging = Some(value.parse()?),
-                "hangingChars" => instance.hanging_chars = Some(value.parse()?),
-                "firstLine" => instance.first_line = Some(value.parse()?),
-                "firstLineChars" => instance.first_line_chars = Some(value.parse()?),
+                "w:start" => instance.start = Some(value.parse()?),
+                "w:startChars" => instance.start_chars = Some(value.parse()?),
+                "w:end" => instance.end = Some(value.parse()?),
+                "w:endChars" => instance.end_chars = Some(value.parse()?),
+                "w:hanging" => instance.hanging = Some(value.parse()?),
+                "w:hangingChars" => instance.hanging_chars = Some(value.parse()?),
+                "w:firstLine" => instance.first_line = Some(value.parse()?),
+                "w:firstLineChars" => instance.first_line_chars = Some(value.parse()?),
                 _ => (),
             }
         }
@@ -3915,10 +4089,14 @@ impl Ind {
 pub enum Jc {
     #[strum(serialize = "start")]
     Start,
+    #[strum(serialize = "left")]
+    Left,
     #[strum(serialize = "center")]
     Center,
     #[strum(serialize = "end")]
     End,
+    #[strum(serialize = "right")]
+    Right,
     #[strum(serialize = "both")]
     Both,
     #[strum(serialize = "mediumKashida")]
@@ -3997,22 +4175,24 @@ pub struct Cnf {
 
 impl Cnf {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing Cnf");
+
         let mut instance: Self = Default::default();
 
         for (attr, value) in &xml_node.attributes {
             match attr.as_ref() {
-                "firstRow" => instance.first_row = Some(parse_xml_bool(value)?),
-                "lastRow" => instance.last_row = Some(parse_xml_bool(value)?),
-                "firstColumn" => instance.first_column = Some(parse_xml_bool(value)?),
-                "lastColumn" => instance.last_column = Some(parse_xml_bool(value)?),
-                "oddVBand" => instance.odd_vertical_band = Some(parse_xml_bool(value)?),
-                "evenVBand" => instance.even_vertical_band = Some(parse_xml_bool(value)?),
-                "oddHBand" => instance.odd_horizontal_band = Some(parse_xml_bool(value)?),
-                "evenHBand" => instance.even_horizontal_band = Some(parse_xml_bool(value)?),
-                "firstRowFirstColumn" => instance.first_row_first_column = Some(parse_xml_bool(value)?),
-                "firstRowLastColumn" => instance.first_row_last_column = Some(parse_xml_bool(value)?),
-                "lastRowFirstColumn" => instance.last_row_first_column = Some(parse_xml_bool(value)?),
-                "lastRowLastColumn" => instance.last_row_last_column = Some(parse_xml_bool(value)?),
+                "w:firstRow" => instance.first_row = Some(parse_xml_bool(value)?),
+                "w:lastRow" => instance.last_row = Some(parse_xml_bool(value)?),
+                "w:firstColumn" => instance.first_column = Some(parse_xml_bool(value)?),
+                "w:lastColumn" => instance.last_column = Some(parse_xml_bool(value)?),
+                "w:oddVBand" => instance.odd_vertical_band = Some(parse_xml_bool(value)?),
+                "w:evenVBand" => instance.even_vertical_band = Some(parse_xml_bool(value)?),
+                "w:oddHBand" => instance.odd_horizontal_band = Some(parse_xml_bool(value)?),
+                "w:evenHBand" => instance.even_horizontal_band = Some(parse_xml_bool(value)?),
+                "w:firstRowFirstColumn" => instance.first_row_first_column = Some(parse_xml_bool(value)?),
+                "w:firstRowLastColumn" => instance.first_row_last_column = Some(parse_xml_bool(value)?),
+                "w:lastRowFirstColumn" => instance.last_row_first_column = Some(parse_xml_bool(value)?),
+                "w:lastRowLastColumn" => instance.last_row_last_column = Some(parse_xml_bool(value)?),
                 _ => (),
             }
         }
@@ -4060,6 +4240,8 @@ pub struct PPrBase {
 
 impl PPrBase {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing PPrBase");
+
         xml_node
             .child_nodes
             .iter()
@@ -4069,31 +4251,31 @@ impl PPrBase {
     pub fn try_update_from_xml_element(mut self, xml_node: &XmlNode) -> Result<Self> {
         match xml_node.local_name() {
             "pStyle" => self.style = Some(xml_node.get_val_attribute()?.clone()),
-            "keepNext" => self.keep_with_next = parse_on_off_xml_element(xml_node)?,
-            "keepLines" => self.keep_lines_on_one_page = parse_on_off_xml_element(xml_node)?,
-            "pageBreakBefore" => self.start_on_next_page = parse_on_off_xml_element(xml_node)?,
+            "keepNext" => self.keep_with_next = Some(parse_on_off_xml_element(xml_node)?),
+            "keepLines" => self.keep_lines_on_one_page = Some(parse_on_off_xml_element(xml_node)?),
+            "pageBreakBefore" => self.start_on_next_page = Some(parse_on_off_xml_element(xml_node)?),
             "framePr" => self.frame_properties = Some(FramePr::from_xml_element(xml_node)?),
-            "widowControl" => self.widow_control = parse_on_off_xml_element(xml_node)?,
+            "widowControl" => self.widow_control = Some(parse_on_off_xml_element(xml_node)?),
             "numPr" => self.numbering_properties = Some(NumPr::from_xml_element(xml_node)?),
-            "suppressLineNumbers" => self.suppress_line_numbers = parse_on_off_xml_element(xml_node)?,
+            "suppressLineNumbers" => self.suppress_line_numbers = Some(parse_on_off_xml_element(xml_node)?),
             "pBdr" => self.borders = Some(PBdr::from_xml_element(xml_node)?),
             "shd" => self.shading = Some(Shd::from_xml_element(xml_node)?),
             "tabs" => self.tabs = Some(Tabs::from_xml_element(xml_node)?),
-            "suppressAutoHyphens" => self.suppress_auto_hyphens = parse_on_off_xml_element(xml_node)?,
-            "kinsoku" => self.kinsoku = parse_on_off_xml_element(xml_node)?,
-            "wordWrap" => self.word_wrapping = parse_on_off_xml_element(xml_node)?,
-            "overflowPunct" => self.overflow_punctuations = parse_on_off_xml_element(xml_node)?,
-            "topLinePunct" => self.top_line_punctuations = parse_on_off_xml_element(xml_node)?,
-            "autoSpaceDE" => self.auto_space_latin_and_east_asian = parse_on_off_xml_element(xml_node)?,
-            "autoSpaceDN" => self.auto_space_east_asian_and_numbers = parse_on_off_xml_element(xml_node)?,
-            "bidi" => self.bidirectional = parse_on_off_xml_element(xml_node)?,
-            "adjustRightInd" => self.adjust_right_indent = parse_on_off_xml_element(xml_node)?,
-            "snapToGrid" => self.snap_to_grid = parse_on_off_xml_element(xml_node)?,
+            "suppressAutoHyphens" => self.suppress_auto_hyphens = Some(parse_on_off_xml_element(xml_node)?),
+            "kinsoku" => self.kinsoku = Some(parse_on_off_xml_element(xml_node)?),
+            "wordWrap" => self.word_wrapping = Some(parse_on_off_xml_element(xml_node)?),
+            "overflowPunct" => self.overflow_punctuations = Some(parse_on_off_xml_element(xml_node)?),
+            "topLinePunct" => self.top_line_punctuations = Some(parse_on_off_xml_element(xml_node)?),
+            "autoSpaceDE" => self.auto_space_latin_and_east_asian = Some(parse_on_off_xml_element(xml_node)?),
+            "autoSpaceDN" => self.auto_space_east_asian_and_numbers = Some(parse_on_off_xml_element(xml_node)?),
+            "bidi" => self.bidirectional = Some(parse_on_off_xml_element(xml_node)?),
+            "adjustRightInd" => self.adjust_right_indent = Some(parse_on_off_xml_element(xml_node)?),
+            "snapToGrid" => self.snap_to_grid = Some(parse_on_off_xml_element(xml_node)?),
             "spacing" => self.spacing = Some(Spacing::from_xml_element(xml_node)?),
             "ind" => self.indent = Some(Ind::from_xml_element(xml_node)?),
-            "contextualSpacing" => self.contextual_spacing = parse_on_off_xml_element(xml_node)?,
-            "mirrorIndents" => self.mirror_indents = parse_on_off_xml_element(xml_node)?,
-            "suppressOverlap" => self.suppress_overlapping = parse_on_off_xml_element(xml_node)?,
+            "contextualSpacing" => self.contextual_spacing = Some(parse_on_off_xml_element(xml_node)?),
+            "mirrorIndents" => self.mirror_indents = Some(parse_on_off_xml_element(xml_node)?),
+            "suppressOverlap" => self.suppress_overlapping = Some(parse_on_off_xml_element(xml_node)?),
             "jc" => self.alignment = Some(xml_node.get_val_attribute()?.parse()?),
             "textDirection" => self.text_direction = Some(xml_node.get_val_attribute()?.parse()?),
             "textAlignment" => self.text_alignment = Some(xml_node.get_val_attribute()?.parse()?),
@@ -4159,6 +4341,8 @@ pub struct ParaRPrOriginal {
 
 impl ParaRPrOriginal {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing ParaRPrOriginal");
+
         let mut instance: Self = Default::default();
 
         for child_node in &xml_node.child_nodes {
@@ -4183,6 +4367,8 @@ pub struct ParaRPrChange {
 
 impl ParaRPrChange {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing ParaRPrChange");
+
         let base = TrackChange::from_xml_element(xml_node)?;
         let run_properties = xml_node
             .child_nodes
@@ -4205,6 +4391,8 @@ pub struct ParaRPr {
 
 impl ParaRPr {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing ParaRPr");
+
         let mut instance: Self = Default::default();
 
         for child_node in &xml_node.child_nodes {
@@ -4242,10 +4430,12 @@ pub struct HdrFtrRef {
 
 impl HdrFtrRef {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing HdrFtrRef");
+
         let base = Rel::from_xml_element(xml_node)?;
         let header_footer_type = xml_node
             .attributes
-            .get("type")
+            .get("w:type")
             .ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "type"))?
             .parse()?;
 
@@ -4432,13 +4622,15 @@ pub struct NumFmt {
 
 impl NumFmt {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing NumFmt");
+
         let mut value = None;
         let mut format = None;
 
         for (attr, attr_value) in &xml_node.attributes {
             match attr.as_ref() {
-                "val" => value = Some(attr_value.parse()?),
-                "format" => format = Some(attr_value.clone()),
+                "w:val" => value = Some(attr_value.parse()?),
+                "w:format" => format = Some(attr_value.clone()),
                 _ => (),
             }
         }
@@ -4503,6 +4695,8 @@ pub struct FtnProps {
 
 impl FtnProps {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing FtnProps");
+
         let mut instance: Self = Default::default();
 
         for child_node in &xml_node.child_nodes {
@@ -4536,6 +4730,8 @@ pub struct EdnProps {
 
 impl EdnProps {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing EdnProps");
+
         let mut instance: Self = Default::default();
 
         for child_node in &xml_node.child_nodes {
@@ -4584,14 +4780,16 @@ pub struct PageSz {
 
 impl PageSz {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing PageSz");
+
         let mut instance: Self = Default::default();
 
         for (attr, value) in &xml_node.attributes {
             match attr.as_ref() {
-                "w" => instance.width = Some(value.parse()?),
-                "h" => instance.height = Some(value.parse()?),
-                "orient" => instance.orientation = Some(value.parse()?),
-                "code" => instance.code = Some(value.parse()?),
+                "w:w" => instance.width = Some(value.parse()?),
+                "w:h" => instance.height = Some(value.parse()?),
+                "w:orient" => instance.orientation = Some(value.parse()?),
+                "w:code" => instance.code = Some(value.parse()?),
                 _ => (),
             }
         }
@@ -4613,6 +4811,8 @@ pub struct PageMar {
 
 impl PageMar {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing PageMar");
+
         let mut top = None;
         let mut right = None;
         let mut bottom = None;
@@ -4623,13 +4823,13 @@ impl PageMar {
 
         for (attr, value) in &xml_node.attributes {
             match attr.as_ref() {
-                "top" => top = Some(value.parse()?),
-                "right" => right = Some(value.parse()?),
-                "bottom" => bottom = Some(value.parse()?),
-                "left" => left = Some(value.parse()?),
-                "header" => header = Some(value.parse()?),
-                "footer" => footer = Some(value.parse()?),
-                "gutter" => gutter = Some(value.parse()?),
+                "w:top" => top = Some(value.parse()?),
+                "w:right" => right = Some(value.parse()?),
+                "w:bottom" => bottom = Some(value.parse()?),
+                "w:left" => left = Some(value.parse()?),
+                "w:header" => header = Some(value.parse()?),
+                "w:footer" => footer = Some(value.parse()?),
+                "w:gutter" => gutter = Some(value.parse()?),
                 _ => (),
             }
         }
@@ -4654,12 +4854,14 @@ pub struct PaperSource {
 
 impl PaperSource {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing PaperSource");
+
         let mut instance: Self = Default::default();
 
         for (attr, value) in &xml_node.attributes {
             match attr.as_ref() {
-                "first" => instance.first = Some(value.parse()?),
-                "other" => instance.other = Some(value.parse()?),
+                "w:first" => instance.first = Some(value.parse()?),
+                "w:other" => instance.other = Some(value.parse()?),
                 _ => (),
             }
         }
@@ -4676,6 +4878,8 @@ pub struct PageBorder {
 
 impl PageBorder {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing PageBorder");
+
         let base = Border::from_xml_element(xml_node)?;
         let rel_id = xml_node.attributes.get("r:id").map(|value| value.parse()).transpose()?;
 
@@ -4692,6 +4896,8 @@ pub struct TopPageBorder {
 
 impl TopPageBorder {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing TopPageBorder");
+
         let base = PageBorder::from_xml_element(xml_node)?;
         let top_left = xml_node.attributes.get("r:topLeft").cloned();
         let top_right = xml_node.attributes.get("r:topRight").cloned();
@@ -4713,6 +4919,8 @@ pub struct BottomPageBorder {
 
 impl BottomPageBorder {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing BottomPageBorder");
+
         let base = PageBorder::from_xml_element(xml_node)?;
         let bottom_left = xml_node.attributes.get("r:bottomLeft").cloned();
         let bottom_right = xml_node.attributes.get("r:bottomRight").cloned();
@@ -4764,13 +4972,15 @@ pub struct PageBorders {
 
 impl PageBorders {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing PageBorders");
+
         let mut instance: Self = Default::default();
 
         for (attr, value) in &xml_node.attributes {
             match attr.as_ref() {
-                "zOrder" => instance.z_order = Some(value.parse()?),
-                "display" => instance.display = Some(value.parse()?),
-                "offsetFrom" => instance.offset_from = Some(value.parse()?),
+                "w:zOrder" => instance.z_order = Some(value.parse()?),
+                "w:display" => instance.display = Some(value.parse()?),
+                "w:offsetFrom" => instance.offset_from = Some(value.parse()?),
                 _ => (),
             }
         }
@@ -4809,14 +5019,16 @@ pub struct LineNumber {
 
 impl LineNumber {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing LineNumber");
+
         let mut instance: Self = Default::default();
 
         for (attr, value) in &xml_node.attributes {
             match attr.as_ref() {
-                "countBy" => instance.count_by = Some(value.parse()?),
-                "start" => instance.start = Some(value.parse()?),
-                "distance" => instance.distance = Some(value.parse()?),
-                "restart" => instance.restart = Some(value.parse()?),
+                "w:countBy" => instance.count_by = Some(value.parse()?),
+                "w:start" => instance.start = Some(value.parse()?),
+                "w:distance" => instance.distance = Some(value.parse()?),
+                "w:restart" => instance.restart = Some(value.parse()?),
                 _ => (),
             }
         }
@@ -4849,14 +5061,16 @@ pub struct PageNumber {
 
 impl PageNumber {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing PageNumber");
+
         let mut instance: Self = Default::default();
 
         for (attr, value) in &xml_node.attributes {
             match attr.as_ref() {
-                "fmt" => instance.format = Some(value.parse()?),
-                "start" => instance.start = Some(value.parse()?),
-                "chapStyle" => instance.chapter_style = Some(value.parse()?),
-                "chapSep" => instance.chapter_separator = Some(value.parse()?),
+                "w:fmt" => instance.format = Some(value.parse()?),
+                "w:start" => instance.start = Some(value.parse()?),
+                "w:chapStyle" => instance.chapter_style = Some(value.parse()?),
+                "w:chapSep" => instance.chapter_separator = Some(value.parse()?),
                 _ => (),
             }
         }
@@ -4873,12 +5087,14 @@ pub struct Column {
 
 impl Column {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing Column");
+
         let mut instance: Self = Default::default();
 
         for (attr, value) in &xml_node.attributes {
             match attr.as_ref() {
-                "w" => instance.width = Some(value.parse()?),
-                "space" => instance.spacing = Some(value.parse()?),
+                "w:w" => instance.width = Some(value.parse()?),
+                "w:space" => instance.spacing = Some(value.parse()?),
                 _ => (),
             }
         }
@@ -4898,14 +5114,16 @@ pub struct Columns {
 
 impl Columns {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing Columns");
+
         let mut instance: Self = Default::default();
 
         for (attr, value) in &xml_node.attributes {
             match attr.as_ref() {
-                "equalWidth" => instance.equal_width = Some(parse_xml_bool(value)?),
-                "space" => instance.spacing = Some(value.parse()?),
-                "num" => instance.number = Some(value.parse()?),
-                "sep" => instance.separator = Some(parse_xml_bool(value)?),
+                "w:equalWidth" => instance.equal_width = Some(parse_xml_bool(value)?),
+                "w:space" => instance.spacing = Some(value.parse()?),
+                "w:num" => instance.number = Some(value.parse()?),
+                "w:sep" => instance.separator = Some(parse_xml_bool(value)?),
                 _ => (),
             }
         }
@@ -4963,13 +5181,15 @@ pub struct DocGrid {
 
 impl DocGrid {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing DocGrid");
+
         let mut instance: Self = Default::default();
 
         for (attr, value) in &xml_node.attributes {
             match attr.as_ref() {
-                "type" => instance.doc_grid_type = Some(value.parse()?),
-                "linePitch" => instance.line_pitch = Some(value.parse()?),
-                "charSpace" => instance.char_spacing = Some(value.parse()?),
+                "w:type" => instance.doc_grid_type = Some(value.parse()?),
+                "w:linePitch" => instance.line_pitch = Some(value.parse()?),
+                "w:charSpace" => instance.char_spacing = Some(value.parse()?),
                 _ => (),
             }
         }
@@ -5062,7 +5282,7 @@ impl SectPrContents {
                 Ok(true)
             }
             "formProt" => {
-                instance.get_or_insert_with(Default::default).protect_form_fields = parse_on_off_xml_element(xml_node)?;
+                instance.get_or_insert_with(Default::default).protect_form_fields = Some(parse_on_off_xml_element(xml_node)?);
                 Ok(true)
             }
             "vAlign" => {
@@ -5071,11 +5291,11 @@ impl SectPrContents {
                 Ok(true)
             }
             "noEndnote" => {
-                instance.get_or_insert_with(Default::default).no_endnote = parse_on_off_xml_element(xml_node)?;
+                instance.get_or_insert_with(Default::default).no_endnote = Some(parse_on_off_xml_element(xml_node)?);
                 Ok(true)
             }
             "titlePg" => {
-                instance.get_or_insert_with(Default::default).title_page = parse_on_off_xml_element(xml_node)?;
+                instance.get_or_insert_with(Default::default).title_page = Some(parse_on_off_xml_element(xml_node)?);
                 Ok(true)
             }
             "textDirection" => {
@@ -5084,11 +5304,11 @@ impl SectPrContents {
                 Ok(true)
             }
             "bidi" => {
-                instance.get_or_insert_with(Default::default).bidirectional = parse_on_off_xml_element(xml_node)?;
+                instance.get_or_insert_with(Default::default).bidirectional = Some(parse_on_off_xml_element(xml_node)?);
                 Ok(true)
             }
             "rtlGutter" => {
-                instance.get_or_insert_with(Default::default).rtl_gutter = parse_on_off_xml_element(xml_node)?;
+                instance.get_or_insert_with(Default::default).rtl_gutter = Some(parse_on_off_xml_element(xml_node)?);
                 Ok(true)
             }
             "docGrid" => {
@@ -5115,14 +5335,16 @@ pub struct SectPrAttributes {
 
 impl SectPrAttributes {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing SectPrAttributes");
+
         let mut instance: Self = Default::default();
 
         for (attr, value) in &xml_node.attributes {
             match attr.as_ref() {
-                "rsidRPr" => instance.run_properties_revision_id = Some(LongHexNumber::from_str_radix(value, 16)?),
-                "rsidDel" => instance.deletion_revision_id = Some(LongHexNumber::from_str_radix(value, 16)?),
-                "rsidR" => instance.run_revision_id = Some(LongHexNumber::from_str_radix(value, 16)?),
-                "rsidSect" => instance.section_revision_id = Some(LongHexNumber::from_str_radix(value, 16)?),
+                "w:rsidRPr" => instance.run_properties_revision_id = Some(LongHexNumber::from_str_radix(value, 16)?),
+                "w:rsidDel" => instance.deletion_revision_id = Some(LongHexNumber::from_str_radix(value, 16)?),
+                "w:rsidR" => instance.run_revision_id = Some(LongHexNumber::from_str_radix(value, 16)?),
+                "w:rsidSect" => instance.section_revision_id = Some(LongHexNumber::from_str_radix(value, 16)?),
                 _ => (),
             }
         }
@@ -5139,6 +5361,8 @@ pub struct SectPrBase {
 
 impl SectPrBase {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing SectPrBase");
+
         Ok(Self {
             contents: SectPrContents::from_xml_element(xml_node)?,
             attributes: SectPrAttributes::from_xml_element(xml_node)?,
@@ -5154,6 +5378,8 @@ pub struct SectPrChange {
 
 impl SectPrChange {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing SectPrChange");
+
         let base = TrackChange::from_xml_element(xml_node)?;
         let section_properties = xml_node
             .child_nodes
@@ -5179,6 +5405,8 @@ pub struct SectPr {
 
 impl SectPr {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing SectPr");
+
         let mut instance: Self = Default::default();
 
         instance.attributes = SectPrAttributes::from_xml_element(xml_node)?;
@@ -5219,6 +5447,8 @@ pub struct PPrChange {
 
 impl PPrChange {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing PPrChange");
+
         let base = TrackChange::from_xml_element(xml_node)?;
         let properties = xml_node
             .child_nodes
@@ -5242,6 +5472,8 @@ pub struct PPr {
 
 impl PPr {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing PPr");
+
         let mut instance: Self = Default::default();
 
         for child_node in &xml_node.child_nodes {
@@ -5270,15 +5502,17 @@ pub struct P {
 
 impl P {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing P");
+
         let mut instance: Self = Default::default();
 
         for (attr, value) in &xml_node.attributes {
             match attr.as_ref() {
-                "rsidRPr" => instance.run_properties_revision_id = Some(LongHexNumber::from_str_radix(value, 16)?),
-                "rsidR" => instance.run_revision_id = Some(LongHexNumber::from_str_radix(value, 16)?),
-                "rsidDel" => instance.deletion_revision_id = Some(LongHexNumber::from_str_radix(value, 16)?),
-                "rsidP" => instance.paragraph_revision_id = Some(LongHexNumber::from_str_radix(value, 16)?),
-                "rsidRDefault" => instance.run_default_revision_id = Some(LongHexNumber::from_str_radix(value, 16)?),
+                "w:rsidRPr" => instance.run_properties_revision_id = Some(LongHexNumber::from_str_radix(value, 16)?),
+                "w:rsidR" => instance.run_revision_id = Some(LongHexNumber::from_str_radix(value, 16)?),
+                "w:rsidDel" => instance.deletion_revision_id = Some(LongHexNumber::from_str_radix(value, 16)?),
+                "w:rsidP" => instance.paragraph_revision_id = Some(LongHexNumber::from_str_radix(value, 16)?),
+                "w:rsidRDefault" => instance.run_default_revision_id = Some(LongHexNumber::from_str_radix(value, 16)?),
                 _ => (),
             }
         }
@@ -5313,20 +5547,22 @@ pub struct TblPPr {
 
 impl TblPPr {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing TblPPr");
+
         let mut instance: Self = Default::default();
 
         for (attr, value) in &xml_node.attributes {
             match attr.as_ref() {
-                "leftFromText" => instance.left_from_text = Some(value.parse()?),
-                "rightFromText" => instance.right_from_text = Some(value.parse()?),
-                "topFromText" => instance.top_from_text = Some(value.parse()?),
-                "bottomFromText" => instance.bottom_from_text = Some(value.parse()?),
-                "vertAnchor" => instance.vertical_anchor = Some(value.parse()?),
-                "horzAnchor" => instance.horizontal_anchor = Some(value.parse()?),
-                "tblpXSpec" => instance.horizontal_alignment = Some(value.parse()?),
-                "tblpX" => instance.horizontal_distance = Some(value.parse()?),
-                "tblpYSpec" => instance.vertical_alignment = Some(value.parse()?),
-                "tblpY" => instance.vertical_distance = Some(value.parse()?),
+                "w:leftFromText" => instance.left_from_text = Some(value.parse()?),
+                "w:rightFromText" => instance.right_from_text = Some(value.parse()?),
+                "w:topFromText" => instance.top_from_text = Some(value.parse()?),
+                "w:bottomFromText" => instance.bottom_from_text = Some(value.parse()?),
+                "w:vertAnchor" => instance.vertical_anchor = Some(value.parse()?),
+                "w:horzAnchor" => instance.horizontal_anchor = Some(value.parse()?),
+                "w:tblpXSpec" => instance.horizontal_alignment = Some(value.parse()?),
+                "w:tblpX" => instance.horizontal_distance = Some(value.parse()?),
+                "w:tblpYSpec" => instance.vertical_alignment = Some(value.parse()?),
+                "w:tblpY" => instance.vertical_distance = Some(value.parse()?),
                 _ => (),
             }
         }
@@ -5347,7 +5583,7 @@ pub enum TblOverlap {
 pub enum TblWidthType {
     #[strum(serialize = "nil")]
     NoWidth,
-    #[strum(serialize = "percent")]
+    #[strum(serialize = "pct")]
     Percent,
     #[strum(serialize = "dxa")]
     TwentiethsOfPoint,
@@ -5381,12 +5617,14 @@ pub struct TblWidth {
 
 impl TblWidth {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing TblWidth");
+
         let mut instance: Self = Default::default();
 
         for (attr, value) in &xml_node.attributes {
             match attr.as_ref() {
-                "w" => instance.width = Some(value.parse()?),
-                "type" => instance.width_type = Some(value.parse()?),
+                "w:w" => instance.width = Some(value.parse()?),
+                "w:type" => instance.width_type = Some(value.parse()?),
                 _ => (),
             }
         }
@@ -5417,6 +5655,8 @@ pub struct TblBorders {
 
 impl TblBorders {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing TblBorders");
+
         let mut instance: Self = Default::default();
 
         for child_node in &xml_node.child_nodes {
@@ -5453,6 +5693,8 @@ pub struct TblCellMar {
 
 impl TblCellMar {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing TblCellMar");
+
         let mut instance: Self = Default::default();
 
         for child_node in &xml_node.child_nodes {
@@ -5481,16 +5723,18 @@ pub struct TblLook {
 
 impl TblLook {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing TblLook");
+
         let mut instance: Self = Default::default();
 
         for (attr, value) in &xml_node.attributes {
             match attr.as_ref() {
-                "firstRow" => instance.first_row = Some(parse_xml_bool(value)?),
-                "lastRow" => instance.last_row = Some(parse_xml_bool(value)?),
-                "firstColumn" => instance.first_column = Some(parse_xml_bool(value)?),
-                "lastColumn" => instance.last_column = Some(parse_xml_bool(value)?),
-                "noHBand" => instance.no_horizontal_band = Some(parse_xml_bool(value)?),
-                "noVBand" => instance.no_vertical_band = Some(parse_xml_bool(value)?),
+                "w:firstRow" => instance.first_row = Some(parse_xml_bool(value)?),
+                "w:lastRow" => instance.last_row = Some(parse_xml_bool(value)?),
+                "w:firstColumn" => instance.first_column = Some(parse_xml_bool(value)?),
+                "w:lastColumn" => instance.last_column = Some(parse_xml_bool(value)?),
+                "w:noHBand" => instance.no_horizontal_band = Some(parse_xml_bool(value)?),
+                "w:noVBand" => instance.no_vertical_band = Some(parse_xml_bool(value)?),
                 _ => (),
             }
         }
@@ -5522,6 +5766,8 @@ pub struct TblPrBase {
 
 impl TblPrBase {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing TblPrBase");
+
         xml_node
             .child_nodes
             .iter()
@@ -5533,7 +5779,7 @@ impl TblPrBase {
             "tblStyle" => self.style = Some(xml_node.get_val_attribute()?.clone()),
             "tblpPr" => self.paragraph_properties = Some(TblPPr::from_xml_element(xml_node)?),
             "tblOverlap" => self.overlap = Some(xml_node.get_val_attribute()?.parse()?),
-            "bidiVisual" => self.bidirectional_visual = parse_on_off_xml_element(xml_node)?,
+            "bidiVisual" => self.bidirectional_visual = Some(parse_on_off_xml_element(xml_node)?),
             "tblStyleRowBandSize" => self.style_row_band_size = Some(xml_node.get_val_attribute()?.parse()?),
             "tblStyleColBandSize" => self.style_column_band_size = Some(xml_node.get_val_attribute()?.parse()?),
             "tblW" => self.width = Some(TblWidth::from_xml_element(xml_node)?),
@@ -5562,6 +5808,8 @@ pub struct TblPrChange {
 
 impl TblPrChange {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing TblPrChange");
+
         let base = TrackChange::from_xml_element(xml_node)?;
         let properties = xml_node
             .child_nodes
@@ -5583,6 +5831,8 @@ pub struct TblPr {
 
 impl TblPr {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing TblPr");
+
         let mut instance: Self = Default::default();
 
         for child_node in &xml_node.child_nodes {
@@ -5603,7 +5853,9 @@ pub struct TblGridCol {
 
 impl TblGridCol {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
-        let width = xml_node.attributes.get("w").map(|value| value.parse()).transpose()?;
+        info!("parsing TblGridCol");
+
+        let width = xml_node.attributes.get("w:w").map(|value| value.parse()).transpose()?;
 
         Ok(Self { width })
     }
@@ -5617,6 +5869,8 @@ pub struct TblGridChange {
 
 impl TblGridChange {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing TblGridChange");
+
         let base = Markup::from_xml_element(xml_node)?;
         let grid = TblGridBase::from_xml_element(xml_node)?;
 
@@ -5631,6 +5885,8 @@ pub struct TblGridBase {
 
 impl TblGridBase {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing TblGridBase");
+
         xml_node
             .child_nodes
             .iter()
@@ -5654,6 +5910,8 @@ pub struct TblGrid {
 
 impl TblGrid {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing TblGrid");
+
         let mut instance: Self = Default::default();
 
         for child_node in &xml_node.child_nodes {
@@ -5682,6 +5940,8 @@ pub struct TblPrExBase {
 
 impl TblPrExBase {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing TblPrExBase");
+
         xml_node
             .child_nodes
             .iter()
@@ -5714,6 +5974,8 @@ pub struct TblPrExChange {
 
 impl TblPrExChange {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing TblPrExChange");
+
         let base = TrackChange::from_xml_element(xml_node)?;
         let properties_ex = xml_node
             .child_nodes
@@ -5735,6 +5997,8 @@ pub struct TblPrEx {
 
 impl TblPrEx {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing TblPrEx");
+
         let mut instance: Self = Default::default();
 
         for child_node in &xml_node.child_nodes {
@@ -5756,12 +6020,14 @@ pub struct Height {
 
 impl Height {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing Height");
+
         let mut instance: Self = Default::default();
 
         for (attr, value) in &xml_node.attributes {
             match attr.as_ref() {
-                "val" => instance.value = Some(value.parse()?),
-                "hRule" => instance.height_rule = Some(value.parse()?),
+                "w:val" => instance.value = Some(value.parse()?),
+                "w:hRule" => instance.height_rule = Some(value.parse()?),
                 _ => (),
             }
         }
@@ -5788,6 +6054,8 @@ pub struct TrPrBase {
 
 impl TrPrBase {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing TrPrBase");
+
         xml_node
             .child_nodes
             .iter()
@@ -5802,12 +6070,12 @@ impl TrPrBase {
             "gridAfter" => self.grid_column_after_last_cell = Some(xml_node.get_val_attribute()?.parse()?),
             "wBefore" => self.width_before_row = Some(TblWidth::from_xml_element(xml_node)?),
             "wAfter" => self.width_after_row = Some(TblWidth::from_xml_element(xml_node)?),
-            "cantSplit" => self.cant_split = parse_on_off_xml_element(xml_node)?,
+            "cantSplit" => self.cant_split = Some(parse_on_off_xml_element(xml_node)?),
             "trHeight" => self.row_height = Some(Height::from_xml_element(xml_node)?),
-            "tblHeader" => self.header = parse_on_off_xml_element(xml_node)?,
+            "tblHeader" => self.header = Some(parse_on_off_xml_element(xml_node)?),
             "tblCellSpacing" => self.cell_spacing = Some(TblWidth::from_xml_element(xml_node)?),
             "jc" => self.alignment = Some(xml_node.get_val_attribute()?.parse()?),
-            "hidden" => self.hidden = parse_on_off_xml_element(xml_node)?,
+            "hidden" => self.hidden = Some(parse_on_off_xml_element(xml_node)?),
             _ => (),
         }
 
@@ -5823,6 +6091,8 @@ pub struct TrPrChange {
 
 impl TrPrChange {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing TrPrChange");
+
         let base = TrackChange::from_xml_element(xml_node)?;
         let properties = xml_node
             .child_nodes
@@ -5846,6 +6116,8 @@ pub struct TrPr {
 
 impl TrPr {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing TrPr");
+
         let mut instance: Self = Default::default();
 
         for child_node in &xml_node.child_nodes {
@@ -5883,6 +6155,8 @@ pub struct TcBorders {
 
 impl TcBorders {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing TcBorders");
+
         let mut instance: Self = Default::default();
 
         for child_node in &xml_node.child_nodes {
@@ -5913,6 +6187,8 @@ pub struct TcMar {
 
 impl TcMar {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing TcMar");
+
         let mut instance: Self = Default::default();
 
         for child_node in &xml_node.child_nodes {
@@ -5934,6 +6210,8 @@ pub struct Headers(pub Vec<String>);
 
 impl Headers {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing Headers");
+
         let headers = xml_node
             .child_nodes
             .iter()
@@ -5964,6 +6242,8 @@ pub struct TcPrBase {
 
 impl TcPrBase {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing TcPrBase");
+
         xml_node
             .child_nodes
             .iter()
@@ -5975,15 +6255,15 @@ impl TcPrBase {
             "cnfStyle" => self.conditional_formatting = Some(Cnf::from_xml_element(xml_node)?),
             "tcW" => self.width = Some(TblWidth::from_xml_element(xml_node)?),
             "gridSpan" => self.grid_span = Some(xml_node.get_val_attribute()?.parse()?),
-            "vMerge" => self.vertical_merge = Some(xml_node.get_val_attribute()?.parse()?),
+            "vMerge" => self.vertical_merge = Some(xml_node.attributes.get("w:val").map(|value| value.parse()).transpose()?.unwrap_or(Merge::Continue)),
             "tcBorders" => self.borders = Some(TcBorders::from_xml_element(xml_node)?),
             "shd" => self.shading = Some(Shd::from_xml_element(xml_node)?),
-            "noWrap" => self.no_wrapping = parse_on_off_xml_element(xml_node)?,
+            "noWrap" => self.no_wrapping = Some(parse_on_off_xml_element(xml_node)?),
             "tcMar" => self.margin = Some(TcMar::from_xml_element(xml_node)?),
             "textDirection" => self.text_direction = Some(xml_node.get_val_attribute()?.parse()?),
-            "tcFitText" => self.fit_text = parse_on_off_xml_element(xml_node)?,
+            "tcFitText" => self.fit_text = Some(parse_on_off_xml_element(xml_node)?),
             "vAlign" => self.vertical_alignment = Some(xml_node.get_val_attribute()?.parse()?),
-            "hideMark" => self.hide_marker = parse_on_off_xml_element(xml_node)?,
+            "hideMark" => self.hide_marker = Some(parse_on_off_xml_element(xml_node)?),
             "headers" => self.headers = Some(Headers::from_xml_element(xml_node)?),
             _ => (),
         }
@@ -6009,16 +6289,18 @@ pub struct CellMergeTrackChange {
 
 impl CellMergeTrackChange {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing CellMergeTrackChange");
+
         let base = TrackChange::from_xml_element(xml_node)?;
         let vertical_merge = xml_node
             .attributes
-            .get("vMerge")
+            .get("w:vMerge")
             .map(|value| value.parse())
             .transpose()?;
 
         let vertical_merge_original = xml_node
             .attributes
-            .get("vMergeOrig")
+            .get("w:vMergeOrig")
             .map(|value| value.parse())
             .transpose()?;
 
@@ -6068,6 +6350,8 @@ pub struct TcPrInner {
 
 impl TcPrInner {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing TcPrInner");
+
         xml_node
             .child_nodes
             .iter()
@@ -6093,6 +6377,8 @@ pub struct TcPrChange {
 
 impl TcPrChange {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing TcPrChange");
+
         let base = TrackChange::from_xml_element(xml_node)?;
         let properties = xml_node
             .child_nodes
@@ -6114,6 +6400,8 @@ pub struct TcPr {
 
 impl TcPr {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing TcPr");
+
         xml_node
             .child_nodes
             .iter()
@@ -6138,9 +6426,11 @@ pub struct Tc {
 
 impl Tc {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing Tc");
+
         let mut instance: Self = Default::default();
 
-        instance.id = xml_node.attributes.get("id").cloned();
+        instance.id = xml_node.attributes.get("w:id").cloned();
 
         for child_node in &xml_node.child_nodes {
             match child_node.local_name() {
@@ -6178,13 +6468,15 @@ pub struct CustomXmlCell {
 
 impl CustomXmlCell {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing CustomXmlCell");
+
         let mut uri = None;
         let mut element = None;
 
         for (attr, value) in &xml_node.attributes {
             match attr.as_ref() {
-                "uri" => uri = Some(value.clone()),
-                "element" => element = Some(value.clone()),
+                "w:uri" => uri = Some(value.clone()),
+                "w:element" => element = Some(value.clone()),
                 _ => (),
             }
         }
@@ -6220,6 +6512,8 @@ pub struct SdtContentCell {
 
 impl SdtContentCell {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing SdtContentCell");
+
         let contents = xml_node
             .child_nodes
             .iter()
@@ -6239,6 +6533,8 @@ pub struct SdtCell {
 
 impl SdtCell {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing SdtCell");
+
         xml_node
             .child_nodes
             .iter()
@@ -6302,14 +6598,16 @@ pub struct Row {
 
 impl Row {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing Row");
+
         let mut instance: Self = Default::default();
 
         for (attr, value) in &xml_node.attributes {
             match attr.as_ref() {
-                "rsidRPr" => instance.run_properties_revision_id = Some(LongHexNumber::from_str_radix(value, 16)?),
-                "rsidR" => instance.run_revision_id = Some(LongHexNumber::from_str_radix(value, 16)?),
-                "rsidDel" => instance.deletion_revision_id = Some(LongHexNumber::from_str_radix(value, 16)?),
-                "rsidTr" => instance.row_revision_id = Some(LongHexNumber::from_str_radix(value, 16)?),
+                "w:rsidRPr" => instance.run_properties_revision_id = Some(LongHexNumber::from_str_radix(value, 16)?),
+                "w:rsidR" => instance.run_revision_id = Some(LongHexNumber::from_str_radix(value, 16)?),
+                "w:rsidDel" => instance.deletion_revision_id = Some(LongHexNumber::from_str_radix(value, 16)?),
+                "w:rsidTr" => instance.row_revision_id = Some(LongHexNumber::from_str_radix(value, 16)?),
                 _ => (),
             }
         }
@@ -6339,13 +6637,15 @@ pub struct CustomXmlRow {
 
 impl CustomXmlRow {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing CustomXmlRow");
+
         let mut uri = None;
         let mut element = None;
 
         for (attr, value) in &xml_node.attributes {
             match attr.as_ref() {
-                "uri" => uri = Some(value.clone()),
-                "element" => element = Some(value.clone()),
+                "w:uri" => uri = Some(value.clone()),
+                "w:element" => element = Some(value.clone()),
                 _ => (),
             }
         }
@@ -6381,6 +6681,8 @@ pub struct SdtContentRow {
 
 impl SdtContentRow {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing SdtContentRow");
+
         let contents = xml_node
             .child_nodes
             .iter()
@@ -6400,6 +6702,8 @@ pub struct SdtRow {
 
 impl SdtRow {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing SdtRow");
+
         xml_node
             .child_nodes
             .iter()
@@ -6458,6 +6762,8 @@ pub struct Tbl {
 
 impl Tbl {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing Tbl");
+
         let mut range_markup_elements = Vec::new();
         let mut properties = None;
         let mut grid = None;
@@ -6507,6 +6813,8 @@ impl XsdChoice for ContentBlockContent {
     }
 
     fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing ContentBlockContent");
+
         match xml_node.local_name() {
             "customXml" => Ok(ContentBlockContent::CustomXml(CustomXmlBlock::from_xml_element(
                 xml_node,
@@ -6532,15 +6840,14 @@ pub struct AltChunkPr {
 
 impl AltChunkPr {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing AltChunkPr");
+
         let match_source = xml_node
             .child_nodes
             .iter()
             .find(|child_node| child_node.local_name() == "matchSrc")
             .map(parse_on_off_xml_element)
-            .transpose()?
-            .into_iter() // TODO: use Option::flatten when stabilized
-            .flatten()
-            .next();
+            .transpose()?;
 
         Ok(Self { match_source })
     }
@@ -6554,6 +6861,8 @@ pub struct AltChunk {
 
 impl AltChunk {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing AltChunk");
+
         let rel_id = xml_node.attributes.get("r:id").cloned();
 
         let properties = xml_node
@@ -6579,6 +6888,8 @@ impl XsdChoice for BlockLevelElts {
     }
 
     fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing BlockLevelElts");
+
         match xml_node.local_name() {
             "altChunk" => Ok(BlockLevelElts::AltChunk(AltChunk::from_xml_element(xml_node)?)),
             node_name if ContentBlockContent::is_choice_member(node_name) => {
@@ -6603,14 +6914,16 @@ pub struct Background {
 
 impl Background {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing Background");
+
         let mut instance: Self = Default::default();
 
         for (attr, value) in &xml_node.attributes {
             match attr.as_ref() {
-                "color" => instance.color = Some(value.parse()?),
-                "themeColor" => instance.theme_color = Some(value.parse()?),
-                "themeTint" => instance.theme_tint = Some(UcharHexNumber::from_str_radix(value, 16)?),
-                "themeShade" => instance.theme_shade = Some(UcharHexNumber::from_str_radix(value, 16)?),
+                "w:color" => instance.color = Some(value.parse()?),
+                "w:themeColor" => instance.theme_color = Some(value.parse()?),
+                "w:themeTint" => instance.theme_tint = Some(UcharHexNumber::from_str_radix(value, 16)?),
+                "w:themeShade" => instance.theme_shade = Some(UcharHexNumber::from_str_radix(value, 16)?),
                 _ => (),
             }
         }
@@ -6633,6 +6946,8 @@ pub struct DocumentBase {
 
 impl DocumentBase {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing DocumentBase");
+
         let background = xml_node
             .child_nodes
             .iter()
@@ -6660,6 +6975,8 @@ pub struct Body {
 
 impl Body {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing Body");
+
         xml_node.child_nodes.iter().try_fold(Default::default(), |mut instance: Self, child_node| {
             match child_node.local_name() {
                 "sectPr" => instance.section_properties = Some(SectPr::from_xml_element(child_node)?),
@@ -6683,11 +7000,13 @@ pub struct Document {
 
 impl Document {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
+        info!("parsing Document");
+
         let mut instance: Self = Default::default();
 
         instance.conformance = xml_node
             .attributes
-            .get("conformance")
+            .get("w:conformance")
             .map(|value| value.parse())
             .transpose()?;
         
@@ -6709,15 +7028,15 @@ mod tests {
 
     #[test]
     pub fn test_parse_text_scale_percent() {
-        assert_eq!(parse_text_scale_percent("100%").unwrap(), 1.0);
-        assert_eq!(parse_text_scale_percent("600%").unwrap(), 6.0);
-        assert_eq!(parse_text_scale_percent("333%").unwrap(), 3.33);
+        assert_eq!(parse_text_scale_percent("100%").unwrap(), 100.0);
+        assert_eq!(parse_text_scale_percent("600%").unwrap(), 600.0);
+        assert_eq!(parse_text_scale_percent("333%").unwrap(), 333.0);
         assert_eq!(parse_text_scale_percent("0%").unwrap(), 0.0);
     }
 
     impl SignedTwipsMeasure {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name} val="123.456mm"></{node_name}>"#, node_name = node_name)
+            format!(r#"<{node_name} w:val="123.456mm"></{node_name}>"#, node_name = node_name)
         }
 
         pub fn test_instance() -> Self {
@@ -6754,7 +7073,7 @@ mod tests {
 
     impl HpsMeasure {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name} val="123.456mm"></{node_name}>"#, node_name = node_name)
+            format!(r#"<{node_name} w:val="123.456mm"></{node_name}>"#, node_name = node_name)
         }
 
         pub fn test_instance() -> Self {
@@ -6782,7 +7101,7 @@ mod tests {
 
     impl SignedHpsMeasure {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name} val="123.456mm"></{node_name}>"#, node_name = node_name)
+            format!(r#"<{node_name} w:val="123.456mm"></{node_name}>"#, node_name = node_name)
         }
 
         pub fn test_instance() -> Self {
@@ -6820,7 +7139,7 @@ mod tests {
     impl Color {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} val="ffffff" themeColor="accent1" themeTint="ff" themeShade="ff">
+                r#"<{node_name} w:val="ffffff" w:themeColor="accent1" w:themeTint="ff" w:themeShade="ff">
         </{node_name}>"#,
                 node_name = node_name
             )
@@ -6846,7 +7165,7 @@ mod tests {
     impl ProofErr {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} type="spellStart"></{node_name}>"#,
+                r#"<{node_name} w:type="spellStart"></{node_name}>"#,
                 node_name = node_name
             )
         }
@@ -6868,7 +7187,7 @@ mod tests {
     impl Perm {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} id="Some id", displacedByCustomXml="next"></{node_name}>"#,
+                r#"<{node_name} w:id="Some id" w:displacedByCustomXml="next"></{node_name}>"#,
                 node_name = node_name
             )
         }
@@ -6890,7 +7209,7 @@ mod tests {
 
     impl PermStart {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name} id="Some id" displacedByCustomXml="next" edGrp="everyone" ed="rfrostkalmar@gmail.com" colFirst="0" colLast="1">
+            format!(r#"<{node_name} w:id="Some id" w:displacedByCustomXml="next" w:edGrp="everyone" w:ed="rfrostkalmar@gmail.com" w:colFirst="0" w:colLast="1">
         </{node_name}>"#, node_name=node_name)
         }
 
@@ -6914,7 +7233,7 @@ mod tests {
 
     impl Markup {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name} id="0"></{node_name}>"#, node_name = node_name)
+            format!(r#"<{node_name} w:id="0"></{node_name}>"#, node_name = node_name)
         }
 
         pub fn test_instance() -> Self {
@@ -6932,7 +7251,7 @@ mod tests {
     impl MarkupRange {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} id="0" displacedByCustomXml="next"></{node_name}>"#,
+                r#"<{node_name} w:id="0" w:displacedByCustomXml="next"></{node_name}>"#,
                 node_name = node_name
             )
         }
@@ -6955,7 +7274,7 @@ mod tests {
     impl BookmarkRange {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} id="0" displacedByCustomXml="next" colFirst="0" colLast="1">
+                r#"<{node_name} w:id="0" w:displacedByCustomXml="next" w:colFirst="0" w:colLast="1">
         </{node_name}>"#,
                 node_name = node_name
             )
@@ -6980,7 +7299,7 @@ mod tests {
     impl Bookmark {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} id="0" displacedByCustomXml="next" colFirst="0" colLast="1" name="Some name">
+                r#"<{node_name} w:id="0" w:displacedByCustomXml="next" w:colFirst="0" w:colLast="1" w:name="Some name">
         </{node_name}>"#,
                 node_name = node_name
             )
@@ -7003,7 +7322,7 @@ mod tests {
 
     impl MoveBookmark {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name} id="0" displacedByCustomXml="next" colFirst="0" colLast="1" name="Some name" author="John Smith" date="2001-10-26T21:32:52">
+            format!(r#"<{node_name} w:id="0" w:displacedByCustomXml="next" w:colFirst="0" w:colLast="1" w:name="Some name" w:author="John Smith" w:date="2001-10-26T21:32:52">
         </{node_name}>"#, node_name=node_name)
         }
 
@@ -7024,7 +7343,7 @@ mod tests {
     }
 
     impl TrackChange {
-        const TEST_ATTRIBUTES: &'static str = r#"id="0" author="John Smith" date="2001-10-26T21:32:52""#;
+        const TEST_ATTRIBUTES: &'static str = r#"w:id="0" w:author="John Smith" w:date="2001-10-26T21:32:52""#;
 
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
@@ -7053,7 +7372,7 @@ mod tests {
     impl Attr {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} uri="http://some/uri" name="Some name" val="Some value"></{node_name}>"#,
+                r#"<{node_name} w:uri="http://some/uri" w:name="Some name" w:val="Some value"></{node_name}>"#,
                 node_name = node_name
             )
         }
@@ -7078,7 +7397,7 @@ mod tests {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
                 r#"<{node_name}>
-            <placeholder val="Placeholder" />
+            <placeholder w:val="Placeholder" />
             {}
         </{node_name}>"#,
                 Attr::test_xml("attr"),
@@ -7104,14 +7423,14 @@ mod tests {
     impl SimpleField {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} instr="AUTHOR" fldLock="false" dirty="false"></{node_name}>"#,
+                r#"<{node_name} w:instr="AUTHOR" w:fldLock="false" w:dirty="false"></{node_name}>"#,
                 node_name = node_name
             )
         }
 
         pub fn test_xml_recursive(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} instr="AUTHOR" fldLock="false" dirty="false">
+                r#"<{node_name} w:instr="AUTHOR" w:fldLock="false" w:dirty="false">
             {}
         </{node_name}>"#,
                 Self::test_xml("fldSimple"),
@@ -7145,11 +7464,11 @@ mod tests {
 
     impl Hyperlink {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name} tgtFrame="_blank" tooltip="Some tooltip" docLocation="table" history="true" anchor="chapter1" r:id="rId1"></{node_name}>"#, node_name=node_name)
+            format!(r#"<{node_name} w:tgtFrame="_blank" w:tooltip="Some tooltip" w:docLocation="table" w:history="true" w:anchor="chapter1" r:id="rId1"></{node_name}>"#, node_name=node_name)
         }
 
         pub fn test_xml_recursive(node_name: &'static str) -> String {
-            format!(r#"<{node_name} tgtFrame="_blank" tooltip="Some tooltip" docLocation="table" history="true" anchor="chapter1" r:id="rId1">
+            format!(r#"<{node_name} w:tgtFrame="_blank" w:tooltip="Some tooltip" w:docLocation="table" w:history="true" w:anchor="chapter1" r:id="rId1">
             {}
         </{node_name}>"#, SimpleField::test_xml("fldSimple"), node_name=node_name)
         }
@@ -7162,7 +7481,7 @@ mod tests {
                 document_location: Some(String::from("table")),
                 history: Some(true),
                 anchor: Some(String::from("chapter1")),
-                rel_id: RelationshipId::from("rId1"),
+                rel_id: Some(RelationshipId::from("rId1")),
             }
         }
 
@@ -7239,7 +7558,7 @@ mod tests {
     impl CustomXmlRun {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} uri="http://some/uri" element="Some element">
+                r#"<{node_name} w:uri="http://some/uri" w:element="Some element">
             {}
             {}
         </{node_name}>"#,
@@ -7294,7 +7613,7 @@ mod tests {
     impl SmartTagRun {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} uri="http://some/uri" element="Some element">
+                r#"<{node_name} w:uri="http://some/uri" w:element="Some element">
             {}
             {}
         </{node_name}>"#,
@@ -7324,8 +7643,8 @@ mod tests {
     impl Fonts {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} hint="default" ascii="Arial" hAnsi="Arial" eastAsia="Arial" cs="Arial"
-            asciiTheme="majorAscii" hAnsiTheme="majorHAnsi" eastAsiaTheme="majorEastAsia" cstheme="majorBidi">
+                r#"<{node_name} w:hint="default" w:ascii="Arial" w:hAnsi="Arial" w:eastAsia="Arial" w:cs="Arial"
+            w:asciiTheme="majorAscii" w:hAnsiTheme="majorHAnsi" w:eastAsiaTheme="majorEastAsia" w:cstheme="majorBidi">
         </{node_name}>"#,
                 node_name = node_name
             )
@@ -7356,7 +7675,7 @@ mod tests {
     impl Underline {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} val="single" color="ffffff" themeColor="accent1" themeTint="ff" themeShade="ff">
+                r#"<{node_name} w:val="single" w:color="ffffff" w:themeColor="accent1" w:themeTint="ff" w:themeShade="ff">
         </{node_name}>"#,
                 node_name = node_name
             )
@@ -7381,8 +7700,8 @@ mod tests {
     }
 
     impl Border {
-        const TEST_ATTRIBUTES: &'static str = r#"val="single" color="ffffff" themeColor="accent1" themeTint="ff"
-            themeShade="ff" sz="100" space="100" shadow="true" frame="true""#;
+        const TEST_ATTRIBUTES: &'static str = r#"w:val="single" w:color="ffffff" w:themeColor="accent1" w:themeTint="ff"
+            w:themeShade="ff" w:sz="100" w:space="100" w:shadow="true" w:frame="true""#;
 
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
@@ -7417,7 +7736,8 @@ mod tests {
 
     impl Shd {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name} val="solid" color="ffffff" themeColor="accent1" themeTint="ff" themeShade="ff" fill="ffffff" themeFill="accent1" themeFillTint="ff" themeFillShade="ff">
+            format!(r#"<{node_name} w:val="solid" w:color="ffffff" w:themeColor="accent1" w:themeTint="ff"
+            w:themeShade="ff" w:fill="ffffff" w:themeFill="accent1" w:themeFillTint="ff" w:themeFillShade="ff">
         </{node_name}>"#,
             node_name=node_name
         )
@@ -7448,7 +7768,7 @@ mod tests {
     impl FitText {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} val="123.456mm" id="1"></{node_name}>"#,
+                r#"<{node_name} w:val="123.456mm" w:id="1"></{node_name}>"#,
                 node_name = node_name
             )
         }
@@ -7474,7 +7794,7 @@ mod tests {
     impl Language {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} val="en" eastAsia="jp" bidi="fa"></{node_name}>"#,
+                r#"<{node_name} w:val="en" w:eastAsia="jp" w:bidi="fa"></{node_name}>"#,
                 node_name = node_name
             )
         }
@@ -7498,7 +7818,7 @@ mod tests {
     impl EastAsianLayout {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} id="1" combine="true" combineBrackets="square" vert="true" vertCompress="true">
+                r#"<{node_name} w:id="1" w:combine="true" w:combineBrackets="square" w:vert="true" w:vertCompress="true">
         </{node_name}>"#,
                 node_name = node_name
             )
@@ -7524,7 +7844,7 @@ mod tests {
 
     impl RPrBase {
         pub fn test_run_style_xml() -> &'static str {
-            r#"<rStyle val="Arial"></rStyle>"#
+            r#"<rStyle w:val="Arial"></rStyle>"#
         }
 
         pub fn test_run_style_instance() -> Self {
@@ -7567,7 +7887,7 @@ mod tests {
     impl RPrChange {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} id="0" author="John Smith" date="2001-10-26T21:32:52">
+                r#"<{node_name} w:id="0" w:author="John Smith" w:date="2001-10-26T21:32:52">
             {}
         </{node_name}>"#,
                 RPrOriginal::test_xml("rPr"),
@@ -7621,7 +7941,7 @@ mod tests {
     impl SdtListItem {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} displayText="Displayed" value="Some value"></{node_name}>"#,
+                r#"<{node_name} w:displayText="Displayed" w:value="Some value"></{node_name}>"#,
                 node_name = node_name
             )
         }
@@ -7644,7 +7964,7 @@ mod tests {
     impl SdtComboBox {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} lastValue="Some value">
+                r#"<{node_name} w:lastValue="Some value">
             {}
             {}
         </{node_name}>"#,
@@ -7672,11 +7992,11 @@ mod tests {
     impl SdtDate {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} fullDate="2001-10-26T21:32:52">
-            <dateFormat val="MM-YYYY" />
-            <lid val="ja-JP" />
-            <storeMappedDataAs val="dateTime" />
-            <calendar val="gregorian" />
+                r#"<{node_name} w:fullDate="2001-10-26T21:32:52">
+            <dateFormat w:val="MM-YYYY" />
+            <lid w:val="ja-JP" />
+            <storeMappedDataAs w:val="dateTime" />
+            <calendar w:val="gregorian" />
         </{node_name}>"#,
                 node_name = node_name
             )
@@ -7704,9 +8024,9 @@ mod tests {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
                 r#"<{node_name}>
-            <docPartGallery val="Some string" />
-            <docPartCategory val="Some string" />
-            <docPartUnique val="true" />
+            <docPartGallery w:val="Some string" />
+            <docPartCategory w:val="Some string" />
+            <docPartUnique w:val="true" />
         </{node_name}>"#,
                 node_name = node_name
             )
@@ -7731,7 +8051,7 @@ mod tests {
     impl SdtDropDownList {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} lastValue="Some value">
+                r#"<{node_name} w:lastValue="Some value">
             {}
             {}
         </{node_name}>"#,
@@ -7758,7 +8078,7 @@ mod tests {
 
     impl SdtText {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name} multiLine="true"></{node_name}>"#, node_name = node_name)
+            format!(r#"<{node_name} w:multiLine="true"></{node_name}>"#, node_name = node_name)
         }
 
         pub fn test_instance() -> Self {
@@ -7830,7 +8150,7 @@ mod tests {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
                 r#"<{node_name}>
-            <docPart val="title" />
+            <docPart w:val="title" />
         </{node_name}>"#,
                 node_name = node_name
             )
@@ -7854,7 +8174,7 @@ mod tests {
 
     impl DataBinding {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name} prefixMappings="xmlns:ns0='http://example.com/example'" xpath="//ns0:book" storeItemID="testXmlPart">
+            format!(r#"<{node_name} w:prefixMappings="xmlns:ns0='http://example.com/example'" w:xpath="//ns0:book" w:storeItemID="testXmlPart">
         </{node_name}>"#
             , node_name=node_name
         )
@@ -7883,16 +8203,16 @@ mod tests {
             format!(
                 r#"<{node_name}>
             {}
-            <alias val="Alias" />
-            <tag val="Tag"/>
-            <id val="1" />
-            <lock val="unlocked" />
+            <alias w:val="Alias" />
+            <tag w:val="Tag"/>
+            <id w:val="1" />
+            <lock w:val="unlocked" />
             {}
-            <temporary val="false" />
-            <showingPlcHdr val="false" />
+            <temporary w:val="false" />
+            <showingPlcHdr w:val="false" />
             {}
-            <label val="1" />
-            <tabIndex val="1" />
+            <label w:val="1" />
+            <tabIndex w:val="1" />
             <equation />
         </{node_name}>"#,
                 RPr::test_xml("rPr"),
@@ -8024,7 +8344,7 @@ mod tests {
     impl DirContentRun {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} val="ltr">
+                r#"<{node_name} w:val="ltr">
                 {}
             </{node_name}>"#,
                 PContent::test_simple_field_xml(),
@@ -8052,7 +8372,7 @@ mod tests {
     impl BdoContentRun {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} val="ltr">
+                r#"<{node_name} w:val="ltr">
                 {}
             </{node_name}>"#,
                 PContent::test_simple_field_xml(),
@@ -8080,7 +8400,7 @@ mod tests {
     impl Br {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} type="page" clear="none"></{node_name}>"#,
+                r#"<{node_name} w:type="page" w:clear="none"></{node_name}>"#,
                 node_name = node_name
             )
         }
@@ -8130,7 +8450,7 @@ mod tests {
     impl Sym {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} font="Arial" char="ffff"></{node_name}>"#,
+                r#"<{node_name} w:font="Arial" w:char="ffff"></{node_name}>"#,
                 node_name = node_name
             )
         }
@@ -8155,7 +8475,7 @@ mod tests {
     impl Control {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} name="Name" shapeid="Id" r:id="rId1" >
+                r#"<{node_name} w:name="Name" w:shapeid="Id" r:id="rId1" >
             </{node_name}>"#,
                 node_name = node_name
             )
@@ -8182,7 +8502,7 @@ mod tests {
     impl ObjectEmbed {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} drawAspect="content" r:id="rId1" progId="AVIFile" shapeId="1" fieldCodes="\f 0">
+                r#"<{node_name} w:drawAspect="content" r:id="rId1" w:progId="AVIFile" w:shapeId="1" w:fieldCodes="\f 0">
             </{node_name}>"#,
                 node_name = node_name
             )
@@ -8210,7 +8530,7 @@ mod tests {
 
     impl ObjectLink {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name} drawAspect="content" r:id="rId1" progId="AVIFile" shapeId="1" fieldCodes="\f 0" updateMode="always" lockedField="true">
+            format!(r#"<{node_name} w:drawAspect="content" r:id="rId1" w:progId="AVIFile" w:shapeId="1" w:fieldCodes="\f 0" w:updateMode="always" w:lockedField="true">
             </{node_name}>"#,
                 node_name=node_name
             )
@@ -8269,7 +8589,7 @@ mod tests {
     impl Object {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} dxaOrig="123.456mm" dyaOrig="123">
+                r#"<{node_name} w:dxaOrig="123.456mm" w:dyaOrig="123">
                 {}
                 {}
             </{node_name}>"#,
@@ -8304,7 +8624,7 @@ mod tests {
     impl FFHelpText {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} type="text" val="Help text"></{node_name}>"#,
+                r#"<{node_name} w:type="text" w:val="Help text"></{node_name}>"#,
                 node_name = node_name
             )
         }
@@ -8329,7 +8649,7 @@ mod tests {
     impl FFStatusText {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} type="text" val="Status text"></{node_name}>"#,
+                r#"<{node_name} w:type="text" w:val="Status text"></{node_name}>"#,
                 node_name = node_name
             )
         }
@@ -8353,15 +8673,15 @@ mod tests {
 
     #[test]
     pub fn test_ff_check_box_size_choice_from_xml() {
-        let xml = r#"<size val="123"></size>"#;
+        let xml = r#"<size w:val="123"></size>"#;
         assert_eq!(
             FFCheckBoxSizeChoice::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
             FFCheckBoxSizeChoice::Explicit(HpsMeasure::Decimal(123)),
         );
-        let xml = r#"<sizeAuto val="true"></sizeAuto>"#;
+        let xml = r#"<sizeAuto w:val="true"></sizeAuto>"#;
         assert_eq!(
             FFCheckBoxSizeChoice::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
-            FFCheckBoxSizeChoice::Auto(Some(true)),
+            FFCheckBoxSizeChoice::Auto(true),
         );
     }
 
@@ -8369,9 +8689,9 @@ mod tests {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
                 r#"<{node_name}>
-                <sizeAuto val="true" />
-                <default val="true" />
-                <checked val="true" />
+                <sizeAuto w:val="true" />
+                <default w:val="true" />
+                <checked w:val="true" />
             </{node_name}>"#,
                 node_name = node_name
             )
@@ -8379,7 +8699,7 @@ mod tests {
 
         pub fn test_instance() -> Self {
             Self {
-                size: FFCheckBoxSizeChoice::Auto(Some(true)),
+                size: FFCheckBoxSizeChoice::Auto(true),
                 is_default: Some(true),
                 is_checked: Some(true),
             }
@@ -8399,9 +8719,9 @@ mod tests {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
                 r#"<{node_name}>
-                <result val="1" />
-                <default val="1" />
-                <listEntry val="Entry1" />
+                <result w:val="1" />
+                <default w:val="1" />
+                <listEntry w:val="Entry1" />
             </{node_name}>"#,
                 node_name = node_name
             )
@@ -8429,10 +8749,10 @@ mod tests {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
                 r#"<{node_name}>
-                <type val="regular" />
-                <default val="Default" />
-                <maxLength val="100" />
-                <format val=".*" />
+                <type w:val="regular" />
+                <default w:val="Default" />
+                <maxLength w:val="100" />
+                <format w:val=".*" />
             </{node_name}>"#,
                 node_name = node_name
             )
@@ -8460,8 +8780,8 @@ mod tests {
     impl FldChar {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} fldCharType="begin", fldLock="false" dirty="false">
-                <name val="Some name" />
+                r#"<{node_name} w:fldCharType="begin" w:fldLock="false" w:dirty="false">
+                <name w:val="Some name" />
             </{node_name}>"#,
                 node_name = node_name,
             )
@@ -8490,12 +8810,12 @@ mod tests {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
                 r#"<{node_name}>
-                <rubyAlign val="left" />
-                <hps val="123" />
-                <hpsRaise val="123" />
-                <hpsBaseText val="123" />
-                <lid val="en-US" />
-                <dirty val="true" />
+                <rubyAlign w:val="left" />
+                <hps w:val="123" />
+                <hpsRaise w:val="123" />
+                <hpsBaseText w:val="123" />
+                <lid w:val="en-US" />
+                <dirty w:val="true" />
             </{node_name}>"#,
                 node_name = node_name
             )
@@ -8566,7 +8886,7 @@ mod tests {
     impl R {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} rsidRPr="ffffffff" rsidDel="ffffffff" rsidR="ffffffff">
+                r#"<{node_name} w:rsidRPr="ffffffff" w:rsidDel="ffffffff" w:rsidR="ffffffff">
                 {}
                 {}
             </{node_name}>"#,
@@ -8632,7 +8952,7 @@ mod tests {
     impl FtnEdnRef {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} customMarkFollows="true" id="1"></{node_name}>"#,
+                r#"<{node_name} w:customMarkFollows="true" w:id="1"></{node_name}>"#,
                 node_name = node_name
             )
         }
@@ -8657,7 +8977,7 @@ mod tests {
     impl PTab {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} alignment="left" relativeTo="margin" leader="none">
+                r#"<{node_name} w:alignment="left" w:relativeTo="margin" w:leader="none">
             </{node_name}>"#,
                 node_name = node_name
             )
@@ -8684,7 +9004,7 @@ mod tests {
     impl RunTrackChange {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} id="0" author="John Smith" date="2001-10-26T21:32:52">
+                r#"<{node_name} w:id="0" w:author="John Smith" w:date="2001-10-26T21:32:52">
                 {}
             </{node_name}>"#,
                 R::test_xml("r"),
@@ -8714,7 +9034,7 @@ mod tests {
     impl CustomXmlBlock {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} uri="https://some/uri" element="Some element">
+                r#"<{node_name} w:uri="https://some/uri" w:element="Some element">
                 {}
             </{node_name}>"#,
                 CustomXmlPr::test_xml("customXmlPr"),
@@ -8735,6 +9055,7 @@ mod tests {
     #[test]
     pub fn test_custom_xml_block_from_xml() {
         let xml = CustomXmlBlock::test_xml("customXmlBlock");
+        println!("{}", xml);
         assert_eq!(
             CustomXmlBlock::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
             CustomXmlBlock::test_instance()
@@ -8804,8 +9125,8 @@ mod tests {
     impl FramePr {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} dropCap="drop" lines="1" w="100" h="100" vSpace="50" hSpace="50" wrap="auto"
-                hAnchor="text" vAnchor="text" x="0" xAlign="left" y="0" yAlign="top" hRule="auto" anchorLock="true">
+                r#"<{node_name} w:dropCap="drop" w:lines="1" w:w="100" w:h="100" w:vSpace="50" w:hSpace="50" w:wrap="auto"
+                w:hAnchor="text" w:vAnchor="text" w:x="0" w:xAlign="left" w:y="0" w:yAlign="top" w:hRule="auto" w:anchorLock="true">
             </{node_name}>"#,
                 node_name = node_name
             )
@@ -8845,8 +9166,8 @@ mod tests {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
                 r#"<{node_name}>
-                <ilvl val="1" />
-                <numId val="1" />
+                <ilvl w:val="1" />
+                <numId w:val="1" />
                 {}
             </{node_name}>"#,
                 TrackChange::test_xml("ins"),
@@ -8917,7 +9238,7 @@ mod tests {
     impl TabStop {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} val="start" leader="dot" pos="0"></{node_name}>"#,
+                r#"<{node_name} w:val="start" w:leader="dot" w:pos="0"></{node_name}>"#,
                 node_name = node_name
             )
         }
@@ -8969,8 +9290,8 @@ mod tests {
     impl Spacing {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} before="10" beforeLines="1" beforeAutospacing="true"
-                after="10" afterLines="1" afterAutospacing="true" line="50" lineRule="auto">
+                r#"<{node_name} w:before="10" w:beforeLines="1" w:beforeAutospacing="true"
+                w:after="10" w:afterLines="1" w:afterAutospacing="true" w:line="50" w:lineRule="auto">
             </{node_name}>"#,
                 node_name = node_name
             )
@@ -9002,8 +9323,8 @@ mod tests {
     impl Ind {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} start="50" startChars="0" end="50" endChars="10" hanging="50" hangingChars="5"
-                firstLine="50" firstLineChars="5">
+                r#"<{node_name} w:start="50" w:startChars="0" w:end="50" w:endChars="10" w:hanging="50" w:hangingChars="5"
+                w:firstLine="50" w:firstLineChars="5">
             </{node_name}>"#,
                 node_name = node_name
             )
@@ -9035,9 +9356,9 @@ mod tests {
     impl Cnf {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} firstRow="true" lastRow="true" firstColumn="true" lastColumn="true" oddVBand="true"
-                evenVBand="true" oddHBand="true" evenHBand="true" firstRowFirstColumn="true" firstRowLastColumn="true"
-                lastRowFirstColumn="true" lastRowLastColumn="true">
+                r#"<{node_name} w:firstRow="true" w:lastRow="true" w:firstColumn="true" w:lastColumn="true" w:oddVBand="true"
+                w:evenVBand="true" w:oddHBand="true" w:evenHBand="true" w:firstRowFirstColumn="true" w:firstRowLastColumn="true"
+                w:lastRowFirstColumn="true" w:lastRowLastColumn="true">
             </{node_name}>"#,
                 node_name = node_name,
             )
@@ -9073,38 +9394,38 @@ mod tests {
     impl PPrBase {
         pub fn test_xml_nodes() -> String {
             format!(
-                r#"<pStyle val="Normal" />
-                <keepNext val="true" />
-                <keepLines val="true" />
-                <pageBreakBefore val="true" />
+                r#"<pStyle w:val="Normal" />
+                <keepNext w:val="true" />
+                <keepLines w:val="true" />
+                <pageBreakBefore w:val="true" />
                 {}
-                <widowControl val="true" />
+                <widowControl w:val="true" />
                 {}
-                <suppressLineNumbers val="true" />
-                {}
-                {}
-                {}
-                <suppressAutoHyphens val="true" />
-                <kinsoku val="true" />
-                <wordWrap val="true" />
-                <overflowPunct val="true" />
-                <topLinePunct val="true" />
-                <autoSpaceDE val="true" />
-                <autoSpaceDN val="true" />
-                <bidi val="true" />
-                <adjustRightInd val="true" />
-                <snapToGrid val="true" />
+                <suppressLineNumbers w:val="true" />
                 {}
                 {}
-                <contextualSpacing val="true" />
-                <mirrorIndents val="true" />
-                <suppressOverlap val="true" />
-                <jc val="start" />
-                <textDirection val="lr" />
-                <textAlignment val="auto" />
-                <textboxTightWrap val="none" />
-                <outlineLvl val="1" />
-                <divId val="1" />
+                {}
+                <suppressAutoHyphens w:val="true" />
+                <kinsoku w:val="true" />
+                <wordWrap w:val="true" />
+                <overflowPunct w:val="true" />
+                <topLinePunct w:val="true" />
+                <autoSpaceDE w:val="true" />
+                <autoSpaceDN w:val="true" />
+                <bidi w:val="true" />
+                <adjustRightInd w:val="true" />
+                <snapToGrid w:val="true" />
+                {}
+                {}
+                <contextualSpacing w:val="true" />
+                <mirrorIndents w:val="true" />
+                <suppressOverlap w:val="true" />
+                <jc w:val="start" />
+                <textDirection w:val="lr" />
+                <textAlignment w:val="auto" />
+                <textboxTightWrap w:val="none" />
+                <outlineLvl w:val="1" />
+                <divId w:val="1" />
                 {}"#,
                 FramePr::test_xml("framePr"),
                 NumPr::test_xml("numPr"),
@@ -9242,7 +9563,7 @@ mod tests {
     impl ParaRPrChange {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} id="0" author="John Smith" date="2001-10-26T21:32:52">
+                r#"<{node_name} w:id="0" w:author="John Smith" w:date="2001-10-26T21:32:52">
                 {}
             </{node_name}>"#,
                 ParaRPrOriginal::test_xml("rPr"),
@@ -9303,7 +9624,7 @@ mod tests {
     impl HdrFtrRef {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} r:id="rId1" type="default"></{node_name}>"#,
+                r#"<{node_name} r:id="rId1" w:type="default"></{node_name}>"#,
                 node_name = node_name
             )
         }
@@ -9328,7 +9649,7 @@ mod tests {
     impl NumFmt {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} val="decimal" format="&#x30A2;"></{node_name}>"#,
+                r#"<{node_name} w:val="decimal" w:format="&#x30A2;"></{node_name}>"#,
                 node_name = node_name
             )
         }
@@ -9353,8 +9674,8 @@ mod tests {
     impl FtnEdnNumProps {
         pub fn test_xml() -> String {
             format!(
-                r#"<numStart val="1" />
-            <numRestart val="continuous" />
+                r#"<numStart w:val="1" />
+            <numRestart w:val="continuous" />
             "#
             )
         }
@@ -9380,7 +9701,7 @@ mod tests {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
                 r#"<{node_name}>
-                <pos val="pageBottom" />
+                <pos w:val="pageBottom" />
                 {}
                 {}
             </{node_name}>"#,
@@ -9412,7 +9733,7 @@ mod tests {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
                 r#"<{node_name}>
-                <pos val="docEnd" />
+                <pos w:val="docEnd" />
                 {}
                 {}
             </{node_name}>"#,
@@ -9443,7 +9764,7 @@ mod tests {
     impl PageSz {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} w="100" h="100" orient="portrait" code="1"></{node_name}>"#,
+                r#"<{node_name} w:w="100" w:h="100" w:orient="portrait" w:code="1"></{node_name}>"#,
                 node_name = node_name
             )
         }
@@ -9470,7 +9791,7 @@ mod tests {
     impl PageMar {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} top="10" right="10" bottom="10" left="10" header="10" footer="10" gutter="10">
+                r#"<{node_name} w:top="10" w:right="10" w:bottom="10" w:left="10" w:header="10" w:footer="10" w:gutter="10">
             </{node_name}>"#,
                 node_name = node_name,
             )
@@ -9501,7 +9822,7 @@ mod tests {
     impl PaperSource {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} first="1" other="1"></{node_name}>"#,
+                r#"<{node_name} w:first="1" w:other="1"></{node_name}>"#,
                 node_name = node_name
             )
         }
@@ -9610,7 +9931,7 @@ mod tests {
     impl PageBorders {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} zOrder="front" display="allPages" offsetFrom="page">
+                r#"<{node_name} w:zOrder="front" w:display="allPages" w:offsetFrom="page">
                 {}
                 {}
                 {}
@@ -9649,7 +9970,7 @@ mod tests {
     impl LineNumber {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} countBy="1" start="1" distance="100" restart="newPage"></{node_name}>"#,
+                r#"<{node_name} w:countBy="1" w:start="1" w:distance="100" w:restart="newPage"></{node_name}>"#,
                 node_name = node_name
             )
         }
@@ -9676,7 +9997,7 @@ mod tests {
     impl PageNumber {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} fmt="decimal" start="1" chapStyle="1" chapSep="hyphen"></{node_name}>"#,
+                r#"<{node_name} w:fmt="decimal" w:start="1" w:chapStyle="1" w:chapSep="hyphen"></{node_name}>"#,
                 node_name = node_name
             )
         }
@@ -9703,7 +10024,7 @@ mod tests {
     impl Column {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} w="100" space="10"></{node_name}>"#,
+                r#"<{node_name} w:w="100" w:space="10"></{node_name}>"#,
                 node_name = node_name
             )
         }
@@ -9728,7 +10049,7 @@ mod tests {
     impl Columns {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} equalWidth="true" space="10" num="2" sep="true">
+                r#"<{node_name} w:equalWidth="true" w:space="10" w:num="2" w:sep="true">
                 {col}
                 {col}
             </{node_name}>"#,
@@ -9760,7 +10081,7 @@ mod tests {
     impl DocGrid {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} type="default" linePitch="1" charSpace="10"></{node_name}>"#,
+                r#"<{node_name} w:type="default" w:linePitch="1" w:charSpace="10"></{node_name}>"#,
                 node_name = node_name
             )
         }
@@ -9788,7 +10109,7 @@ mod tests {
             format!(
                 r#"{}
                 {}
-                <type val="nextPage" />
+                <type w:val="nextPage" />
                 {}
                 {}
                 {}
@@ -9796,13 +10117,13 @@ mod tests {
                 {}
                 {}
                 {}
-                <formProt val="false" />
-                <vAlign val="top" />
-                <noEndnote val="false" />
-                <titlePg val="true" />
-                <textDirection val="lr" />
-                <bidi val="false" />
-                <rtlGutter val="false" />
+                <formProt w:val="false" />
+                <vAlign w:val="top" />
+                <noEndnote w:val="false" />
+                <titlePg w:val="true" />
+                <textDirection w:val="lr" />
+                <bidi w:val="false" />
+                <rtlGutter w:val="false" />
                 {}
                 <printerSettings r:id="rId1" />"#,
                 FtnProps::test_xml("footnotePr"),
@@ -9854,7 +10175,7 @@ mod tests {
 
     impl SectPrAttributes {
         const TEST_ATTRIBUTES: &'static str =
-            r#"rsidRPr="ffffffff" rsidDel="fefefefe" rsidR="fdfdfdfd" rsidSect="fcfcfcfc""#;
+            r#"w:rsidRPr="ffffffff" w:rsidDel="fefefefe" w:rsidR="fdfdfdfd" w:rsidSect="fcfcfcfc""#;
 
         pub fn test_instance() -> Self {
             Self {
@@ -10040,7 +10361,7 @@ mod tests {
 
     impl P {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name} rsidRPr="ffffffff" rsidR="fefefefe" rsidDel="fdfdfdfd" rsidP="fcfcfcfc" rsidRDefault="fbfbfbfb">
+            format!(r#"<{node_name} w:rsidRPr="ffffffff" w:rsidR="fefefefe" w:rsidDel="fdfdfdfd" w:rsidP="fcfcfcfc" w:rsidRDefault="fbfbfbfb">
                 {}
                 {}
             </{node_name}>"#,
@@ -10075,8 +10396,8 @@ mod tests {
     impl TblPPr {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} leftFromText="10" rightFromText="10" topFromText="10" bottomFromText="10"
-                vertAnchor="text" horzAnchor="text" tblpXSpec="left" tblpX="10" tblpYSpec="top" tblpY="10">
+                r#"<{node_name} w:leftFromText="10" w:rightFromText="10" w:topFromText="10" w:bottomFromText="10"
+                w:vertAnchor="text" w:horzAnchor="text" w:tblpXSpec="left" w:tblpX="10" w:tblpYSpec="top" w:tblpY="10">
             </{node_name}>"#,
                 node_name = node_name,
             )
@@ -10163,7 +10484,7 @@ mod tests {
     impl TblWidth {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} w="100" type="auto"></{node_name}>"#,
+                r#"<{node_name} w:w="100" w:type="auto"></{node_name}>"#,
                 node_name = node_name
             )
         }
@@ -10267,7 +10588,7 @@ mod tests {
 
     impl TblLook {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name} firstRow="true" lastRow="true" firstColumn="true" lastColumn="true" noHBand="true" noVBand="true">
+            format!(r#"<{node_name} w:firstRow="true" w:lastRow="true" w:firstColumn="true" w:lastColumn="true" w:noHBand="true" w:noVBand="true">
             </{node_name}>"#,
                 node_name=node_name,
             )
@@ -10305,23 +10626,23 @@ mod tests {
 
         pub fn test_extension_xml() -> String {
             format!(
-                r#"<tblStyle val="Normal" />
+                r#"<tblStyle w:val="Normal" />
                 {}
-                <tblOverlap val="never" />
-                <bidiVisual val="false" />
-                <tblStyleRowBandSize val="100" />
-                <tblStyleColBandSize val="100" />
+                <tblOverlap w:val="never" />
+                <bidiVisual w:val="false" />
+                <tblStyleRowBandSize w:val="100" />
+                <tblStyleColBandSize w:val="100" />
                 {}
-                <jc val="center" />
-                {}
-                {}
+                <jc w:val="center" />
                 {}
                 {}
-                <tblLayout val="autofit" />
                 {}
                 {}
-                <tblCaption val="Some caption" />
-                <tblDescription val="Some description" />"#,
+                <tblLayout w:val="autofit" />
+                {}
+                {}
+                <tblCaption w:val="Some caption" />
+                <tblDescription w:val="Some description" />"#,
                 TblPPr::test_xml("tblpPr"),
                 TblWidth::test_xml("tblW"),
                 TblWidth::test_xml("tblCellSpacing"),
@@ -10426,7 +10747,7 @@ mod tests {
 
     impl TblGridCol {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name} w="100"></{node_name}>"#, node_name = node_name)
+            format!(r#"<{node_name} w:w="100"></{node_name}>"#, node_name = node_name)
         }
 
         pub fn test_instance() -> Self {
@@ -10479,7 +10800,7 @@ mod tests {
     impl TblGridChange {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} id="0">{}</{node_name}>"#,
+                r#"<{node_name} w:id="0">{}</{node_name}>"#,
                 TblGridBase::test_extension_xml(),
                 node_name = node_name,
             )
@@ -10545,12 +10866,12 @@ mod tests {
             format!(
                 r#"
                 {}
-                <jc val="center" />
+                <jc w:val="center" />
                 {}
                 {}
                 {}
                 {}
-                <tblLayout val="autofit" />
+                <tblLayout w:val="autofit" />
                 {}
                 {}"#,
                 TblWidth::test_xml("tblW"),
@@ -10649,7 +10970,7 @@ mod tests {
     impl Height {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} val="100" hRule="auto"></{node_name}>"#,
+                r#"<{node_name} w:val="100" w:hRule="auto"></{node_name}>"#,
                 node_name = node_name
             )
         }
@@ -10683,17 +11004,17 @@ mod tests {
         pub fn test_extension_xml() -> String {
             format!(
                 r#"{}
-                <divId val="1" />
-                <gridBefore val="1" />
-                <gridAfter val="1" />
+                <divId w:val="1" />
+                <gridBefore w:val="1" />
+                <gridAfter w:val="1" />
                 {}
                 {}
-                <cantSplit val="false" />
+                <cantSplit w:val="false" />
                 {}
-                <tblHeader val="true" />
+                <tblHeader w:val="true" />
                 {}
-                <jc val="center" />
-                <hidden val="false" />"#,
+                <jc w:val="center" />
+                <hidden w:val="false" />"#,
                 Cnf::test_xml("cnfStyle"),
                 TblWidth::test_xml("wBefore"),
                 TblWidth::test_xml("wAfter"),
@@ -10879,7 +11200,7 @@ mod tests {
     impl Headers {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name}><header val="Header1" /><header val="Header2" /></{node_name}>"#,
+                r#"<{node_name}><header w:val="Header1" /><header w:val="Header2" /></{node_name}>"#,
                 node_name = node_name,
             )
         }
@@ -10911,16 +11232,16 @@ mod tests {
             format!(
                 r#"{}
                 {}
-                <gridSpan val="1" />
-                <vMerge val="continue" />
+                <gridSpan w:val="1" />
+                <vMerge w:val="continue" />
                 {}
                 {}
-                <noWrap val="true" />
+                <noWrap w:val="true" />
                 {}
-                <textDirection val="lr" />
-                <tcFitText val="true" />
-                <vAlign val="top" />
-                <hideMark val="true" />
+                <textDirection w:val="lr" />
+                <tcFitText w:val="true" />
+                <vAlign w:val="top" />
+                <hideMark w:val="true" />
                 {}"#,
                 Cnf::test_xml("cnfStyle"),
                 TblWidth::test_xml("tcW"),
@@ -10962,7 +11283,7 @@ mod tests {
     impl CellMergeTrackChange {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} {} vMerge="cont" vMergeOrig="cont"></{node_name}>"#,
+                r#"<{node_name} {} w:vMerge="cont" w:vMergeOrig="cont"></{node_name}>"#,
                 TrackChange::TEST_ATTRIBUTES,
                 node_name = node_name,
             )
@@ -11076,7 +11397,7 @@ mod tests {
     impl Tc {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} id="Some id">
+                r#"<{node_name} w:id="Some id">
                 {}
                 {}
             </{node_name}>"#,
@@ -11109,7 +11430,7 @@ mod tests {
     impl CustomXmlCell {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} uri="https://some/uri" element="Xml name">
+                r#"<{node_name} w:uri="https://some/uri" w:element="Xml name">
                 {}
                 {}
             </{node_name}>"#,
@@ -11205,7 +11526,7 @@ mod tests {
     impl Row {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} rsidRPr="ffffffff" rsidR="fefefefe" rsidDel="fdfdfdfd" rsidTr="fcfcfcfc">
+                r#"<{node_name} w:rsidRPr="ffffffff" w:rsidR="fefefefe" w:rsidDel="fdfdfdfd" w:rsidTr="fcfcfcfc">
                 {}
                 {}
                 {}
@@ -11242,7 +11563,7 @@ mod tests {
     impl CustomXmlRow {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name} uri="https://some/uri" element="Xml name">
+                r#"<{node_name} w:uri="https://some/uri" w:element="Xml name">
                 {}
                 {}
             </{node_name}>"#,
@@ -11375,7 +11696,7 @@ mod tests {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
                 r#"<{node_name}>
-                <matchSrc val="true" />
+                <matchSrc w:val="true" />
             </{node_name}>"#,
                 node_name = node_name,
             )
@@ -11425,7 +11746,7 @@ mod tests {
 
     impl Background {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name} color="ffffff" themeColor="light1" themeTint="ff" themeShade="ff">
+            format!(r#"<{node_name} w:color="ffffff" w:themeColor="light1" w:themeTint="ff" w:themeShade="ff">
                 {}
             </{node_name}>"#,
                 Drawing::test_xml("drawing"),
@@ -11507,7 +11828,7 @@ mod tests {
 
     impl Document {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name} conformance="transitional">
+            format!(r#"<{node_name} w:conformance="transitional">
                 {}
                 {}
             </{node_name}>"#,
