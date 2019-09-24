@@ -49,7 +49,7 @@ impl Charset {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum DecimalNumberOrPercent {
     Decimal(UnqualifiedPercentage),
     Percentage(Percentage),
@@ -72,7 +72,7 @@ impl FromStr for DecimalNumberOrPercent {
 //     Decimal(TextScaleDecimal),
 // }
 
-#[derive(Debug, Clone, EnumString, PartialEq)]
+#[derive(Debug, Clone, Copy, EnumString, PartialEq)]
 pub enum ThemeColor {
     #[strum(serialize = "dark1")]
     Dark1,
@@ -110,7 +110,7 @@ pub enum ThemeColor {
     Text2,
 }
 
-#[derive(Debug, Clone, EnumString, PartialEq)]
+#[derive(Debug, Clone, Copy, EnumString, PartialEq)]
 pub enum HighlightColor {
     #[strum(serialize = "black")]
     Black,
@@ -148,7 +148,7 @@ pub enum HighlightColor {
     None,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum HexColor {
     Auto,
     RGB(HexColorRGB),
@@ -165,7 +165,7 @@ impl FromStr for HexColor {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum SignedTwipsMeasure {
     Decimal(i32),
     UniversalMeasure(UniversalMeasure),
@@ -191,7 +191,7 @@ impl SignedTwipsMeasure {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum HpsMeasure {
     Decimal(u64),
     UniversalMeasure(PositiveUniversalMeasure),
@@ -215,7 +215,7 @@ impl HpsMeasure {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum SignedHpsMeasure {
     Decimal(i32),
     UniversalMeasure(UniversalMeasure),
@@ -241,7 +241,7 @@ impl SignedHpsMeasure {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Color {
     pub value: HexColor,
     pub theme_color: Option<ThemeColor>,
@@ -279,7 +279,7 @@ impl Color {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum ProofErrType {
     #[strum(serialize = "spellStart")]
     SpellingStart,
@@ -291,7 +291,7 @@ pub enum ProofErrType {
     GrammarEnd,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ProofErr {
     pub error_type: ProofErrType,
 }
@@ -311,7 +311,7 @@ impl ProofErr {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum EdGrp {
     #[strum(serialize = "none")]
     None,
@@ -329,7 +329,7 @@ pub enum EdGrp {
     Current,
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum DisplacedByCustomXml {
     #[strum(serialize = "next")]
     Next,
@@ -402,7 +402,7 @@ impl PermStart {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Markup {
     pub id: DecimalNumber,
 }
@@ -420,7 +420,7 @@ impl Markup {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct MarkupRange {
     pub base: Markup,
     pub displaced_by_custom_xml: Option<DisplacedByCustomXml>,
@@ -444,7 +444,7 @@ impl MarkupRange {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct BookmarkRange {
     pub base: MarkupRange,
     pub first_column: Option<DecimalNumber>,
@@ -856,7 +856,7 @@ impl SmartTagRun {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum Hint {
     #[strum(serialize = "default")]
     Default,
@@ -866,7 +866,7 @@ pub enum Hint {
     ComplexScript,
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum Theme {
     #[strum(serialize = "majorEastAsia")]
     MajorEastAsia,
@@ -923,7 +923,7 @@ impl Fonts {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum UnderlineType {
     #[strum(serialize = "single")]
     Single,
@@ -963,7 +963,7 @@ pub enum UnderlineType {
     None,
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Underline {
     pub value: Option<UnderlineType>,
     pub color: Option<HexColor>,
@@ -992,7 +992,7 @@ impl Underline {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum TextEffect {
     #[strum(serialize = "blinkBackground")]
     BlinkBackground,
@@ -1010,7 +1010,7 @@ pub enum TextEffect {
     None,
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum BorderType {
     #[strum(serialize = "nil")]
     Nil,
@@ -1400,7 +1400,7 @@ pub enum BorderType {
     Custom,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Border {
     pub value: BorderType,
     pub color: Option<HexColor>,
@@ -1456,7 +1456,7 @@ impl Border {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum ShdType {
     #[strum(serialize = "nil")]
     Nil,
@@ -1536,7 +1536,7 @@ pub enum ShdType {
     Percent95,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Shd {
     pub value: ShdType,
     pub color: Option<HexColor>,
@@ -1593,7 +1593,7 @@ impl Shd {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct FitText {
     pub value: TwipsMeasure,
     pub id: Option<DecimalNumber>,
@@ -1620,7 +1620,7 @@ impl FitText {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum Em {
     #[strum(serialize = "none")]
     None,
@@ -1659,7 +1659,7 @@ impl Language {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum CombineBrackets {
     #[strum(serialize = "none")]
     None,
@@ -1673,7 +1673,7 @@ pub enum CombineBrackets {
     Curly,
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct EastAsianLayout {
     pub id: Option<DecimalNumber>,
     pub combine: Option<OnOff>,
@@ -1928,7 +1928,7 @@ impl SdtComboBox {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum SdtDateMappingType {
     #[strum(serialize = "text")]
     Text,
@@ -2030,7 +2030,7 @@ impl SdtDropDownList {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SdtText {
     pub is_multi_line: OnOff,
 }
@@ -2096,7 +2096,7 @@ impl SdtPrChoice {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum Lock {
     #[strum(serialize = "sdtLocked")]
     SdtLocked,
@@ -2284,7 +2284,7 @@ impl SdtRun {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum Direction {
     #[strum(serialize = "ltr")]
     LeftToRight,
@@ -2336,7 +2336,7 @@ impl BdoContentRun {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum BrType {
     #[strum(serialize = "page")]
     Page,
@@ -2346,7 +2346,7 @@ pub enum BrType {
     TextWrapping,
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum BrClear {
     #[strum(serialize = "none")]
     None,
@@ -2358,7 +2358,7 @@ pub enum BrClear {
     All,
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Br {
     pub break_type: Option<BrType>,
     pub clear: Option<BrClear>,
@@ -2451,7 +2451,7 @@ impl Control {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum ObjectDrawAspect {
     #[strum(serialize = "content")]
     Content,
@@ -2501,7 +2501,7 @@ impl ObjectEmbed {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum ObjectUpdateMode {
     #[strum(serialize = "always")]
     Always,
@@ -2655,7 +2655,7 @@ impl Object {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum InfoTextType {
     #[strum(serialize = "text")]
     Text,
@@ -2711,7 +2711,7 @@ impl FFStatusText {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum FFCheckBoxSizeChoice {
     Explicit(HpsMeasure),
     Auto(OnOff),
@@ -2739,7 +2739,7 @@ impl FFCheckBoxSizeChoice {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct FFCheckBox {
     pub size: FFCheckBoxSizeChoice,
     pub is_default: Option<OnOff>,
@@ -2801,7 +2801,7 @@ impl FFDDList {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum FFTextType {
     #[strum(serialize = "regular")]
     Regular,
@@ -2889,7 +2889,7 @@ impl XsdChoice for FFData {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum FldCharType {
     #[strum(serialize = "begin")]
     Begin,
@@ -2942,7 +2942,7 @@ impl FldChar {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum RubyAlign {
     #[strum(serialize = "center")]
     Center,
@@ -3093,7 +3093,7 @@ impl Ruby {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct FtnEdnRef {
     pub custom_mark_follows: Option<OnOff>,
     pub id: DecimalNumber,
@@ -3121,7 +3121,7 @@ impl FtnEdnRef {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum PTabAlignment {
     #[strum(serialize = "left")]
     Left,
@@ -3131,7 +3131,7 @@ pub enum PTabAlignment {
     Right,
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum PTabRelativeTo {
     #[strum(serialize = "margin")]
     Margin,
@@ -3139,7 +3139,7 @@ pub enum PTabRelativeTo {
     Indent,
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum PTabLeader {
     #[strum(serialize = "none")]
     None,
@@ -3153,7 +3153,7 @@ pub enum PTabLeader {
     MiddleDot,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PTab {
     pub alignment: PTabAlignment,
     pub relative_to: PTabRelativeTo,
@@ -3548,7 +3548,7 @@ impl RangeMarkupElements {
 }
 
 // TODO
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum MathContent {
     // OMathParagraph(OMathParagraph),
 // OMath(OMath),
@@ -3700,7 +3700,7 @@ impl SdtBlock {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum DropCap {
     #[strum(serialize = "none")]
     None,
@@ -3710,7 +3710,7 @@ pub enum DropCap {
     Margin,
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum HeightRule {
     #[strum(serialize = "auto")]
     Auto,
@@ -3720,7 +3720,7 @@ pub enum HeightRule {
     AtLeast,
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum Wrap {
     #[strum(serialize = "auto")]
     Auto,
@@ -3736,7 +3736,7 @@ pub enum Wrap {
     None,
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum VAnchor {
     #[strum(serialize = "text")]
     Text,
@@ -3746,7 +3746,7 @@ pub enum VAnchor {
     Page,
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum HAnchor {
     #[strum(serialize = "text")]
     Text,
@@ -3756,7 +3756,7 @@ pub enum HAnchor {
     Page,
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct FramePr {
     pub drop_cap: Option<DropCap>,
     pub lines: Option<DecimalNumber>,
@@ -3831,7 +3831,7 @@ impl NumPr {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct PBdr {
     pub top: Option<Border>,
     pub left: Option<Border>,
@@ -3863,7 +3863,7 @@ impl PBdr {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum TabJc {
     #[strum(serialize = "clear")]
     Clear,
@@ -3885,7 +3885,7 @@ pub enum TabJc {
     Number,
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum TabTlc {
     #[strum(serialize = "none")]
     None,
@@ -3901,7 +3901,7 @@ pub enum TabTlc {
     MiddleDot,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct TabStop {
     pub value: TabJc,
     pub leader: Option<TabTlc>,
@@ -3964,7 +3964,7 @@ impl Tabs {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum LineSpacingRule {
     #[strum(serialize = "auto")]
     Auto,
@@ -3974,7 +3974,7 @@ pub enum LineSpacingRule {
     AtLeast,
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Spacing {
     pub before: Option<TwipsMeasure>,
     pub before_lines: Option<DecimalNumber>,
@@ -4010,7 +4010,7 @@ impl Spacing {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Ind {
     pub start: Option<SignedTwipsMeasure>,
     pub start_chars: Option<DecimalNumber>,
@@ -4046,7 +4046,7 @@ impl Ind {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum Jc {
     #[strum(serialize = "start")]
     Start,
@@ -4074,7 +4074,7 @@ pub enum Jc {
     ThaiDistribute,
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum TextDirection {
     #[strum(serialize = "tb")]
     TopToBottom,
@@ -4090,7 +4090,7 @@ pub enum TextDirection {
     LeftToRightRotated,
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum TextAlignment {
     #[strum(serialize = "top")]
     Top,
@@ -4104,7 +4104,7 @@ pub enum TextAlignment {
     Auto,
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum TextboxTightWrap {
     #[strum(serialize = "none")]
     None,
@@ -4118,7 +4118,7 @@ pub enum TextboxTightWrap {
     LastLineOnly,
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Cnf {
     pub first_row: Option<OnOff>,
     pub last_row: Option<OnOff>,
@@ -4248,6 +4248,51 @@ impl PPrBase {
         }
 
         Ok(self)
+    }
+
+    pub fn update_with(mut self, other: &Self) -> Self {
+        self.style = other.style.as_ref().cloned().or(self.style);
+        self.keep_with_next = other.keep_with_next.or(self.keep_with_next);
+        self.keep_lines_on_one_page = other.keep_lines_on_one_page.or(self.keep_lines_on_one_page);
+        self.start_on_next_page = other.start_on_next_page.or(self.start_on_next_page);
+        self.frame_properties = other.frame_properties.or(self.frame_properties);
+        self.widow_control = other.widow_control.or(self.widow_control);
+        self.numbering_properties = other
+            .numbering_properties
+            .as_ref()
+            .cloned()
+            .or(self.numbering_properties);
+        self.suppress_line_numbers = other.suppress_line_numbers.or(self.suppress_line_numbers);
+        self.borders = other.borders.or(self.borders);
+        self.shading = other.shading.or(self.shading);
+        self.tabs = other.tabs.as_ref().cloned().or(self.tabs);
+        self.suppress_auto_hyphens = other.suppress_auto_hyphens.or(self.suppress_auto_hyphens);
+        self.kinsoku = other.kinsoku.or(self.kinsoku);
+        self.word_wrapping = other.word_wrapping.or(self.word_wrapping);
+        self.overflow_punctuations = other.overflow_punctuations.or(self.overflow_punctuations);
+        self.top_line_punctuations = other.top_line_punctuations.or(self.top_line_punctuations);
+        self.auto_space_latin_and_east_asian = other
+            .auto_space_latin_and_east_asian
+            .or(self.auto_space_latin_and_east_asian);
+        self.auto_space_east_asian_and_numbers = other
+            .auto_space_east_asian_and_numbers
+            .or(self.auto_space_east_asian_and_numbers);
+        self.bidirectional = other.bidirectional.or(self.bidirectional);
+        self.adjust_right_indent = other.adjust_right_indent.or(self.adjust_right_indent);
+        self.snap_to_grid = other.snap_to_grid.or(self.snap_to_grid);
+        self.spacing = other.spacing.or(self.spacing);
+        self.indent = other.indent.or(self.indent);
+        self.contextual_spacing = other.contextual_spacing.or(self.contextual_spacing);
+        self.mirror_indents = other.mirror_indents.or(self.mirror_indents);
+        self.suppress_overlapping = other.suppress_overlapping.or(self.suppress_overlapping);
+        self.alignment = other.alignment.or(self.alignment);
+        self.text_direction = other.text_direction.or(self.text_direction);
+        self.text_alignment = other.text_alignment.or(self.text_alignment);
+        self.textbox_tight_wrap = other.textbox_tight_wrap.or(self.textbox_tight_wrap);
+        self.outline_level = other.outline_level.or(self.outline_level);
+        self.div_id = other.div_id.or(self.div_id);
+        self.conditional_formatting = other.conditional_formatting.or(self.conditional_formatting);
+        self
     }
 }
 
@@ -4397,7 +4442,7 @@ impl ParaRPr {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum HdrFtr {
     #[strum(serialize = "even")]
     Even,
@@ -4457,7 +4502,7 @@ impl XsdChoice for HdrFtrReferences {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum FtnPos {
     #[strum(serialize = "pageBottom")]
     PageBottom,
@@ -4469,7 +4514,7 @@ pub enum FtnPos {
     DocumentEnd,
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum NumberFormat {
     #[strum(serialize = "decimal")]
     Decimal,
@@ -4627,7 +4672,7 @@ impl NumFmt {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum RestartNumber {
     #[strum(serialize = "continuous")]
     Continuous,
@@ -4637,7 +4682,7 @@ pub enum RestartNumber {
     EachPage,
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct FtnEdnNumProps {
     pub numbering_start: Option<DecimalNumber>,
     pub numbering_restart: Option<RestartNumber>,
@@ -4698,7 +4743,7 @@ impl FtnProps {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum EdnPos {
     #[strum(serialize = "sectEnd")]
     SectionEnd,
@@ -4733,7 +4778,7 @@ impl EdnProps {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum SectionMark {
     #[strum(serialize = "nextPage")]
     NextPage,
@@ -4747,7 +4792,7 @@ pub enum SectionMark {
     OddPage,
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum PageOrientation {
     #[strum(serialize = "portrait")]
     Portrait,
@@ -4755,7 +4800,7 @@ pub enum PageOrientation {
     Landscape,
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct PageSz {
     pub width: Option<TwipsMeasure>,
     pub height: Option<TwipsMeasure>,
@@ -4783,7 +4828,7 @@ impl PageSz {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PageMar {
     pub top: SignedTwipsMeasure,
     pub right: TwipsMeasure,
@@ -4831,7 +4876,7 @@ impl PageMar {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct PaperSource {
     pub first: Option<DecimalNumber>,
     pub other: Option<DecimalNumber>,
@@ -4918,7 +4963,7 @@ impl BottomPageBorder {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum PageBorderZOrder {
     #[strum(serialize = "front")]
     Front,
@@ -4926,7 +4971,7 @@ pub enum PageBorderZOrder {
     Back,
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum PageBorderDisplay {
     #[strum(serialize = "allPages")]
     AllPages,
@@ -4936,7 +4981,7 @@ pub enum PageBorderDisplay {
     NotFirstPage,
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum PageBorderOffset {
     #[strum(serialize = "page")]
     Page,
@@ -4984,7 +5029,7 @@ impl PageBorders {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum LineNumberRestart {
     #[strum(serialize = "newPage")]
     NewPage,
@@ -4994,7 +5039,7 @@ pub enum LineNumberRestart {
     Continuous,
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct LineNumber {
     pub count_by: Option<DecimalNumber>,
     pub start: Option<DecimalNumber>,
@@ -5022,7 +5067,7 @@ impl LineNumber {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum ChapterSep {
     #[strum(serialize = "hyphen")]
     Hyphen,
@@ -5036,7 +5081,7 @@ pub enum ChapterSep {
     EnDash,
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct PageNumber {
     pub format: Option<NumberFormat>,
     pub start: Option<DecimalNumber>,
@@ -5064,7 +5109,7 @@ impl PageNumber {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Column {
     pub width: Option<TwipsMeasure>,
     pub spacing: Option<TwipsMeasure>,
@@ -5133,7 +5178,7 @@ impl Columns {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum VerticalJc {
     #[strum(serialize = "top")]
     Top,
@@ -5145,7 +5190,7 @@ pub enum VerticalJc {
     Bottom,
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum DocGridType {
     #[strum(serialize = "default")]
     Default,
@@ -5157,7 +5202,7 @@ pub enum DocGridType {
     SnapToChars,
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct DocGrid {
     pub doc_grid_type: Option<DocGridType>,
     pub line_pitch: Option<DecimalNumber>,
@@ -5311,7 +5356,7 @@ impl SectPrContents {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct SectPrAttributes {
     pub run_properties_revision_id: Option<LongHexNumber>,
     pub deletion_revision_id: Option<LongHexNumber>,
@@ -5517,7 +5562,7 @@ impl P {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum MeasurementOrPercent {
     DecimalOrPercent(DecimalNumberOrPercent),
     UniversalMeasure(UniversalMeasure),
@@ -5575,7 +5620,7 @@ impl XsdChoice for ContentBlockContent {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct AltChunkPr {
     pub match_source: Option<OnOff>,
 }
