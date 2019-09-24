@@ -1,6 +1,7 @@
-mod document;
-mod drawing;
-mod error;
-
-pub use self::document::*;
-pub use self::drawing::*;
+pub mod document;
+pub mod drawing;
+pub mod error;
+pub mod simpletypes;
+pub mod styles;
+pub mod table;
+pub mod util;

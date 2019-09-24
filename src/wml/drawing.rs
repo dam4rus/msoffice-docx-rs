@@ -1,9 +1,9 @@
 use msoffice_shared::{
     drawingml::{
-        BlackWhiteMode, Coordinate, GraphicalObject, GroupShapeProperties, NonVisualConnectorProperties,
-        NonVisualContentPartProperties, NonVisualDrawingProps, NonVisualDrawingShapeProps,
-        NonVisualGraphicFrameProperties, Picture, Point2D, PositiveSize2D, ShapeProperties, ShapeStyle,
-        TextBodyProperties, Transform2D, NonVisualGroupDrawingShapeProps, BackgroundFormatting, WholeE2oFormatting,
+        BackgroundFormatting, BlackWhiteMode, Coordinate, GraphicalObject, GroupShapeProperties,
+        NonVisualConnectorProperties, NonVisualContentPartProperties, NonVisualDrawingProps,
+        NonVisualDrawingShapeProps, NonVisualGraphicFrameProperties, NonVisualGroupDrawingShapeProps, Picture, Point2D,
+        PositiveSize2D, ShapeProperties, ShapeStyle, TextBodyProperties, Transform2D, WholeE2oFormatting,
     },
     error::{LimitViolationError, MaxOccurs, MissingAttributeError, MissingChildNodeError, NotGroupMemberError},
     relationship::RelationshipId,
@@ -702,7 +702,7 @@ impl Anchor {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct TxbxContent {
-    pub block_level_elements: Vec<super::BlockLevelElts>,
+    pub block_level_elements: Vec<super::document::BlockLevelElts>,
 }
 
 impl TxbxContent {
@@ -710,7 +710,7 @@ impl TxbxContent {
         let block_level_elements = xml_node
             .child_nodes
             .iter()
-            .filter_map(super::BlockLevelElts::try_from_xml_element)
+            .filter_map(super::document::BlockLevelElts::try_from_xml_element)
             .collect::<Result<Vec<_>>>()?;
 
         if block_level_elements.is_empty() {
@@ -735,12 +735,8 @@ pub struct TextboxInfo {
 
 impl TextboxInfo {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
-        let id = xml_node
-            .attributes
-            .get("id")
-            .map(|value| value.parse())
-            .transpose()?;
-        
+        let id = xml_node.attributes.get("id").map(|value| value.parse()).transpose()?;
+
         let textbox_content = xml_node
             .child_nodes
             .iter()
@@ -748,7 +744,7 @@ impl TextboxInfo {
             .map(TxbxContent::from_xml_element)
             .transpose()?
             .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "txbxContent"))?;
-        
+
         Ok(Self { textbox_content, id })
     }
 }
@@ -821,20 +817,39 @@ impl WordprocessingShape {
         for child_node in &xml_node.child_nodes {
             match child_node.local_name() {
                 "cNvPr" => non_visual_drawing_props = Some(NonVisualDrawingProps::from_xml_element(child_node)?),
-                "cNvSpPr" => properties = Some(WordprocessingShapePropertiesChoice::ShapeProperties(NonVisualDrawingShapeProps::from_xml_element(child_node)?)),
-                "cNvCnPr" => properties = Some(WordprocessingShapePropertiesChoice::Connector(NonVisualConnectorProperties::from_xml_element(child_node)?)),
+                "cNvSpPr" => {
+                    properties = Some(WordprocessingShapePropertiesChoice::ShapeProperties(
+                        NonVisualDrawingShapeProps::from_xml_element(child_node)?,
+                    ))
+                }
+                "cNvCnPr" => {
+                    properties = Some(WordprocessingShapePropertiesChoice::Connector(
+                        NonVisualConnectorProperties::from_xml_element(child_node)?,
+                    ))
+                }
                 "spPr" => shape_properties = Some(ShapeProperties::from_xml_element(child_node)?),
                 "style" => style = Some(ShapeStyle::from_xml_element(child_node)?),
-                "txbx" => text_box_info = Some(WordprocessingShapeTextboxInfoChoice::Textbox(TextboxInfo::from_xml_element(child_node)?)),
-                "linkedTxbx" => text_box_info = Some(WordprocessingShapeTextboxInfoChoice::LinkedTextbox(LinkedTextboxInformation::from_xml_element(child_node)?)),
+                "txbx" => {
+                    text_box_info = Some(WordprocessingShapeTextboxInfoChoice::Textbox(
+                        TextboxInfo::from_xml_element(child_node)?,
+                    ))
+                }
+                "linkedTxbx" => {
+                    text_box_info = Some(WordprocessingShapeTextboxInfoChoice::LinkedTextbox(
+                        LinkedTextboxInformation::from_xml_element(child_node)?,
+                    ))
+                }
                 "bodyPr" => text_body_properties = Some(TextBodyProperties::from_xml_element(child_node)?),
                 _ => (),
             }
         }
 
-        let properties = properties.ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "cNvSpPr|cNvCnPr"))?;
-        let shape_properties = shape_properties.ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "spPr"))?;
-        let text_body_properties = text_body_properties.ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "bodyPr"))?;
+        let properties =
+            properties.ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "cNvSpPr|cNvCnPr"))?;
+        let shape_properties =
+            shape_properties.ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "spPr"))?;
+        let text_body_properties =
+            text_body_properties.ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "bodyPr"))?;
 
         Ok(Self {
             non_visual_drawing_props,
@@ -873,8 +888,10 @@ impl GraphicFrame {
             }
         }
 
-        let non_visual_drawing_props = non_visual_drawing_props.ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "cNvPr"))?;
-        let non_visual_props = non_visual_props.ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "cNvFrPr"))?;
+        let non_visual_drawing_props =
+            non_visual_drawing_props.ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "cNvPr"))?;
+        let non_visual_props =
+            non_visual_props.ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "cNvFrPr"))?;
         let transform = transform.ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "xfrm"))?;
         let graphic = graphic.ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "graphic"))?;
 
@@ -895,15 +912,22 @@ pub struct WordprocessingContentPartNonVisual {
 
 impl WordprocessingContentPartNonVisual {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
-        xml_node.child_nodes.iter().try_fold(Default::default(), |mut instance: Self, child_node| {
-            match child_node.local_name() {
-                "cNvPr" => instance.non_visual_drawing_props = Some(NonVisualDrawingProps::from_xml_element(child_node)?),
-                "cNvContentPartPr" => instance.non_visual_props = Some(NonVisualContentPartProperties::from_xml_element(child_node)?),
-                _ => (),
-            }
+        xml_node
+            .child_nodes
+            .iter()
+            .try_fold(Default::default(), |mut instance: Self, child_node| {
+                match child_node.local_name() {
+                    "cNvPr" => {
+                        instance.non_visual_drawing_props = Some(NonVisualDrawingProps::from_xml_element(child_node)?)
+                    }
+                    "cNvContentPartPr" => {
+                        instance.non_visual_props = Some(NonVisualContentPartProperties::from_xml_element(child_node)?)
+                    }
+                    _ => (),
+                }
 
-            Ok(instance)
-        })
+                Ok(instance)
+            })
     }
 }
 
@@ -928,14 +952,17 @@ impl WordprocessingContentPart {
             }
         }
 
-        let relationship_id = relationship_id.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "r:id"))?;
+        let relationship_id =
+            relationship_id.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "r:id"))?;
 
         let mut properties = None;
         let mut transform = None;
 
         for child_node in &xml_node.child_nodes {
             match child_node.local_name() {
-                "nvContentPartPr" => properties = Some(WordprocessingContentPartNonVisual::from_xml_element(child_node)?),
+                "nvContentPartPr" => {
+                    properties = Some(WordprocessingContentPartNonVisual::from_xml_element(child_node)?)
+                }
                 "xfrm" => transform = Some(Transform2D::from_xml_element(child_node)?),
                 _ => (),
             }
@@ -977,20 +1004,34 @@ impl WordprocessingGroup {
         for child_node in &xml_node.child_nodes {
             match child_node.local_name() {
                 "cNvPr" => non_visual_drawing_props = Some(NonVisualDrawingProps::from_xml_element(child_node)?),
-                "cNvGrpSpPr" => non_visual_drawing_shape_props = Some(NonVisualGroupDrawingShapeProps::from_xml_element(child_node)?),
+                "cNvGrpSpPr" => {
+                    non_visual_drawing_shape_props =
+                        Some(NonVisualGroupDrawingShapeProps::from_xml_element(child_node)?)
+                }
                 "grpSpPr" => group_shape_props = Some(GroupShapeProperties::from_xml_element(child_node)?),
-                "wsp" => shapes.push(WordprocessingShapeChoice::Shape(Box::new(WordprocessingShape::from_xml_element(child_node)?))),
-                "grpSp" => shapes.push(WordprocessingShapeChoice::Group(WordprocessingGroup::from_xml_element(child_node)?)),
-                "graphicFrame" => shapes.push(WordprocessingShapeChoice::GraphicFrame(GraphicFrame::from_xml_element(child_node)?)),
-                "pic" => shapes.push(WordprocessingShapeChoice::Picture(Box::new(Picture::from_xml_element(child_node)?))),
-                "contentPart" => shapes.push(WordprocessingShapeChoice::ContentPart(WordprocessingContentPart::from_xml_element(child_node)?)),
+                "wsp" => shapes.push(WordprocessingShapeChoice::Shape(Box::new(
+                    WordprocessingShape::from_xml_element(child_node)?,
+                ))),
+                "grpSp" => shapes.push(WordprocessingShapeChoice::Group(WordprocessingGroup::from_xml_element(
+                    child_node,
+                )?)),
+                "graphicFrame" => shapes.push(WordprocessingShapeChoice::GraphicFrame(GraphicFrame::from_xml_element(
+                    child_node,
+                )?)),
+                "pic" => shapes.push(WordprocessingShapeChoice::Picture(Box::new(Picture::from_xml_element(
+                    child_node,
+                )?))),
+                "contentPart" => shapes.push(WordprocessingShapeChoice::ContentPart(
+                    WordprocessingContentPart::from_xml_element(child_node)?,
+                )),
                 _ => (),
             }
         }
 
-        let non_visual_drawing_shape_props = 
-            non_visual_drawing_shape_props.ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "cNvGrpSpPr"))?;
-        let group_shape_props = group_shape_props.ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "grpSpPr"))?;
+        let non_visual_drawing_shape_props = non_visual_drawing_shape_props
+            .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "cNvGrpSpPr"))?;
+        let group_shape_props =
+            group_shape_props.ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "grpSpPr"))?;
 
         Ok(Self {
             non_visual_drawing_props,
@@ -1010,23 +1051,47 @@ pub struct WordprocessingCanvas {
 
 impl WordprocessingCanvas {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
-        xml_node.child_nodes.iter().try_fold(Default::default(), |mut instance: Self, child_node| {
-            match child_node.local_name() {
-                "bg" => instance.background_formatting = Some(BackgroundFormatting::from_xml_element(child_node)?),
-                "whole" => instance.whole_formatting = Some(WholeE2oFormatting::from_xml_element(child_node)?),
-                "wsp" => instance.shapes.push(WordprocessingShapeChoice::Shape(Box::new(WordprocessingShape::from_xml_element(child_node)?))),
-                "pic" => instance.shapes.push(WordprocessingShapeChoice::Picture(Box::new(Picture::from_xml_element(child_node)?))),
-                "contentPart" => instance.shapes.push(WordprocessingShapeChoice::ContentPart(WordprocessingContentPart::from_xml_element(child_node)?)),
-                "wgp" => instance.shapes.push(WordprocessingShapeChoice::Group(WordprocessingGroup::from_xml_element(child_node)?)),
-                "graphicFrame" => instance.shapes.push(WordprocessingShapeChoice::GraphicFrame(GraphicFrame::from_xml_element(child_node)?)),
-                _ => ()
-            }
+        xml_node
+            .child_nodes
+            .iter()
+            .try_fold(Default::default(), |mut instance: Self, child_node| {
+                match child_node.local_name() {
+                    "bg" => instance.background_formatting = Some(BackgroundFormatting::from_xml_element(child_node)?),
+                    "whole" => instance.whole_formatting = Some(WholeE2oFormatting::from_xml_element(child_node)?),
+                    "wsp" => instance.shapes.push(WordprocessingShapeChoice::Shape(Box::new(
+                        WordprocessingShape::from_xml_element(child_node)?,
+                    ))),
+                    "pic" => {
+                        instance
+                            .shapes
+                            .push(WordprocessingShapeChoice::Picture(Box::new(Picture::from_xml_element(
+                                child_node,
+                            )?)))
+                    }
+                    "contentPart" => instance.shapes.push(WordprocessingShapeChoice::ContentPart(
+                        WordprocessingContentPart::from_xml_element(child_node)?,
+                    )),
+                    "wgp" => {
+                        instance
+                            .shapes
+                            .push(WordprocessingShapeChoice::Group(WordprocessingGroup::from_xml_element(
+                                child_node,
+                            )?))
+                    }
+                    "graphicFrame" => {
+                        instance
+                            .shapes
+                            .push(WordprocessingShapeChoice::GraphicFrame(GraphicFrame::from_xml_element(
+                                child_node,
+                            )?))
+                    }
+                    _ => (),
+                }
 
-            Ok(instance)
-        })
+                Ok(instance)
+            })
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -1052,7 +1117,11 @@ mod tests {
     }
 
     fn test_shape_locking_xml(node_name: &'static str) -> String {
-        format!(r#"<{node_name} {} noTextEdit="false"></{node_name}>"#, TEST_LOCKING_ATTRIBUTES, node_name = node_name)
+        format!(
+            r#"<{node_name} {} noTextEdit="false"></{node_name}>"#,
+            TEST_LOCKING_ATTRIBUTES,
+            node_name = node_name
+        )
     }
 
     fn test_shape_locking_instance() -> ShapeLocking {
@@ -1063,7 +1132,8 @@ mod tests {
     }
 
     fn test_non_visual_drawing_shape_props_xml(node_name: &'static str) -> String {
-        format!(r#"<{node_name} txBox="true">
+        format!(
+            r#"<{node_name} txBox="true">
             {}
         </{node_name}>"#,
             test_shape_locking_xml("spLocks"),
@@ -1079,14 +1149,17 @@ mod tests {
     }
 
     fn test_graphical_object_xml(node_name: &'static str) -> String {
-        format!(r#"<{node_name}><graphicData uri="http://some/url" /></{node_name}>"#, node_name = node_name)
+        format!(
+            r#"<{node_name}><graphicData uri="http://some/url" /></{node_name}>"#,
+            node_name = node_name
+        )
     }
 
     fn test_graphical_object_instance() -> GraphicalObject {
         GraphicalObject {
             graphic_data: GraphicalObjectData {
                 uri: String::from("http://some/url"),
-            }
+            },
         }
     }
 
@@ -1116,7 +1189,8 @@ mod tests {
     }
 
     fn test_non_visual_drawing_props_xml(node_name: &'static str) -> String {
-        format!(r#"<{node_name} id="1" name="Object name" descr="Some description" title="Title of the object">
+        format!(
+            r#"<{node_name} id="1" name="Object name" descr="Some description" title="Title of the object">
             <a:hlinkClick r:id="rId2" tooltip="Some Sample Text"/>
             <a:hlinkHover r:id="rId2" tooltip="Some Sample Text"/>
         </{node_name}>"#,
@@ -1519,16 +1593,18 @@ mod tests {
                 r#"<{node_name}>
                 {}
             </{node_name}>"#,
-                crate::wml::P::test_xml("p"),
+                crate::wml::document::P::test_xml("p"),
                 node_name = node_name,
             )
         }
 
         pub fn test_instance() -> Self {
-            use crate::wml::{BlockLevelElts, ContentBlockContent, P};
+            use crate::wml::document::{BlockLevelElts, ContentBlockContent, P};
 
             Self {
-                block_level_elements: vec![BlockLevelElts::Chunk(ContentBlockContent::Paragraph(Box::new(P::test_instance())))],
+                block_level_elements: vec![BlockLevelElts::Chunk(ContentBlockContent::Paragraph(Box::new(
+                    P::test_instance(),
+                )))],
             }
         }
     }
@@ -1544,7 +1620,8 @@ mod tests {
 
     impl TextboxInfo {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name} id="1">
+            format!(
+                r#"<{node_name} id="1">
                 {}
             </{node_name}>"#,
                 TxbxContent::test_xml("txbxContent"),
@@ -1575,10 +1652,7 @@ mod tests {
         }
 
         pub fn test_instance() -> Self {
-            Self {
-                id: 1,
-                sequence: 1,
-            }
+            Self { id: 1, sequence: 1 }
         }
     }
 
@@ -1593,7 +1667,8 @@ mod tests {
 
     impl WordprocessingShape {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name} normalEastAsianFlow="false">
+            format!(
+                r#"<{node_name} normalEastAsianFlow="false">
                 {}
                 <spPr />
                 {}
@@ -1608,10 +1683,14 @@ mod tests {
         pub fn test_instance() -> Self {
             Self {
                 non_visual_drawing_props: None,
-                properties: WordprocessingShapePropertiesChoice::ShapeProperties(test_non_visual_drawing_shape_props_instance()),
+                properties: WordprocessingShapePropertiesChoice::ShapeProperties(
+                    test_non_visual_drawing_shape_props_instance(),
+                ),
                 shape_properties: Default::default(),
                 style: None,
-                text_box_info: Some(WordprocessingShapeTextboxInfoChoice::Textbox(TextboxInfo::test_instance())),
+                text_box_info: Some(WordprocessingShapeTextboxInfoChoice::Textbox(
+                    TextboxInfo::test_instance(),
+                )),
                 text_body_properties: Default::default(),
                 normal_east_asian_flow: Some(false),
             }
@@ -1629,7 +1708,8 @@ mod tests {
 
     impl GraphicFrame {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name}>
+            format!(
+                r#"<{node_name}>
                 {}
                 <cNvFrPr />
                 <xfrm />
@@ -1662,10 +1742,11 @@ mod tests {
 
     impl WordprocessingContentPart {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name} bwMode="auto" r:id="rId1">
+            format!(
+                r#"<{node_name} bwMode="auto" r:id="rId1">
                 <nvContentPartPr />
                 <xfrm />
-            </{node_name}>"#, 
+            </{node_name}>"#,
                 node_name = node_name,
             )
         }
@@ -1691,7 +1772,8 @@ mod tests {
 
     impl WordprocessingGroup {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name}>
+            format!(
+                r#"<{node_name}>
                 <cNvGrpSpPr />
                 <grpSpPr />
                 {}
@@ -1706,7 +1788,9 @@ mod tests {
                 non_visual_drawing_props: None,
                 non_visual_drawing_shape_props: Default::default(),
                 group_shape_props: Default::default(),
-                shapes: vec![WordprocessingShapeChoice::ContentPart(WordprocessingContentPart::test_instance())],
+                shapes: vec![WordprocessingShapeChoice::ContentPart(
+                    WordprocessingContentPart::test_instance(),
+                )],
             }
         }
     }
@@ -1722,7 +1806,8 @@ mod tests {
 
     impl WordprocessingCanvas {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name}>
+            format!(
+                r#"<{node_name}>
                 {}
             </{node_name}>"#,
                 WordprocessingContentPart::test_xml("contentPart"),
@@ -1734,7 +1819,9 @@ mod tests {
             Self {
                 background_formatting: None,
                 whole_formatting: None,
-                shapes: vec![WordprocessingShapeChoice::ContentPart(WordprocessingContentPart::test_instance())],
+                shapes: vec![WordprocessingShapeChoice::ContentPart(
+                    WordprocessingContentPart::test_instance(),
+                )],
             }
         }
     }
