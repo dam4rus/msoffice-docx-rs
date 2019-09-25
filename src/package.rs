@@ -3,7 +3,7 @@ use crate::{
     wml::{
         document::{
             Border, Color, Document, EastAsianLayout, Em, FitText, Fonts, HighlightColor, HpsMeasure, Language,
-            PPrBase, RPrBase, Shd, SignedHpsMeasure, SignedTwipsMeasure, TextEffect, Underline,
+            PPrBase, RPrBase, Shd, SignedHpsMeasure, SignedTwipsMeasure, TextEffect, Underline, P, R,
         },
         simpletypes::TextScale,
         styles::{PPrDefault, RPrDefault, Style, Styles, TblStylePr},
@@ -284,6 +284,48 @@ impl Package {
 
                 resolved_style
             }))
+    }
+
+    pub fn resolve_paragraph_style(
+        &self,
+        paragraph: &P,
+    ) -> std::result::Result<Option<ResolvedStyle>, NoSuchStyleError> {
+        let default_style = self.resolve_default_style();
+        let paragraph_style = paragraph
+            .properties
+            .as_ref()
+            .and_then(|props| props.base.style.as_ref())
+            .map(|style_name| self.resolve_style(style_name))
+            .transpose()?;
+
+        Ok(match (default_style, paragraph_style) {
+            (Some(def_style), Some(par_style)) => Some(def_style.update_with(&par_style)),
+            (def_style, par_style) => def_style.or(par_style),
+        })
+    }
+
+    pub fn resolve_run_style(
+        &self,
+        paragraph: &P,
+        run: &R,
+    ) -> std::result::Result<Option<ResolvedStyle>, NoSuchStyleError> {
+        let resolved_par_style = self.resolve_paragraph_style(paragraph)?;
+        let run_properties = run
+            .run_properties
+            .as_ref()
+            .map(|props| RunProperties::from_vec(&props.r_pr_bases));
+
+        Ok(match (resolved_par_style, run_properties) {
+            (Some(par_style), Some(run_props)) => Some(ResolvedStyle {
+                run_properties: par_style.run_properties.update_with(&run_props),
+                ..par_style
+            }),
+            (_, Some(run_props)) => Some(ResolvedStyle {
+                run_properties: run_props,
+                ..Default::default()
+            }),
+            (par_style, _) => par_style,
+        })
     }
 }
 
