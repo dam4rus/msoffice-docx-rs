@@ -25,19 +25,7 @@ fn test_package_resolve_default_style() {
     let sample_docx_file = manifest_dir.join("tests/sample.docx");
 
     let package = Package::from_file(&sample_docx_file).unwrap();
-    let _def_style = package.resolve_default_style().unwrap();
+    let def_style = package.resolve_default_style().unwrap();
     // TODO(kalmar.robert) Write real unit test
-    //println!("{:?}", def_style);
-}
-
-#[test]
-#[ignore]
-fn test_package_resolve_style() {
-    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let sample_docx_file = manifest_dir.join("tests/sample.docx");
-
-    let package = Package::from_file(&sample_docx_file).unwrap();
-    let _style = package.resolve_style("Heading1").unwrap();
-    // TODO(kalmar.robert) Write real unit test
-    //println!("{:?}\n\n{:?}", style.paragraph_properties, style.run_properties);
+    println!("{:?}", def_style);
 }
