@@ -72,6 +72,7 @@ impl FromStr for DecimalNumberOrPercent {
 //     Decimal(TextScaleDecimal),
 // }
 
+#[repr(C)]
 #[derive(Debug, Clone, Copy, EnumString, PartialEq)]
 pub enum ThemeColor {
     #[strum(serialize = "dark1")]
@@ -921,6 +922,19 @@ impl Fonts {
 
         Ok(instance)
     }
+
+    pub fn update_with(mut self, other: Self) -> Self {
+        self.hint = other.hint.or(self.hint);
+        self.ascii = other.ascii.or(self.ascii);
+        self.high_ansi = other.high_ansi.or(self.high_ansi);
+        self.east_asia = other.east_asia.or(self.east_asia);
+        self.complex_script = other.complex_script.or(self.complex_script);
+        self.ascii_theme = other.ascii_theme.or(self.ascii_theme);
+        self.high_ansi_theme = other.high_ansi_theme.or(self.high_ansi_theme);
+        self.east_asia_theme = other.east_asia_theme.or(self.east_asia_theme);
+        self.complex_script_theme = other.complex_script_theme.or(self.complex_script_theme);
+        self
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, EnumString)]
@@ -1728,8 +1742,8 @@ pub enum RPrBase {
     Width(TextScale),
     Kerning(HpsMeasure),
     Position(SignedHpsMeasure),
-    Size(HpsMeasure),
-    ComplexScriptSize(HpsMeasure),
+    FontSize(HpsMeasure),
+    ComplexScriptFontSize(HpsMeasure),
     Highlight(HighlightColor),
     Underline(Underline),
     Effect(TextEffect),
@@ -1793,8 +1807,8 @@ impl XsdChoice for RPrBase {
             }
             "kern" => Ok(RPrBase::Kerning(HpsMeasure::from_xml_element(xml_node)?)),
             "position" => Ok(RPrBase::Position(SignedHpsMeasure::from_xml_element(xml_node)?)),
-            "sz" => Ok(RPrBase::Size(HpsMeasure::from_xml_element(xml_node)?)),
-            "szCs" => Ok(RPrBase::ComplexScriptSize(HpsMeasure::from_xml_element(xml_node)?)),
+            "sz" => Ok(RPrBase::FontSize(HpsMeasure::from_xml_element(xml_node)?)),
+            "szCs" => Ok(RPrBase::ComplexScriptFontSize(HpsMeasure::from_xml_element(xml_node)?)),
             "highlight" => Ok(RPrBase::Highlight(xml_node.get_val_attribute()?.parse()?)),
             "u" => Ok(RPrBase::Underline(Underline::from_xml_element(xml_node)?)),
             "effect" => Ok(RPrBase::Effect(xml_node.get_val_attribute()?.parse()?)),
@@ -4250,22 +4264,18 @@ impl PPrBase {
         Ok(self)
     }
 
-    pub fn update_with(mut self, other: &Self) -> Self {
-        self.style = other.style.as_ref().cloned().or(self.style);
+    pub fn update_with(mut self, other: Self) -> Self {
+        self.style = other.style.or(self.style);
         self.keep_with_next = other.keep_with_next.or(self.keep_with_next);
         self.keep_lines_on_one_page = other.keep_lines_on_one_page.or(self.keep_lines_on_one_page);
         self.start_on_next_page = other.start_on_next_page.or(self.start_on_next_page);
         self.frame_properties = other.frame_properties.or(self.frame_properties);
         self.widow_control = other.widow_control.or(self.widow_control);
-        self.numbering_properties = other
-            .numbering_properties
-            .as_ref()
-            .cloned()
-            .or(self.numbering_properties);
+        self.numbering_properties = other.numbering_properties.or(self.numbering_properties);
         self.suppress_line_numbers = other.suppress_line_numbers.or(self.suppress_line_numbers);
         self.borders = other.borders.or(self.borders);
         self.shading = other.shading.or(self.shading);
-        self.tabs = other.tabs.as_ref().cloned().or(self.tabs);
+        self.tabs = other.tabs.or(self.tabs);
         self.suppress_auto_hyphens = other.suppress_auto_hyphens.or(self.suppress_auto_hyphens);
         self.kinsoku = other.kinsoku.or(self.kinsoku);
         self.word_wrapping = other.word_wrapping.or(self.word_wrapping);

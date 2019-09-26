@@ -50,8 +50,8 @@ pub struct RunProperties {
     pub width: Option<TextScale>,
     pub kerning: Option<HpsMeasure>,
     pub position: Option<SignedHpsMeasure>,
-    pub size: Option<HpsMeasure>,
-    pub complex_script_size: Option<HpsMeasure>,
+    pub font_size: Option<HpsMeasure>,
+    pub complex_script_font_size: Option<HpsMeasure>,
     pub highlight: Option<HighlightColor>,
     pub underline: Option<Underline>,
     pub effect: Option<TextEffect>,
@@ -97,8 +97,8 @@ impl RunProperties {
                     RPrBase::Width(width) => instance.width = Some(*width),
                     RPrBase::Kerning(kerning) => instance.kerning = Some(*kerning),
                     RPrBase::Position(pos) => instance.position = Some(*pos),
-                    RPrBase::Size(size) => instance.size = Some(*size),
-                    RPrBase::ComplexScriptSize(cs_size) => instance.complex_script_size = Some(*cs_size),
+                    RPrBase::FontSize(size) => instance.font_size = Some(*size),
+                    RPrBase::ComplexScriptFontSize(cs_size) => instance.complex_script_font_size = Some(*cs_size),
                     RPrBase::Highlight(color) => instance.highlight = Some(*color),
                     RPrBase::Underline(u) => instance.underline = Some(*u),
                     RPrBase::Effect(effect) => instance.effect = Some(*effect),
@@ -119,9 +119,12 @@ impl RunProperties {
             })
     }
 
-    pub fn update_with(mut self, other: &Self) -> Self {
-        self.style = other.style.as_ref().cloned().or(self.style);
-        self.fonts = other.fonts.as_ref().cloned().or(self.fonts);
+    pub fn update_with(mut self, other: Self) -> Self {
+        self.style = other.style.or(self.style);
+        self.fonts = match (self.fonts, other.fonts) {
+            (Some(lhs), Some(rhs)) => Some(lhs.update_with(rhs)),
+            (lhs, rhs) => rhs.or(lhs),
+        };
         self.bold = other.bold.or(self.bold);
         self.complex_script_bold = other.complex_script_bold.or(self.complex_script_bold);
         self.italic = other.italic.or(self.italic);
@@ -143,8 +146,8 @@ impl RunProperties {
         self.width = other.width.or(self.width);
         self.kerning = other.kerning.or(self.kerning);
         self.position = other.position.or(self.position);
-        self.size = other.size.or(self.size);
-        self.complex_script_size = other.complex_script_size.or(self.complex_script_size);
+        self.font_size = other.font_size.or(self.font_size);
+        self.complex_script_font_size = other.complex_script_font_size.or(self.complex_script_font_size);
         self.highlight = other.highlight.or(self.highlight);
         self.underline = other.underline.or(self.underline);
         self.effect = other.effect.or(self.effect);
@@ -155,16 +158,19 @@ impl RunProperties {
         self.rtl = other.rtl.or(self.rtl);
         self.complex_script = other.complex_script.or(self.complex_script);
         self.emphasis_mark = other.emphasis_mark.or(self.emphasis_mark);
-        self.language = other.language.as_ref().cloned().or(self.language);
+        self.language = other.language.or(self.language);
         self.east_asian_layout = other.east_asian_layout.or(self.east_asian_layout);
         self.special_vanish = other.special_vanish.or(self.special_vanish);
         self.o_math = other.o_math.or(self.o_math);
         self
     }
 
-    pub fn update_with_style_on_another_level(mut self, other: &Self) -> Self {
-        self.style = other.style.as_ref().cloned().or(self.style);
-        self.fonts = other.fonts.as_ref().cloned().or(self.fonts);
+    pub fn update_with_style_on_another_level(mut self, other: Self) -> Self {
+        self.style = other.style.or(self.style);
+        self.fonts = match (self.fonts, other.fonts) {
+            (Some(lhs), Some(rhs)) => Some(lhs.update_with(rhs)),
+            (lhs, rhs) => rhs.or(lhs),
+        };
         self.bold = update_or_toggle_on_off(self.bold, other.bold);
         self.complex_script_bold = update_or_toggle_on_off(self.complex_script_bold, other.complex_script_bold);
         self.italic = update_or_toggle_on_off(self.italic, other.italic);
@@ -186,8 +192,8 @@ impl RunProperties {
         self.width = other.width.or(self.width);
         self.kerning = other.kerning.or(self.kerning);
         self.position = other.position.or(self.position);
-        self.size = other.size.or(self.size);
-        self.complex_script_size = other.complex_script_size.or(self.complex_script_size);
+        self.font_size = other.font_size.or(self.font_size);
+        self.complex_script_font_size = other.complex_script_font_size.or(self.complex_script_font_size);
         self.highlight = other.highlight.or(self.highlight);
         self.underline = other.underline.or(self.underline);
         self.effect = other.effect.or(self.effect);
@@ -198,7 +204,7 @@ impl RunProperties {
         self.rtl = update_or_toggle_on_off(self.rtl, other.rtl);
         self.complex_script = update_or_toggle_on_off(self.complex_script, self.complex_script);
         self.emphasis_mark = other.emphasis_mark.or(self.emphasis_mark);
-        self.language = other.language.as_ref().cloned().or(self.language);
+        self.language = other.language.or(self.language);
         self.east_asian_layout = other.east_asian_layout.or(self.east_asian_layout);
         self.special_vanish = update_or_toggle_on_off(self.special_vanish, other.special_vanish);
         self.o_math = update_or_toggle_on_off(self.o_math, other.o_math);
@@ -216,17 +222,17 @@ pub struct ResolvedStyle {
 }
 
 impl ResolvedStyle {
-    pub fn update_with(mut self, other: &Self) -> Self {
-        *self.paragraph_properties = self.paragraph_properties.update_with(&other.paragraph_properties);
-        *self.run_properties = self.run_properties.update_with(&other.run_properties);
+    pub fn update_with(mut self, other: Self) -> Self {
+        *self.paragraph_properties = self.paragraph_properties.update_with(*other.paragraph_properties);
+        *self.run_properties = self.run_properties.update_with(*other.run_properties);
         self
     }
 
-    pub fn update_with_style_on_another_level(mut self, other: &Self) -> Self {
-        *self.paragraph_properties = self.paragraph_properties.update_with(&other.paragraph_properties);
+    pub fn update_with_style_on_another_level(mut self, other: Self) -> Self {
+        *self.paragraph_properties = self.paragraph_properties.update_with(*other.paragraph_properties);
         *self.run_properties = self
             .run_properties
-            .update_with_style_on_another_level(&other.run_properties);
+            .update_with_style_on_another_level(*other.run_properties);
         self
     }
 }
@@ -333,12 +339,12 @@ impl Package {
             .fold(Default::default(), |mut resolved_style: ResolvedStyle, style| {
                 if let Some(style_p_pr) = &style.paragraph_properties {
                     *resolved_style.paragraph_properties =
-                        resolved_style.paragraph_properties.update_with(&style_p_pr.base);
+                        resolved_style.paragraph_properties.update_with(style_p_pr.base.clone());
                 }
 
                 if let Some(style_r_pr) = &style.run_properties {
                     let folded_style_r_pr = RunProperties::from_vec(&style_r_pr.r_pr_bases);
-                    *resolved_style.run_properties = resolved_style.run_properties.update_with(&folded_style_r_pr);
+                    *resolved_style.run_properties = resolved_style.run_properties.update_with(folded_style_r_pr);
                 }
 
                 resolved_style
@@ -351,12 +357,12 @@ impl Package {
         let run_style = resolve_run_style(run);
 
         let calced_style = match (paragraph_style, run_style) {
-            (Some(p_style), Some(r_style)) => Some(p_style.update_with_style_on_another_level(&r_style)),
+            (Some(p_style), Some(r_style)) => Some(p_style.update_with_style_on_another_level(r_style)),
             (p_style, r_style) => p_style.or(r_style),
         };
 
         Ok(match (default_style, calced_style) {
-            (Some(def_style), Some(calced_style)) => Some(def_style.update_with(&calced_style)),
+            (Some(def_style), Some(calced_style)) => Some(def_style.update_with(calced_style)),
             (def_style, calced_style) => def_style.or(calced_style),
         })
     }
@@ -388,10 +394,11 @@ mod tests {
     };
 
     #[test]
-    pub fn test_size_of() {
+    fn test_size_of() {
         use std::mem::size_of;
 
-        println!("{}", size_of::<super::ResolvedStyle>());
+        println!("{}", size_of::<PPrBase>());
+        println!("{}", size_of::<RunProperties>());
     }
 
     fn doc_defaults_for_test() -> DocDefaults {
