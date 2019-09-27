@@ -1,5 +1,5 @@
 use crate::{
-    error::NoSuchStyleError,
+    error::{NoSuchStyleError, NoSuchFileError},
     wml::{
         document::{
             Border, Color, Document, EastAsianLayout, Em, FitText, Fonts, HighlightColor, HpsMeasure, Language,
@@ -12,16 +12,20 @@ use crate::{
 };
 use msoffice_shared::{
     docprops::{AppInfo, Core},
-    relationship::Relationship,
+    relationship::{Relationship, THEME_RELATION_TYPE},
     sharedtypes::{OnOff, VerticalAlignRun},
     xml::zip_file_to_xml_node,
+    drawingml::sharedstylesheet::OfficeStyleSheet,
 };
 use std::{
     error::Error,
     fs::File,
     path::{Path, PathBuf},
+    collections::HashMap,
+    ffi::OsStr,
 };
 use zip::ZipArchive;
+use log::error;
 
 pub type ParagraphProperties = PPrBase;
 
@@ -245,6 +249,7 @@ pub struct Package {
     pub main_document_relationships: Vec<Relationship>,
     pub styles: Option<Styles>,
     pub medias: Vec<PathBuf>,
+    pub themes: HashMap<String, OfficeStyleSheet>,
 }
 
 impl Package {
@@ -261,20 +266,31 @@ impl Package {
                 "docProps/core.xml" => instance.core = Some(Core::from_zip_file(&mut zip_file)?),
                 "word/document.xml" => {
                     let xml_node = zip_file_to_xml_node(&mut zip_file)?;
-                    instance.main_document = Some(Document::from_xml_element(&xml_node)?)
+                    instance.main_document = Some(Document::from_xml_element(&xml_node)?);
                 }
                 "word/_rels/document.xml.rels" => {
                     instance.main_document_relationships = zip_file_to_xml_node(&mut zip_file)?
                         .child_nodes
                         .iter()
                         .map(Relationship::from_xml_element)
-                        .collect::<Result<Vec<_>, Box<dyn Error>>>()?
+                        .collect::<Result<Vec<_>, Box<dyn Error>>>()?;
                 }
                 "word/styles.xml" => {
                     let xml_node = zip_file_to_xml_node(&mut zip_file)?;
-                    instance.styles = Some(Styles::from_xml_element(&xml_node)?)
+                    instance.styles = Some(Styles::from_xml_element(&xml_node)?);
                 }
                 path if path.starts_with("word/media/") => instance.medias.push(PathBuf::from(file_path)),
+                path if path.starts_with("word/theme/") => {
+                    let file_stem = match Path::new(path).file_stem().and_then(OsStr::to_str).map(String::from) {
+                        Some(name) => name,
+                        None => {
+                            error!("Couldn't get file name of theme");
+                            continue;
+                        }
+                    };
+                    let style_sheet = OfficeStyleSheet::from_xml_element(&zip_file_to_xml_node(&mut zip_file)?)?;
+                    instance.themes.insert(file_stem, style_sheet);
+                }
                 _ => (),
             }
         }
@@ -365,6 +381,21 @@ impl Package {
             (Some(def_style), Some(calced_style)) => Some(def_style.update_with(calced_style)),
             (def_style, calced_style) => def_style.or(calced_style),
         })
+    }
+
+    pub fn get_main_document_theme(&self) -> Result<&OfficeStyleSheet, NoSuchFileError> {
+        let theme_relation = self
+            .main_document_relationships
+            .iter()
+            .find(|rel| rel.rel_type == THEME_RELATION_TYPE)
+            .ok_or(NoSuchFileError{})?;
+
+        let rel_target_file = Path::new(theme_relation.target.as_str())
+            .file_stem()
+            .and_then(OsStr::to_str)
+            .ok_or(NoSuchFileError{})?;
+
+        self.themes.get(rel_target_file).ok_or(NoSuchFileError{})
     }
 }
 

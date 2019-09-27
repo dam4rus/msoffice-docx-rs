@@ -11,7 +11,7 @@ use super::{
 };
 use log::info;
 use msoffice_shared::{
-    drawingml::{parse_hex_color_rgb, HexColorRGB},
+    drawingml::simpletypes::{parse_hex_color_rgb, HexColorRGB},
     error::{LimitViolationError, MaxOccurs, MissingAttributeError, MissingChildNodeError, NotGroupMemberError},
     relationship::RelationshipId,
     sharedtypes::{

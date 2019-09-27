@@ -1,9 +1,15 @@
 use msoffice_shared::{
     drawingml::{
-        BackgroundFormatting, BlackWhiteMode, Coordinate, GraphicalObject, GroupShapeProperties,
-        NonVisualConnectorProperties, NonVisualContentPartProperties, NonVisualDrawingProps,
-        NonVisualDrawingShapeProps, NonVisualGraphicFrameProperties, NonVisualGroupDrawingShapeProps, Picture, Point2D,
-        PositiveSize2D, ShapeProperties, ShapeStyle, TextBodyProperties, Transform2D, WholeE2oFormatting,
+        diagrams::{BackgroundFormatting, WholeE2oFormatting},
+        simpletypes::{BlackWhiteMode, Coordinate},
+        core::{
+            GraphicalObject, GroupShapeProperties,NonVisualConnectorProperties, NonVisualContentPartProperties, NonVisualDrawingProps,
+            NonVisualDrawingShapeProps, NonVisualGraphicFrameProperties, NonVisualGroupDrawingShapeProps,
+            ShapeProperties, ShapeStyle,
+        },
+        picture::Picture,
+        coordsys::{PositiveSize2D, Transform2D, Point2D},
+        text::bodyformatting::TextBodyProperties,
     },
     error::{LimitViolationError, MaxOccurs, MissingAttributeError, MissingChildNodeError, NotGroupMemberError},
     relationship::RelationshipId,
@@ -1096,7 +1102,7 @@ impl WordprocessingCanvas {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use msoffice_shared::drawingml::{GraphicalObjectData, Hyperlink, Locking, ShapeLocking};
+    use msoffice_shared::drawingml::core::{GraphicalObjectData, Hyperlink, Locking, ShapeLocking};
 
     const TEST_LOCKING_ATTRIBUTES: &'static str = r#"noGrp="false" noSelect="false" noRot="false" noChangeAspect="false"
         noMove="false" noResize="false" noEditPoints="false" noAdjustHandles="false" noChangeArrowheads="false" noChangeShapeType="false""#;
