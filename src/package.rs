@@ -1,32 +1,32 @@
 use crate::{
-    error::{NoSuchStyleError, NoSuchFileError},
+    error::{NoSuchFileError, NoSuchStyleError},
     wml::{
         document::{
             Border, Color, Document, EastAsianLayout, Em, FitText, Fonts, HighlightColor, HpsMeasure, Language,
             PPrBase, RPrBase, Shd, SignedHpsMeasure, SignedTwipsMeasure, TextEffect, Underline, P, R,
         },
+        settings::Settings,
         simpletypes::TextScale,
         styles::{PPrDefault, RPrDefault, Style, Styles, TblStylePr},
         table::{TcPr, TrPr},
-        settings::Settings,
     },
 };
+use log::error;
 use msoffice_shared::{
     docprops::{AppInfo, Core},
+    drawingml::sharedstylesheet::OfficeStyleSheet,
     relationship::{Relationship, THEME_RELATION_TYPE},
     sharedtypes::{OnOff, VerticalAlignRun},
     xml::zip_file_to_xml_node,
-    drawingml::sharedstylesheet::OfficeStyleSheet,
 };
 use std::{
+    collections::HashMap,
     error::Error,
+    ffi::OsStr,
     fs::File,
     path::{Path, PathBuf},
-    collections::HashMap,
-    ffi::OsStr,
 };
 use zip::ZipArchive;
-use log::error;
 
 pub type ParagraphProperties = PPrBase;
 
@@ -394,14 +394,14 @@ impl Package {
             .main_document_relationships
             .iter()
             .find(|rel| rel.rel_type == THEME_RELATION_TYPE)
-            .ok_or(NoSuchFileError{})?;
+            .ok_or(NoSuchFileError {})?;
 
         let rel_target_file = Path::new(theme_relation.target.as_str())
             .file_stem()
             .and_then(OsStr::to_str)
-            .ok_or(NoSuchFileError{})?;
+            .ok_or(NoSuchFileError {})?;
 
-        self.themes.get(rel_target_file).ok_or(NoSuchFileError{})
+        self.themes.get(rel_target_file).ok_or(NoSuchFileError {})
     }
 }
 
@@ -426,9 +426,11 @@ fn update_or_toggle_on_off(lhs: Option<OnOff>, rhs: Option<OnOff>) -> Option<OnO
 mod tests {
     use super::{resolve_run_style, Package, ParagraphProperties, RunProperties};
     use crate::wml::{
-        document::{PPr, PPrBase, PPrGeneral, ParaRPr, RPr, RPrBase, TextAlignment, Underline, UnderlineType, P, R, Document},
-        styles::{DocDefaults, PPrDefault, RPrDefault, Style, Styles},
+        document::{
+            Document, PPr, PPrBase, PPrGeneral, ParaRPr, RPr, RPrBase, TextAlignment, Underline, UnderlineType, P, R,
+        },
         settings::Settings,
+        styles::{DocDefaults, PPrDefault, RPrDefault, Style, Styles},
     };
     use msoffice_shared::docprops::{AppInfo, Core};
 

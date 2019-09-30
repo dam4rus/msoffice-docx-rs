@@ -1,16 +1,16 @@
-use msoffice_shared::{
-    sharedtypes::{OnOff, TwipsMeasure},
-    xml::{XmlNode, parse_xml_bool},
-    error::{MissingAttributeError, MissingChildNodeError, LimitViolationError, MaxOccurs},
-    drawingml::simpletypes::Lang,
-    relationship::RelationshipId,
-};
 use super::{
-    document::{Rel, Language, DecimalNumberOrPercent, FtnProps, EdnProps, NumberFormat, ChapterSep},
-    simpletypes::{DecimalNumber, parse_on_off_xml_element, LongHexNumber, UnsignedDecimalNumber},
+    document::{ChapterSep, DecimalNumberOrPercent, EdnProps, FtnProps, Language, NumberFormat, Rel},
+    simpletypes::{parse_on_off_xml_element, DecimalNumber, LongHexNumber, UnsignedDecimalNumber},
     util::XmlNodeExt,
 };
 use log::info;
+use msoffice_shared::{
+    drawingml::simpletypes::Lang,
+    error::{LimitViolationError, MaxOccurs, MissingAttributeError, MissingChildNodeError},
+    relationship::RelationshipId,
+    sharedtypes::{OnOff, TwipsMeasure},
+    xml::{parse_xml_bool, XmlNode},
+};
 
 pub type Base64Binary = String;
 pub type DocType = String;
@@ -127,10 +127,7 @@ impl Zoom {
 
         let percent = percent.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "percent"))?;
 
-        Ok(Self {
-            value,
-            percent,
-        })
+        Ok(Self { value, percent })
     }
 }
 
@@ -220,8 +217,12 @@ impl StylePaneFilter {
                     "w:numberingStyles" => instance.numbering_styles = Some(parse_xml_bool(value)?),
                     "w:tableStyles" => instance.table_styles = Some(parse_xml_bool(value)?),
                     "w:directFormattingOnRuns" => instance.direct_formatting_on_runs = Some(parse_xml_bool(value)?),
-                    "w:directFormattingOnParagraphs" => instance.direct_formatting_on_paragraphs = Some(parse_xml_bool(value)?),
-                    "w:directFormattingOnNumbering" => instance.direct_formatting_on_numbering = Some(parse_xml_bool(value)?),
+                    "w:directFormattingOnParagraphs" => {
+                        instance.direct_formatting_on_paragraphs = Some(parse_xml_bool(value)?)
+                    }
+                    "w:directFormattingOnNumbering" => {
+                        instance.direct_formatting_on_numbering = Some(parse_xml_bool(value)?)
+                    }
                     "w:directFormattingOnTables" => instance.direct_formatting_on_tables = Some(parse_xml_bool(value)?),
                     "w:clearFormatting" => instance.clear_formatting = Some(parse_xml_bool(value)?),
                     "w:top3HeadingStyles" => instance.top_three_heading_styles = Some(parse_xml_bool(value)?),
@@ -406,7 +407,9 @@ impl Odso {
                     "colDelim" => instance.column_delimiter = Some(child_node.get_val_attribute()?.parse()?),
                     "type" => instance.mail_merge_source_type = Some(child_node.get_val_attribute()?.parse()?),
                     "fHdr" => instance.first_header = Some(parse_on_off_xml_element(child_node)?),
-                    "fieldMapData" => instance.field_map_datas.push(OdsoFieldMapData::from_xml_element(child_node)?),
+                    "fieldMapData" => instance
+                        .field_map_datas
+                        .push(OdsoFieldMapData::from_xml_element(child_node)?),
                     "recipientData" => instance.recipient_datas.push(Rel::from_xml_element(child_node)?),
                     _ => (),
                 }
@@ -477,10 +480,10 @@ impl MailMerge {
             }
         }
 
-        let main_document_type = 
+        let main_document_type =
             main_document_type.ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "mainDocumentType"))?;
 
-        let data_type =  data_type.ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "dataType"))?;
+        let data_type = data_type.ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "dataType"))?;
 
         Ok(Self {
             main_document_type,
@@ -581,7 +584,7 @@ pub enum CharacterSpacing {
     #[strum(serialize = "compressPunctuation")]
     CompressPunctuation,
     #[strum(serialize = "compressPunctuationAndJapaneseKana")]
-    CompressPunctuationAndJapaneseKana
+    CompressPunctuationAndJapaneseKana,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -646,7 +649,7 @@ impl FtnEndSepRef {
             .map(|value| value.parse())
             .transpose()?
             .ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "w:id"))?;
-        
+
         Ok(Self { id })
     }
 }
@@ -661,17 +664,18 @@ impl FtnDocProps {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
         info!("Parsing FtnDocProps");
 
-        let fold_result: Result<Self> = xml_node
-            .child_nodes
-            .iter()
-            .try_fold(Default::default(), |mut instance: Self, child_node| {
-                match child_node.local_name() {
-                    "footnote" => instance.footnotes.push(FtnEndSepRef::from_xml_element(child_node)?),
-                    _ => instance.base = instance.base.try_update_from_xml_element(child_node)?,
-                }
+        let fold_result: Result<Self> =
+            xml_node
+                .child_nodes
+                .iter()
+                .try_fold(Default::default(), |mut instance: Self, child_node| {
+                    match child_node.local_name() {
+                        "footnote" => instance.footnotes.push(FtnEndSepRef::from_xml_element(child_node)?),
+                        _ => instance.base = instance.base.try_update_from_xml_element(child_node)?,
+                    }
 
-                Ok(instance)
-            });
+                    Ok(instance)
+                });
 
         let instance = fold_result?;
 
@@ -683,7 +687,7 @@ impl FtnDocProps {
                 0,
                 MaxOccurs::Value(3),
                 len as u32,
-            )))
+            ))),
         }
     }
 }
@@ -698,17 +702,18 @@ impl EdnDocProps {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
         info!("Parsing EdnDocProps");
 
-        let fold_result: Result<Self> = xml_node
-            .child_nodes
-            .iter()
-            .try_fold(Default::default(), |mut instance: Self, child_node| {
-                match child_node.local_name() {
-                    "endnote" => instance.endnotes.push(FtnEndSepRef::from_xml_element(child_node)?),
-                    _ => instance.base = instance.base.try_update_from_xml_element(child_node)?,
-                }
+        let fold_result: Result<Self> =
+            xml_node
+                .child_nodes
+                .iter()
+                .try_fold(Default::default(), |mut instance: Self, child_node| {
+                    match child_node.local_name() {
+                        "endnote" => instance.endnotes.push(FtnEndSepRef::from_xml_element(child_node)?),
+                        _ => instance.base = instance.base.try_update_from_xml_element(child_node)?,
+                    }
 
-                Ok(instance)
-            });
+                    Ok(instance)
+                });
 
         let instance = fold_result?;
 
@@ -720,7 +725,7 @@ impl EdnDocProps {
                 0,
                 MaxOccurs::Value(3),
                 len as u32,
-            )))
+            ))),
         }
     }
 }
@@ -770,13 +775,23 @@ impl Compat {
             .try_fold(Default::default(), |mut instance: Self, child_node| {
                 match child_node.local_name() {
                     "spaceForUL" => instance.space_for_underline = Some(parse_on_off_xml_element(child_node)?),
-                    "balanceSingleByteDoubleByteWidth" => instance.balance_single_byte_double_byte_width = Some(parse_on_off_xml_element(child_node)?),
-                    "doNotLeaveBackslashAlone" => instance.do_not_leave_backslash_alone = Some(parse_on_off_xml_element(child_node)?),
+                    "balanceSingleByteDoubleByteWidth" => {
+                        instance.balance_single_byte_double_byte_width = Some(parse_on_off_xml_element(child_node)?)
+                    }
+                    "doNotLeaveBackslashAlone" => {
+                        instance.do_not_leave_backslash_alone = Some(parse_on_off_xml_element(child_node)?)
+                    }
                     "ulTrailSpace" => instance.underline_trail_space = Some(parse_on_off_xml_element(child_node)?),
-                    "doNotExpandShiftReturn" => instance.do_not_expand_shift_return = Some(parse_on_off_xml_element(child_node)?),
-                    "adjustLineHeightInTable" => instance.adjust_line_height_in_table = Some(parse_on_off_xml_element(child_node)?),
+                    "doNotExpandShiftReturn" => {
+                        instance.do_not_expand_shift_return = Some(parse_on_off_xml_element(child_node)?)
+                    }
+                    "adjustLineHeightInTable" => {
+                        instance.adjust_line_height_in_table = Some(parse_on_off_xml_element(child_node)?)
+                    }
                     "applyBreakingRules" => instance.apply_breaking_rules = Some(parse_on_off_xml_element(child_node)?),
-                    "compatSetting" => instance.compatibility_settings.push(CompatSetting::from_xml_element(child_node)),
+                    "compatSetting" => instance
+                        .compatibility_settings
+                        .push(CompatSetting::from_xml_element(child_node)),
                     _ => (),
                 }
 
@@ -827,7 +842,7 @@ impl DocVars {
             .filter(|child_node| child_node.local_name() == "docVar")
             .map(DocVar::from_xml_element)
             .collect::<Result<Vec<_>>>()?;
-        
+
         Ok(Self(doc_vars))
     }
 }
@@ -845,8 +860,13 @@ impl DocRsids {
             .iter()
             .try_fold(Default::default(), |mut instance: Self, child_node| {
                 match child_node.local_name() {
-                    "rsidRoot" => instance.revision_id_root = Some(LongHexNumber::from_str_radix(child_node.get_val_attribute()?, 16)?),
-                    "rsid" => instance.revision_ids.push(LongHexNumber::from_str_radix(child_node.get_val_attribute()?, 16)?),
+                    "rsidRoot" => {
+                        instance.revision_id_root =
+                            Some(LongHexNumber::from_str_radix(child_node.get_val_attribute()?, 16)?)
+                    }
+                    "rsid" => instance
+                        .revision_ids
+                        .push(LongHexNumber::from_str_radix(child_node.get_val_attribute()?, 16)?),
                     _ => (),
                 }
 
@@ -944,8 +964,8 @@ impl ColorSchemeMapping {
         let accent5 = accent5.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "w:accent5"))?;
         let accent6 = accent6.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "w:accent6"))?;
         let hyperlink = hyperlink.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "w:hyperlink"))?;
-        let followed_hyperlink =
-            followed_hyperlink.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "w:followedHyperlink"))?;
+        let followed_hyperlink = followed_hyperlink
+            .ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "w:followedHyperlink"))?;
 
         Ok(Self {
             background1,
@@ -1077,18 +1097,19 @@ pub struct Captions {
 
 impl Captions {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
-        let fold_result: Result<Self> = xml_node
-            .child_nodes
-            .iter()
-            .try_fold(Default::default(), |mut instance: Self, child_node| {
-                match child_node.local_name() {
-                    "caption" => instance.captions.push(Caption::from_xml_element(child_node)?),
-                    "autoCaptions" => instance.auto_captions = Some(AutoCaptions::from_xml_element(child_node)?),
-                    _ => (),
-                }
+        let fold_result: Result<Self> =
+            xml_node
+                .child_nodes
+                .iter()
+                .try_fold(Default::default(), |mut instance: Self, child_node| {
+                    match child_node.local_name() {
+                        "caption" => instance.captions.push(Caption::from_xml_element(child_node)?),
+                        "autoCaptions" => instance.auto_captions = Some(AutoCaptions::from_xml_element(child_node)?),
+                        _ => (),
+                    }
 
-                Ok(instance)
-            });
+                    Ok(instance)
+                });
 
         let instance = fold_result?;
         if !instance.captions.is_empty() {
@@ -1130,7 +1151,8 @@ impl ReadingModeInkLockDown {
             }
         }
 
-        let use_actual_pages = use_actual_pages.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "w:actualPg"))?;
+        let use_actual_pages =
+            use_actual_pages.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "w:actualPg"))?;
         let width = width.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "w:w"))?;
         let height = height.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "w:h"))?;
         let font_size = font_size.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "w:fontSz"))?;
@@ -1166,7 +1188,8 @@ impl SmartTagType {
             }
         }
 
-        let namespaceuri = namespaceuri.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "w:namespaceuri"))?;
+        let namespaceuri =
+            namespaceuri.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "w:namespaceuri"))?;
         let name = name.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "w:name"))?;
         let url = url.ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "w:url"))?;
 
@@ -1296,81 +1319,81 @@ pub struct Settings {
     pub drawing_grid_horizontal_origin: Option<TwipsMeasure>,
     // <xsd:element name="drawingGridVerticalOrigin" type="CT_TwipsMeasure" minOccurs="0"/>
     pub drawing_grid_vertical_origin: Option<TwipsMeasure>,
-//       <xsd:element name="doNotShadeFormData" type="CT_OnOff" minOccurs="0"/>
+    //       <xsd:element name="doNotShadeFormData" type="CT_OnOff" minOccurs="0"/>
     pub do_not_shade_form_data: Option<OnOff>,
-//       <xsd:element name="noPunctuationKerning" type="CT_OnOff" minOccurs="0"/>
+    //       <xsd:element name="noPunctuationKerning" type="CT_OnOff" minOccurs="0"/>
     pub no_punctuation_kerning: Option<OnOff>,
-//       <xsd:element name="characterSpacingControl" type="CT_CharacterSpacing" minOccurs="0"/>
+    //       <xsd:element name="characterSpacingControl" type="CT_CharacterSpacing" minOccurs="0"/>
     pub character_spacing_control: Option<CharacterSpacing>,
-//       <xsd:element name="printTwoOnOne" type="CT_OnOff" minOccurs="0"/>
+    //       <xsd:element name="printTwoOnOne" type="CT_OnOff" minOccurs="0"/>
     pub print_two_on_one: Option<OnOff>,
-//       <xsd:element name="strictFirstAndLastChars" type="CT_OnOff" minOccurs="0"/>
+    //       <xsd:element name="strictFirstAndLastChars" type="CT_OnOff" minOccurs="0"/>
     pub strict_first_and_last_chars: Option<OnOff>,
-//       <xsd:element name="noLineBreaksAfter" type="CT_Kinsoku" minOccurs="0"/>
+    //       <xsd:element name="noLineBreaksAfter" type="CT_Kinsoku" minOccurs="0"/>
     pub no_line_breaks_after: Option<Kinsoku>,
-//       <xsd:element name="noLineBreaksBefore" type="CT_Kinsoku" minOccurs="0"/>
+    //       <xsd:element name="noLineBreaksBefore" type="CT_Kinsoku" minOccurs="0"/>
     pub no_line_breaks_before: Option<Kinsoku>,
-//       <xsd:element name="savePreviewPicture" type="CT_OnOff" minOccurs="0"/>
+    //       <xsd:element name="savePreviewPicture" type="CT_OnOff" minOccurs="0"/>
     pub save_preview_picture: Option<OnOff>,
-//       <xsd:element name="doNotValidateAgainstSchema" type="CT_OnOff" minOccurs="0"/>
+    //       <xsd:element name="doNotValidateAgainstSchema" type="CT_OnOff" minOccurs="0"/>
     pub do_not_validate_against_schema: Option<OnOff>,
-//       <xsd:element name="saveInvalidXml" type="CT_OnOff" minOccurs="0"/>
+    //       <xsd:element name="saveInvalidXml" type="CT_OnOff" minOccurs="0"/>
     pub save_invalid_xml: Option<OnOff>,
-//       <xsd:element name="ignoreMixedContent" type="CT_OnOff" minOccurs="0"/>
+    //       <xsd:element name="ignoreMixedContent" type="CT_OnOff" minOccurs="0"/>
     pub ignore_mixed_content: Option<OnOff>,
-//       <xsd:element name="alwaysShowPlaceholderText" type="CT_OnOff" minOccurs="0"/>
+    //       <xsd:element name="alwaysShowPlaceholderText" type="CT_OnOff" minOccurs="0"/>
     pub always_show_placeholder_text: Option<OnOff>,
-//       <xsd:element name="doNotDemarcateInvalidXml" type="CT_OnOff" minOccurs="0"/>
+    //       <xsd:element name="doNotDemarcateInvalidXml" type="CT_OnOff" minOccurs="0"/>
     pub do_not_demarcate_invalid_xml: Option<OnOff>,
-//       <xsd:element name="saveXmlDataOnly" type="CT_OnOff" minOccurs="0"/>
+    //       <xsd:element name="saveXmlDataOnly" type="CT_OnOff" minOccurs="0"/>
     pub save_xml_data_only: Option<OnOff>,
-//       <xsd:element name="useXSLTWhenSaving" type="CT_OnOff" minOccurs="0"/>
+    //       <xsd:element name="useXSLTWhenSaving" type="CT_OnOff" minOccurs="0"/>
     pub use_xslt_when_saving: Option<OnOff>,
-//       <xsd:element name="saveThroughXslt" type="CT_SaveThroughXslt" minOccurs="0"/>
+    //       <xsd:element name="saveThroughXslt" type="CT_SaveThroughXslt" minOccurs="0"/>
     pub save_through_xslt: Option<SaveThroughXslt>,
-//       <xsd:element name="showXMLTags" type="CT_OnOff" minOccurs="0"/>
+    //       <xsd:element name="showXMLTags" type="CT_OnOff" minOccurs="0"/>
     pub show_xml_tags: Option<OnOff>,
-//       <xsd:element name="alwaysMergeEmptyNamespace" type="CT_OnOff" minOccurs="0"/>
+    //       <xsd:element name="alwaysMergeEmptyNamespace" type="CT_OnOff" minOccurs="0"/>
     pub always_merge_empty_namespace: Option<OnOff>,
-//       <xsd:element name="updateFields" type="CT_OnOff" minOccurs="0"/>
+    //       <xsd:element name="updateFields" type="CT_OnOff" minOccurs="0"/>
     pub update_fields: Option<OnOff>,
-//       <xsd:element name="footnotePr" type="CT_FtnDocProps" minOccurs="0"/>
+    //       <xsd:element name="footnotePr" type="CT_FtnDocProps" minOccurs="0"/>
     pub footnote_properties: Option<FtnDocProps>,
-//       <xsd:element name="endnotePr" type="CT_EdnDocProps" minOccurs="0"/>
+    //       <xsd:element name="endnotePr" type="CT_EdnDocProps" minOccurs="0"/>
     pub endnote_properties: Option<EdnDocProps>,
-//       <xsd:element name="compat" type="CT_Compat" minOccurs="0"/>
+    //       <xsd:element name="compat" type="CT_Compat" minOccurs="0"/>
     pub compatibility: Option<Compat>,
-//       <xsd:element name="docVars" type="CT_DocVars" minOccurs="0"/>
+    //       <xsd:element name="docVars" type="CT_DocVars" minOccurs="0"/>
     pub document_variables: Option<DocVars>,
-//       <xsd:element name="rsids" type="CT_DocRsids" minOccurs="0"/>
+    //       <xsd:element name="rsids" type="CT_DocRsids" minOccurs="0"/>
     pub revision_ids: Option<DocRsids>,
-//       <xsd:element ref="m:mathPr" minOccurs="0" maxOccurs="1"/>
+    //       <xsd:element ref="m:mathPr" minOccurs="0" maxOccurs="1"/>
     // TODO(kalmar.robert): Implement
-//       <xsd:element name="attachedSchema" type="CT_String" minOccurs="0" maxOccurs="unbounded"/>
+    //       <xsd:element name="attachedSchema" type="CT_String" minOccurs="0" maxOccurs="unbounded"/>
     pub attached_schemas: Vec<String>,
-//       <xsd:element name="themeFontLang" type="CT_Language" minOccurs="0" maxOccurs="1"/>
+    //       <xsd:element name="themeFontLang" type="CT_Language" minOccurs="0" maxOccurs="1"/>
     pub theme_font_lang: Option<Language>,
-//       <xsd:element name="clrSchemeMapping" type="CT_ColorSchemeMapping" minOccurs="0"/>
+    //       <xsd:element name="clrSchemeMapping" type="CT_ColorSchemeMapping" minOccurs="0"/>
     pub color_scheme_mapping: Option<ColorSchemeMapping>,
-//       <xsd:element name="doNotIncludeSubdocsInStats" type="CT_OnOff" minOccurs="0"/>
+    //       <xsd:element name="doNotIncludeSubdocsInStats" type="CT_OnOff" minOccurs="0"/>
     pub do_not_include_subdocs_in_stats: Option<OnOff>,
-//       <xsd:element name="doNotAutoCompressPictures" type="CT_OnOff" minOccurs="0"/>
+    //       <xsd:element name="doNotAutoCompressPictures" type="CT_OnOff" minOccurs="0"/>
     pub do_not_auto_compress_pictures: Option<OnOff>,
-//       <xsd:element name="forceUpgrade" type="CT_Empty" minOccurs="0" maxOccurs="1"/>
+    //       <xsd:element name="forceUpgrade" type="CT_Empty" minOccurs="0" maxOccurs="1"/>
     pub force_upgrade: bool,
-//       <xsd:element name="captions" type="CT_Captions" minOccurs="0" maxOccurs="1"/>
+    //       <xsd:element name="captions" type="CT_Captions" minOccurs="0" maxOccurs="1"/>
     pub captions: Option<Captions>,
-//       <xsd:element name="readModeInkLockDown" type="CT_ReadingModeInkLockDown" minOccurs="0"/>
+    //       <xsd:element name="readModeInkLockDown" type="CT_ReadingModeInkLockDown" minOccurs="0"/>
     pub read_move_ink_lock_down: Option<ReadingModeInkLockDown>,
-//       <xsd:element name="smartTagType" type="CT_SmartTagType" minOccurs="0" maxOccurs="unbounded"/>
+    //       <xsd:element name="smartTagType" type="CT_SmartTagType" minOccurs="0" maxOccurs="unbounded"/>
     pub smart_tag_types: Vec<SmartTagType>,
-//       <xsd:element ref="sl:schemaLibrary" minOccurs="0" maxOccurs="1"/>
+    //       <xsd:element ref="sl:schemaLibrary" minOccurs="0" maxOccurs="1"/>
     // TODO(kalmar.robert): Implement
-//       <xsd:element name="doNotEmbedSmartTags" type="CT_OnOff" minOccurs="0"/>
+    //       <xsd:element name="doNotEmbedSmartTags" type="CT_OnOff" minOccurs="0"/>
     pub do_not_embed_smart_tags: Option<OnOff>,
-//       <xsd:element name="decimalSymbol" type="CT_String" minOccurs="0" maxOccurs="1"/>
+    //       <xsd:element name="decimalSymbol" type="CT_String" minOccurs="0" maxOccurs="1"/>
     pub decimal_symbol: Option<String>,
-//       <xsd:element name="listSeparator" type="CT_String" minOccurs="0" maxOccurs="1"/>
+    //       <xsd:element name="listSeparator" type="CT_String" minOccurs="0" maxOccurs="1"/>
     pub list_separator: Option<String>,
 }
 
@@ -1381,82 +1404,159 @@ impl Settings {
             .iter()
             .try_fold(Default::default(), |mut instance: Self, child_node| {
                 match child_node.local_name() {
-                    "writeProtection" => instance.write_protection = Some(WriteProtection::from_xml_element(child_node)?),
+                    "writeProtection" => {
+                        instance.write_protection = Some(WriteProtection::from_xml_element(child_node)?)
+                    }
                     "view" => instance.view = Some(child_node.get_val_attribute()?.parse()?),
                     "zoom" => instance.zoom = Some(Zoom::from_xml_element(child_node)?),
-                    "removePersonalInformation" => instance.remove_personal_information = Some(parse_on_off_xml_element(child_node)?),
+                    "removePersonalInformation" => {
+                        instance.remove_personal_information = Some(parse_on_off_xml_element(child_node)?)
+                    }
                     "removeDateAndTime" => instance.remove_date_and_time = Some(parse_on_off_xml_element(child_node)?),
-                    "doNotDisplayPageBoundaries" => instance.do_not_display_page_boundaries = Some(parse_on_off_xml_element(child_node)?),
-                    "displayBackgroundShape" => instance.display_background_shape = Some(parse_on_off_xml_element(child_node)?),
-                    "printPostScriptOverText" => instance.print_post_script_over_text = Some(parse_on_off_xml_element(child_node)?),
-                    "printFractionalCharacterWidth" => instance.print_fractional_character_width = Some(parse_on_off_xml_element(child_node)?),
+                    "doNotDisplayPageBoundaries" => {
+                        instance.do_not_display_page_boundaries = Some(parse_on_off_xml_element(child_node)?)
+                    }
+                    "displayBackgroundShape" => {
+                        instance.display_background_shape = Some(parse_on_off_xml_element(child_node)?)
+                    }
+                    "printPostScriptOverText" => {
+                        instance.print_post_script_over_text = Some(parse_on_off_xml_element(child_node)?)
+                    }
+                    "printFractionalCharacterWidth" => {
+                        instance.print_fractional_character_width = Some(parse_on_off_xml_element(child_node)?)
+                    }
                     "printFormsData" => instance.print_forms_data = Some(parse_on_off_xml_element(child_node)?),
-                    "embedTrueTypeFonts" => instance.embed_true_type_fonts = Some(parse_on_off_xml_element(child_node)?),
+                    "embedTrueTypeFonts" => {
+                        instance.embed_true_type_fonts = Some(parse_on_off_xml_element(child_node)?)
+                    }
                     "embedSystemFonts" => instance.embed_system_fonts = Some(parse_on_off_xml_element(child_node)?),
                     "saveSubsetFonts" => instance.save_subset_fonts = Some(parse_on_off_xml_element(child_node)?),
                     "saveFormsData" => instance.save_forms_data = Some(parse_on_off_xml_element(child_node)?),
                     "mirrorMargins" => instance.mirror_margins = Some(parse_on_off_xml_element(child_node)?),
-                    "alignBordersAndEdges" => instance.align_borders_and_edges = Some(parse_on_off_xml_element(child_node)?),
-                    "bordersDoNotSurroundHeader" => instance.borders_do_not_surround_header = Some(parse_on_off_xml_element(child_node)?),
-                    "bordersDoNotSurroundFooter" => instance.borders_do_not_surround_footer = Some(parse_on_off_xml_element(child_node)?),
+                    "alignBordersAndEdges" => {
+                        instance.align_borders_and_edges = Some(parse_on_off_xml_element(child_node)?)
+                    }
+                    "bordersDoNotSurroundHeader" => {
+                        instance.borders_do_not_surround_header = Some(parse_on_off_xml_element(child_node)?)
+                    }
+                    "bordersDoNotSurroundFooter" => {
+                        instance.borders_do_not_surround_footer = Some(parse_on_off_xml_element(child_node)?)
+                    }
                     "gutterAtTop" => instance.gutter_at_top = Some(parse_on_off_xml_element(child_node)?),
                     "hideSpellingErrors" => instance.hide_spelling_errors = Some(parse_on_off_xml_element(child_node)?),
-                    "hideGrammaticalErrors" => instance.hide_grammatical_errors = Some(parse_on_off_xml_element(child_node)?),
-                    "activeWritingStyle" => instance.active_writing_styles.push(WritingStyle::from_xml_element(child_node)?),
+                    "hideGrammaticalErrors" => {
+                        instance.hide_grammatical_errors = Some(parse_on_off_xml_element(child_node)?)
+                    }
+                    "activeWritingStyle" => instance
+                        .active_writing_styles
+                        .push(WritingStyle::from_xml_element(child_node)?),
                     "proofState" => instance.proof_state = Some(Proof::from_xml_element(child_node)?),
                     "formsDesign" => instance.forms_design = Some(parse_on_off_xml_element(child_node)?),
                     "attachedTemplate" => instance.attached_template = Some(Rel::from_xml_element(child_node)?),
                     "linkStyles" => instance.link_styles = Some(parse_on_off_xml_element(child_node)?),
-                    "stylePaneFormatFilter" => instance.style_pane_format_filter = Some(StylePaneFilter::from_xml_element(child_node)?),
-                    "stylePaneSortMethod" => instance.style_pane_sort_method = Some(child_node.get_val_attribute()?.parse()?),
+                    "stylePaneFormatFilter" => {
+                        instance.style_pane_format_filter = Some(StylePaneFilter::from_xml_element(child_node)?)
+                    }
+                    "stylePaneSortMethod" => {
+                        instance.style_pane_sort_method = Some(child_node.get_val_attribute()?.parse()?)
+                    }
                     "documentType" => instance.document_type = Some(child_node.get_val_attribute()?.clone()),
                     "mailMerge" => instance.mail_merge = Some(MailMerge::from_xml_element(child_node)?),
                     "revisionView" => instance.revision_view = Some(TrackChangesView::from_xml_element(child_node)?),
                     "trackRevisions" => instance.track_revisions = Some(parse_on_off_xml_element(child_node)?),
                     "doNotTrackMoves" => instance.do_not_track_moves = Some(parse_on_off_xml_element(child_node)?),
-                    "doNotTrackFormatting" => instance.do_not_track_formatting = Some(parse_on_off_xml_element(child_node)?),
-                    "documentProtection" => instance.document_protection = Some(DocProtect::from_xml_element(child_node)?),
+                    "doNotTrackFormatting" => {
+                        instance.do_not_track_formatting = Some(parse_on_off_xml_element(child_node)?)
+                    }
+                    "documentProtection" => {
+                        instance.document_protection = Some(DocProtect::from_xml_element(child_node)?)
+                    }
                     "autoFormatOverride" => instance.auto_format_override = Some(parse_on_off_xml_element(child_node)?),
                     "styleLockTheme" => instance.style_lock_theme = Some(parse_on_off_xml_element(child_node)?),
                     "styleLockQFSet" => instance.style_lock_set = Some(parse_on_off_xml_element(child_node)?),
                     "defaultTabStop" => instance.default_tab_stop = Some(child_node.get_val_attribute()?.parse()?),
                     "autoHyphenation" => instance.auto_hyphenation = Some(parse_on_off_xml_element(child_node)?),
-                    "consecutiveHyphenLimit" => instance.consecutive_hyphen_limit = Some(child_node.get_val_attribute()?.parse()?),
+                    "consecutiveHyphenLimit" => {
+                        instance.consecutive_hyphen_limit = Some(child_node.get_val_attribute()?.parse()?)
+                    }
                     "hyphenationZone" => instance.hyphenation_zone = Some(child_node.get_val_attribute()?.parse()?),
-                    "doNotHyphenateCaps" => instance.do_not_hyphenate_capitals = Some(parse_on_off_xml_element(child_node)?),
+                    "doNotHyphenateCaps" => {
+                        instance.do_not_hyphenate_capitals = Some(parse_on_off_xml_element(child_node)?)
+                    }
                     "showEnvelope" => instance.show_envelope = Some(parse_on_off_xml_element(child_node)?),
                     "summaryLength" => instance.summary_length = Some(child_node.get_val_attribute()?.parse()?),
-                    "clickAndTypeStyle" => instance.click_and_type_style = Some(child_node.get_val_attribute()?.clone()),
+                    "clickAndTypeStyle" => {
+                        instance.click_and_type_style = Some(child_node.get_val_attribute()?.clone())
+                    }
                     "defaultTableStyle" => instance.default_table_style = Some(child_node.get_val_attribute()?.clone()),
                     "evenAndOddHeaders" => instance.even_and_odd_headers = Some(parse_on_off_xml_element(child_node)?),
-                    "bookFoldRevPrinting" => instance.book_fold_revision_printing = Some(parse_on_off_xml_element(child_node)?),
+                    "bookFoldRevPrinting" => {
+                        instance.book_fold_revision_printing = Some(parse_on_off_xml_element(child_node)?)
+                    }
                     "bookFoldPrinting" => instance.book_fold_printing = Some(parse_on_off_xml_element(child_node)?),
-                    "bookFoldPrintingSheets" => instance.book_fold_printing_sheets = Some(parse_on_off_xml_element(child_node)?),
-                    "drawingGridHorizontalSpacing" => instance.drawing_grid_horizontal_spacing = Some(child_node.get_val_attribute()?.parse()?),
-                    "drawingGridVerticalSpacing" => instance.drawing_grid_vertical_spacing = Some(child_node.get_val_attribute()?.parse()?),
-                    "displayHorizontalDrawingGridEvery" => instance.display_horizontal_drawing_grid_every = Some(child_node.get_val_attribute()?.parse()?),
-                    "displayVerticalDrawingGridEvery" => instance.display_vertical_drawing_grid_every = Some(child_node.get_val_attribute()?.parse()?),
-                    "doNotUseMarginsForDrawingGridOrigin" => instance.do_not_use_margins_for_drawing_grid_origin = Some(parse_on_off_xml_element(child_node)?),
-                    "drawingGridHorizontalOrigin" => instance.drawing_grid_horizontal_origin = Some(child_node.get_val_attribute()?.parse()?),
-                    "drawingGridVerticalOrigin" => instance.drawing_grid_vertical_origin = Some(child_node.get_val_attribute()?.parse()?),
-                    "doNotShadeFormData" => instance.do_not_shade_form_data = Some(parse_on_off_xml_element(child_node)?),
-                    "noPunctuationKerning" => instance.no_punctuation_kerning = Some(parse_on_off_xml_element(child_node)?),
-                    "characterSpacingControl" => instance.character_spacing_control = Some(child_node.get_val_attribute()?.parse()?),
+                    "bookFoldPrintingSheets" => {
+                        instance.book_fold_printing_sheets = Some(parse_on_off_xml_element(child_node)?)
+                    }
+                    "drawingGridHorizontalSpacing" => {
+                        instance.drawing_grid_horizontal_spacing = Some(child_node.get_val_attribute()?.parse()?)
+                    }
+                    "drawingGridVerticalSpacing" => {
+                        instance.drawing_grid_vertical_spacing = Some(child_node.get_val_attribute()?.parse()?)
+                    }
+                    "displayHorizontalDrawingGridEvery" => {
+                        instance.display_horizontal_drawing_grid_every = Some(child_node.get_val_attribute()?.parse()?)
+                    }
+                    "displayVerticalDrawingGridEvery" => {
+                        instance.display_vertical_drawing_grid_every = Some(child_node.get_val_attribute()?.parse()?)
+                    }
+                    "doNotUseMarginsForDrawingGridOrigin" => {
+                        instance.do_not_use_margins_for_drawing_grid_origin =
+                            Some(parse_on_off_xml_element(child_node)?)
+                    }
+                    "drawingGridHorizontalOrigin" => {
+                        instance.drawing_grid_horizontal_origin = Some(child_node.get_val_attribute()?.parse()?)
+                    }
+                    "drawingGridVerticalOrigin" => {
+                        instance.drawing_grid_vertical_origin = Some(child_node.get_val_attribute()?.parse()?)
+                    }
+                    "doNotShadeFormData" => {
+                        instance.do_not_shade_form_data = Some(parse_on_off_xml_element(child_node)?)
+                    }
+                    "noPunctuationKerning" => {
+                        instance.no_punctuation_kerning = Some(parse_on_off_xml_element(child_node)?)
+                    }
+                    "characterSpacingControl" => {
+                        instance.character_spacing_control = Some(child_node.get_val_attribute()?.parse()?)
+                    }
                     "printTwoOnOne" => instance.print_two_on_one = Some(parse_on_off_xml_element(child_node)?),
-                    "strictFirstAndLastChars" => instance.strict_first_and_last_chars = Some(parse_on_off_xml_element(child_node)?),
+                    "strictFirstAndLastChars" => {
+                        instance.strict_first_and_last_chars = Some(parse_on_off_xml_element(child_node)?)
+                    }
                     "noLineBreaksAfter" => instance.no_line_breaks_after = Some(Kinsoku::from_xml_element(child_node)?),
-                    "noLineBreaksBefore" => instance.no_line_breaks_before = Some(Kinsoku::from_xml_element(child_node)?),
+                    "noLineBreaksBefore" => {
+                        instance.no_line_breaks_before = Some(Kinsoku::from_xml_element(child_node)?)
+                    }
                     "savePreviewPicture" => instance.save_preview_picture = Some(parse_on_off_xml_element(child_node)?),
-                    "doNotValidateAgainstSchema" => instance.do_not_validate_against_schema = Some(parse_on_off_xml_element(child_node)?),
+                    "doNotValidateAgainstSchema" => {
+                        instance.do_not_validate_against_schema = Some(parse_on_off_xml_element(child_node)?)
+                    }
                     "saveInvalidXml" => instance.save_invalid_xml = Some(parse_on_off_xml_element(child_node)?),
                     "ignoreMixedContent" => instance.ignore_mixed_content = Some(parse_on_off_xml_element(child_node)?),
-                    "alwaysShowPlaceholderText" => instance.always_show_placeholder_text = Some(parse_on_off_xml_element(child_node)?),
-                    "doNotDemarcateInvalidXml" => instance.do_not_demarcate_invalid_xml = Some(parse_on_off_xml_element(child_node)?),
+                    "alwaysShowPlaceholderText" => {
+                        instance.always_show_placeholder_text = Some(parse_on_off_xml_element(child_node)?)
+                    }
+                    "doNotDemarcateInvalidXml" => {
+                        instance.do_not_demarcate_invalid_xml = Some(parse_on_off_xml_element(child_node)?)
+                    }
                     "saveXmlDataOnly" => instance.save_xml_data_only = Some(parse_on_off_xml_element(child_node)?),
                     "useXSLTWhenSaving" => instance.use_xslt_when_saving = Some(parse_on_off_xml_element(child_node)?),
-                    "saveThroughXslt" => instance.save_through_xslt = Some(SaveThroughXslt::from_xml_element(child_node)),
+                    "saveThroughXslt" => {
+                        instance.save_through_xslt = Some(SaveThroughXslt::from_xml_element(child_node))
+                    }
                     "showXMLTags" => instance.show_xml_tags = Some(parse_on_off_xml_element(child_node)?),
-                    "alwaysMergeEmptyNamespace" => instance.always_merge_empty_namespace = Some(parse_on_off_xml_element(child_node)?),
+                    "alwaysMergeEmptyNamespace" => {
+                        instance.always_merge_empty_namespace = Some(parse_on_off_xml_element(child_node)?)
+                    }
                     "updateFields" => instance.update_fields = Some(parse_on_off_xml_element(child_node)?),
                     "footnotePr" => instance.footnote_properties = Some(FtnDocProps::from_xml_element(child_node)?),
                     "endnotePr" => instance.endnote_properties = Some(EdnDocProps::from_xml_element(child_node)?),
@@ -1465,14 +1565,26 @@ impl Settings {
                     "rsids" => instance.revision_ids = Some(DocRsids::from_xml_element(child_node)?),
                     "attachedSchema" => instance.attached_schemas.push(child_node.get_val_attribute()?.clone()),
                     "themeFontLang" => instance.theme_font_lang = Some(Language::from_xml_element(child_node)),
-                    "clrSchemeMapping" => instance.color_scheme_mapping = Some(ColorSchemeMapping::from_xml_element(child_node)?),
-                    "doNotIncludeSubdocsInStats" => instance.do_not_include_subdocs_in_stats = Some(parse_on_off_xml_element(child_node)?),
-                    "doNotAutoCompressPictures" => instance.do_not_auto_compress_pictures = Some(parse_on_off_xml_element(child_node)?),
+                    "clrSchemeMapping" => {
+                        instance.color_scheme_mapping = Some(ColorSchemeMapping::from_xml_element(child_node)?)
+                    }
+                    "doNotIncludeSubdocsInStats" => {
+                        instance.do_not_include_subdocs_in_stats = Some(parse_on_off_xml_element(child_node)?)
+                    }
+                    "doNotAutoCompressPictures" => {
+                        instance.do_not_auto_compress_pictures = Some(parse_on_off_xml_element(child_node)?)
+                    }
                     "forceUpgrade" => instance.force_upgrade = true,
                     "captions" => instance.captions = Some(Captions::from_xml_element(child_node)?),
-                    "readModeInkLockDown" => instance.read_move_ink_lock_down = Some(ReadingModeInkLockDown::from_xml_element(child_node)?),
-                    "smartTagType" => instance.smart_tag_types.push(SmartTagType::from_xml_element(child_node)?),
-                    "doNotEmbedSmartTags" => instance.do_not_embed_smart_tags = Some(parse_on_off_xml_element(child_node)?),
+                    "readModeInkLockDown" => {
+                        instance.read_move_ink_lock_down = Some(ReadingModeInkLockDown::from_xml_element(child_node)?)
+                    }
+                    "smartTagType" => instance
+                        .smart_tag_types
+                        .push(SmartTagType::from_xml_element(child_node)?),
+                    "doNotEmbedSmartTags" => {
+                        instance.do_not_embed_smart_tags = Some(parse_on_off_xml_element(child_node)?)
+                    }
                     "decimalSymbol" => instance.decimal_symbol = Some(child_node.get_val_attribute()?.clone()),
                     "listSeparator" => instance.list_separator = Some(child_node.get_val_attribute()?.clone()),
                     _ => (),
@@ -1489,10 +1601,15 @@ mod tests {
     use msoffice_shared::sharedtypes::Percentage;
 
     impl Password {
-        pub const TEST_ATTRIBUTES: &'static str = r#"w:algorithmName="MD5" w:hashValue="Some hash" w:saltValue="Some salt" w:spinCount="1""#;
+        pub const TEST_ATTRIBUTES: &'static str =
+            r#"w:algorithmName="MD5" w:hashValue="Some hash" w:saltValue="Some salt" w:spinCount="1""#;
 
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name} {}></{node_name}>"#, Self::TEST_ATTRIBUTES, node_name=node_name)
+            format!(
+                r#"<{node_name} {}></{node_name}>"#,
+                Self::TEST_ATTRIBUTES,
+                node_name = node_name
+            )
         }
 
         pub fn test_instance() -> Self {
@@ -1516,7 +1633,11 @@ mod tests {
 
     impl WriteProtection {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name} w:recommended="true" {}></{node_name}>"#, Password::TEST_ATTRIBUTES, node_name=node_name)
+            format!(
+                r#"<{node_name} w:recommended="true" {}></{node_name}>"#,
+                Password::TEST_ATTRIBUTES,
+                node_name = node_name
+            )
         }
 
         pub fn test_instance() -> Self {
@@ -1538,13 +1659,16 @@ mod tests {
 
     impl Zoom {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name} w:val="fullPage" w:percent="100%"></{node_name}>"#, node_name = node_name)
+            format!(
+                r#"<{node_name} w:val="fullPage" w:percent="100%"></{node_name}>"#,
+                node_name = node_name
+            )
         }
 
         pub fn test_instance() -> Self {
             Self {
                 value: Some(ZoomType::FullPage),
-                percent: DecimalNumberOrPercent::Percentage(Percentage(100.0))
+                percent: DecimalNumberOrPercent::Percentage(Percentage(100.0)),
             }
         }
     }
@@ -1630,7 +1754,10 @@ mod tests {
 
     impl Proof {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name} w:spelling="clean" w:grammar="dirty"></{node_name}>"#, node_name = node_name)
+            format!(
+                r#"<{node_name} w:spelling="clean" w:grammar="dirty"></{node_name}>"#,
+                node_name = node_name
+            )
         }
 
         pub fn test_instance() -> Self {
@@ -1652,7 +1779,8 @@ mod tests {
 
     impl OdsoFieldMapData {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name}>
+            format!(
+                r#"<{node_name}>
                 <type w:val="dbColumn" />
                 <name w:val="first" />
                 <mappedName w:val="First Name" />
@@ -1687,7 +1815,8 @@ mod tests {
 
     impl Odso {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name}>
+            format!(
+                r#"<{node_name}>
                 <udl w:val="Provider=Example" />
                 <table w:val="Some table" />
                 <src r:id="rId1" />
@@ -1706,12 +1835,16 @@ mod tests {
             Self {
                 udl: Some(String::from("Provider=Example")),
                 table: Some(String::from("Some table")),
-                source: Some(Rel { rel_id: String::from("rId1") }),
+                source: Some(Rel {
+                    rel_id: String::from("rId1"),
+                }),
                 column_delimiter: Some(44),
                 mail_merge_source_type: Some(MailMergeSourceType::Database),
                 first_header: Some(true),
                 field_map_datas: vec![OdsoFieldMapData::test_instance()],
-                recipient_datas: vec![Rel { rel_id: String::from("rId2") }],
+                recipient_datas: vec![Rel {
+                    rel_id: String::from("rId2"),
+                }],
             }
         }
     }
@@ -1727,7 +1860,8 @@ mod tests {
 
     impl MailMerge {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name}>
+            format!(
+                r#"<{node_name}>
                 <mainDocumentType w:val="catalog" />
                 <linkToQuery />
                 <dataType w:val="database" />
@@ -1757,8 +1891,12 @@ mod tests {
                 data_type: MailMergeDataType::from("database"),
                 connect_string: Some(String::from("Provider=Example")),
                 query: Some(String::from("SELECT * FROM Documentation")),
-                data_source: Some(Rel { rel_id: String::from("rId1") }),
-                header_source: Some(Rel { rel_id: String::from("rId2") }),
+                data_source: Some(Rel {
+                    rel_id: String::from("rId1"),
+                }),
+                header_source: Some(Rel {
+                    rel_id: String::from("rId2"),
+                }),
                 do_not_suppress_blank_lines: Some(true),
                 destination: Some(MailMergeDest::NewDocument),
                 address_field_name: Some(String::from("Alternate Email Address")),
@@ -1811,7 +1949,8 @@ mod tests {
 
     impl DocProtect {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name} w:edit="none" w:formatting="true" w:enforcement="true" {}></{node_name}>"#,
+            format!(
+                r#"<{node_name} w:edit="none" w:formatting="true" w:enforcement="true" {}></{node_name}>"#,
                 Password::TEST_ATTRIBUTES,
                 node_name = node_name,
             )
@@ -1838,7 +1977,10 @@ mod tests {
 
     impl Kinsoku {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name} w:lang="ja-JP" w:val="$"></{node_name}>"#, node_name = node_name)
+            format!(
+                r#"<{node_name} w:lang="ja-JP" w:val="$"></{node_name}>"#,
+                node_name = node_name
+            )
         }
 
         pub fn test_instance() -> Self {
@@ -1860,7 +2002,10 @@ mod tests {
 
     impl SaveThroughXslt {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name} r:id="rId1" w:solutionID="Some solution"></{node_name}>"#, node_name = node_name)
+            format!(
+                r#"<{node_name} r:id="rId1" w:solutionID="Some solution"></{node_name}>"#,
+                node_name = node_name
+            )
         }
 
         pub fn test_instance() -> Self {
@@ -1901,7 +2046,8 @@ mod tests {
 
     impl FtnDocProps {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name}>
+            format!(
+                r#"<{node_name}>
                 {}
                 {}
             </{node_name}>"#,
@@ -1930,7 +2076,8 @@ mod tests {
 
     impl EdnDocProps {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name}>
+            format!(
+                r#"<{node_name}>
                 {}
                 {}
             </{node_name}>"#,
@@ -1959,7 +2106,8 @@ mod tests {
 
     impl CompatSetting {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name} w:name="cooper" w:uri="http://www.example.com/exampleSetting" w:val="1">
+            format!(
+                r#"<{node_name} w:name="cooper" w:uri="http://www.example.com/exampleSetting" w:val="1">
             </{node_name}>"#,
                 node_name = node_name,
             )
@@ -1985,7 +2133,8 @@ mod tests {
 
     impl Compat {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name}>
+            format!(
+                r#"<{node_name}>
                 <spaceForUL />
                 <balanceSingleByteDoubleByteWidth />
                 <doNotLeaveBackslashAlone />
@@ -2025,7 +2174,10 @@ mod tests {
 
     impl DocVar {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name} w:name="Example name" w:val="Example value"></{node_name}>"#, node_name = node_name)
+            format!(
+                r#"<{node_name} w:name="Example name" w:val="Example value"></{node_name}>"#,
+                node_name = node_name
+            )
         }
 
         pub fn test_instance() -> Self {
@@ -2047,7 +2199,8 @@ mod tests {
 
     impl DocVars {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name}>{doc_var}{doc_var}</{node_name}>"#,
+            format!(
+                r#"<{node_name}>{doc_var}{doc_var}</{node_name}>"#,
                 doc_var = DocVar::test_xml("docVar"),
                 node_name = node_name,
             )
@@ -2069,7 +2222,8 @@ mod tests {
 
     impl DocRsids {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name}>
+            format!(
+                r#"<{node_name}>
                 <rsidRoot w:val="ffffffff" />
                 <rsid w:val="ffffffff" />
                 <rsid w:val="ffffffff" />
@@ -2097,7 +2251,8 @@ mod tests {
 
     impl ColorSchemeMapping {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name} w:bg1="light1" w:t1="dark1" w:bg2="light2" w:t2="dark2" w:accent1="accent1"
+            format!(
+                r#"<{node_name} w:bg1="light1" w:t1="dark1" w:bg2="light2" w:t2="dark2" w:accent1="accent1"
                 w:accent2="accent2" w:accent3="accent3" w:accent4="accent4" w:accent5="accent5" w:accent6="accent6"
                 w:hyperlink="hyperlink" w:followedHyperlink="followedHyperlink">
             </{node_name}>"#,
@@ -2134,7 +2289,8 @@ mod tests {
 
     impl Caption {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name} w:name="Example name" w:pos="below" w:chapNum="true" w:heading="0" w:noLabel="true"
+            format!(
+                r#"<{node_name} w:name="Example name" w:pos="below" w:chapNum="true" w:heading="0" w:noLabel="true"
                 w:numFmt="decimal" w:sep="hyphen">
             </{node_name}>"#,
                 node_name = node_name,
@@ -2165,7 +2321,10 @@ mod tests {
 
     impl AutoCaption {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name} w:name="Example name" w:caption="Example caption"></{node_name}>"#, node_name = node_name)
+            format!(
+                r#"<{node_name} w:name="Example name" w:caption="Example caption"></{node_name}>"#,
+                node_name = node_name
+            )
         }
 
         pub fn test_instance() -> Self {
@@ -2187,7 +2346,8 @@ mod tests {
 
     impl AutoCaptions {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name}>{auto_caption}{auto_caption}</{node_name}>"#,
+            format!(
+                r#"<{node_name}>{auto_caption}{auto_caption}</{node_name}>"#,
                 auto_caption = AutoCaption::test_xml("autoCaption"),
                 node_name = node_name,
             )
@@ -2209,7 +2369,8 @@ mod tests {
 
     impl Captions {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name}>
+            format!(
+                r#"<{node_name}>
                 {}
                 {}
             </{node_name}>"#,
@@ -2238,7 +2399,10 @@ mod tests {
 
     impl ReadingModeInkLockDown {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name} w:actualPg="true" w:w="100" w:h="100" w:fontSz="100%"></{node_name}>"#, node_name = node_name)
+            format!(
+                r#"<{node_name} w:actualPg="true" w:w="100" w:h="100" w:fontSz="100%"></{node_name}>"#,
+                node_name = node_name
+            )
         }
 
         pub fn test_instance() -> Self {
@@ -2262,7 +2426,8 @@ mod tests {
 
     impl SmartTagType {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name} w:namespaceuri="urn:smartTagExample" w:name="Example name"
+            format!(
+                r#"<{node_name} w:namespaceuri="urn:smartTagExample" w:name="Example name"
                 w:url="http://www.example.com/smartTag">
             </{node_name}>"#,
                 node_name = node_name,
@@ -2289,7 +2454,8 @@ mod tests {
 
     impl Settings {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name}>
+            format!(
+                r#"<{node_name}>
                 {}
                 <view w:val="none" />
                 {}
@@ -2436,7 +2602,9 @@ mod tests {
                 active_writing_styles: vec![WritingStyle::test_instance()],
                 proof_state: Some(Proof::test_instance()),
                 forms_design: Some(true),
-                attached_template: Some(Rel { rel_id: RelationshipId::from("rId1") }),
+                attached_template: Some(Rel {
+                    rel_id: RelationshipId::from("rId1"),
+                }),
                 link_styles: Some(true),
                 style_pane_format_filter: Some(StylePaneFilter::test_instance()),
                 style_pane_sort_method: Some(StyleSort::Default),

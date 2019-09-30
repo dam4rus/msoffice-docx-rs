@@ -8557,7 +8557,11 @@ mod tests {
         }
 
         pub fn test_extension_xml() -> String {
-            format!(r#"<pos w:val="pageBottom" />{}{}"#, NumFmt::test_xml("numFmt"), FtnEdnNumProps::test_xml())
+            format!(
+                r#"<pos w:val="pageBottom" />{}{}"#,
+                NumFmt::test_xml("numFmt"),
+                FtnEdnNumProps::test_xml()
+            )
         }
 
         pub fn test_instance() -> Self {
@@ -8580,11 +8584,16 @@ mod tests {
 
     impl EdnProps {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name}>{}</{node_name}>"#, Self::test_extension_xml(), node_name = node_name)
+            format!(
+                r#"<{node_name}>{}</{node_name}>"#,
+                Self::test_extension_xml(),
+                node_name = node_name
+            )
         }
 
         pub fn test_extension_xml() -> String {
-            format!(r#"<pos w:val="docEnd" />
+            format!(
+                r#"<pos w:val="docEnd" />
                 {}
                 {}"#,
                 NumFmt::test_xml("numFmt"),

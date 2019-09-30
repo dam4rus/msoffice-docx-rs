@@ -1,14 +1,14 @@
 use msoffice_shared::{
     drawingml::{
-        diagrams::{BackgroundFormatting, WholeE2oFormatting},
-        simpletypes::{BlackWhiteMode, Coordinate},
+        coordsys::{Point2D, PositiveSize2D, Transform2D},
         core::{
-            GraphicalObject, GroupShapeProperties,NonVisualConnectorProperties, NonVisualContentPartProperties, NonVisualDrawingProps,
-            NonVisualDrawingShapeProps, NonVisualGraphicFrameProperties, NonVisualGroupDrawingShapeProps,
-            ShapeProperties, ShapeStyle,
+            GraphicalObject, GroupShapeProperties, NonVisualConnectorProperties, NonVisualContentPartProperties,
+            NonVisualDrawingProps, NonVisualDrawingShapeProps, NonVisualGraphicFrameProperties,
+            NonVisualGroupDrawingShapeProps, ShapeProperties, ShapeStyle,
         },
+        diagrams::{BackgroundFormatting, WholeE2oFormatting},
         picture::Picture,
-        coordsys::{PositiveSize2D, Transform2D, Point2D},
+        simpletypes::{BlackWhiteMode, Coordinate},
         text::bodyformatting::TextBodyProperties,
     },
     error::{LimitViolationError, MaxOccurs, MissingAttributeError, MissingChildNodeError, NotGroupMemberError},
