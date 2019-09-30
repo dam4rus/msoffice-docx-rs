@@ -8,6 +8,7 @@ use crate::{
         simpletypes::TextScale,
         styles::{PPrDefault, RPrDefault, Style, Styles, TblStylePr},
         table::{TcPr, TrPr},
+        settings::Settings,
     },
 };
 use msoffice_shared::{
@@ -245,9 +246,10 @@ impl ResolvedStyle {
 pub struct Package {
     pub app_info: Option<AppInfo>,
     pub core: Option<Core>,
-    pub main_document: Option<Document>,
+    pub main_document: Option<Box<Document>>,
     pub main_document_relationships: Vec<Relationship>,
-    pub styles: Option<Styles>,
+    pub styles: Option<Box<Styles>>,
+    pub settings: Option<Box<Settings>>,
     pub medias: Vec<PathBuf>,
     pub themes: HashMap<String, OfficeStyleSheet>,
 }
@@ -266,7 +268,7 @@ impl Package {
                 "docProps/core.xml" => instance.core = Some(Core::from_zip_file(&mut zip_file)?),
                 "word/document.xml" => {
                     let xml_node = zip_file_to_xml_node(&mut zip_file)?;
-                    instance.main_document = Some(Document::from_xml_element(&xml_node)?);
+                    instance.main_document = Some(Box::new(Document::from_xml_element(&xml_node)?));
                 }
                 "word/_rels/document.xml.rels" => {
                     instance.main_document_relationships = zip_file_to_xml_node(&mut zip_file)?
@@ -277,7 +279,11 @@ impl Package {
                 }
                 "word/styles.xml" => {
                     let xml_node = zip_file_to_xml_node(&mut zip_file)?;
-                    instance.styles = Some(Styles::from_xml_element(&xml_node)?);
+                    instance.styles = Some(Box::new(Styles::from_xml_element(&xml_node)?));
+                }
+                "word/settings.xml" => {
+                    let xml_node = zip_file_to_xml_node(&mut zip_file)?;
+                    instance.settings = Some(Box::new(Settings::from_xml_element(&xml_node)?));
                 }
                 path if path.starts_with("word/media/") => instance.medias.push(PathBuf::from(file_path)),
                 path if path.starts_with("word/theme/") => {
@@ -420,16 +426,22 @@ fn update_or_toggle_on_off(lhs: Option<OnOff>, rhs: Option<OnOff>) -> Option<OnO
 mod tests {
     use super::{resolve_run_style, Package, ParagraphProperties, RunProperties};
     use crate::wml::{
-        document::{PPr, PPrBase, PPrGeneral, ParaRPr, RPr, RPrBase, TextAlignment, Underline, UnderlineType, P, R},
+        document::{PPr, PPrBase, PPrGeneral, ParaRPr, RPr, RPrBase, TextAlignment, Underline, UnderlineType, P, R, Document},
         styles::{DocDefaults, PPrDefault, RPrDefault, Style, Styles},
+        settings::Settings,
     };
+    use msoffice_shared::docprops::{AppInfo, Core};
 
     #[test]
     fn test_size_of() {
         use std::mem::size_of;
 
-        println!("{}", size_of::<PPrBase>());
-        println!("{}", size_of::<RunProperties>());
+        println!("sizeof Package: {}", size_of::<Package>());
+        println!("sizeof AppInfo: {}", size_of::<AppInfo>());
+        println!("sizeof Core: {}", size_of::<Core>());
+        println!("sizeof Document: {}", size_of::<Document>());
+        println!("sizeof Styles: {}", size_of::<Styles>());
+        println!("sizeof Settings: {}", size_of::<Settings>());
     }
 
     fn doc_defaults_for_test() -> DocDefaults {
@@ -525,11 +537,11 @@ mod tests {
     #[test]
     pub fn test_resolve_default_style() {
         let package = Package {
-            styles: Some(Styles {
+            styles: Some(Box::new(Styles {
                 document_defaults: Some(doc_defaults_for_test()),
                 latent_styles: None,
                 styles: Vec::new(),
-            }),
+            })),
             ..Default::default()
         };
 
@@ -554,11 +566,11 @@ mod tests {
     #[test]
     pub fn test_resolve_paragraph_style() {
         let package = Package {
-            styles: Some(Styles {
+            styles: Some(Box::new(Styles {
                 document_defaults: None,
                 latent_styles: None,
                 styles: styles_for_test(),
-            }),
+            })),
             ..Default::default()
         };
 
@@ -601,11 +613,11 @@ mod tests {
     #[test]
     pub fn test_resolve_style_inheritance() {
         let package = Package {
-            styles: Some(Styles {
+            styles: Some(Box::new(Styles {
                 document_defaults: Some(doc_defaults_for_test()),
                 latent_styles: None,
                 styles: styles_for_test(),
-            }),
+            })),
             ..Default::default()
         };
 

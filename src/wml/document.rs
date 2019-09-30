@@ -4737,19 +4737,22 @@ impl FtnProps {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
         info!("parsing FtnProps");
 
-        let mut instance: Self = Default::default();
+        xml_node
+            .child_nodes
+            .iter()
+            .try_fold(Default::default(), Self::try_update_from_xml_element)
+    }
 
-        for child_node in &xml_node.child_nodes {
-            match child_node.local_name() {
-                "pos" => instance.position = Some(child_node.get_val_attribute()?.parse()?),
-                "numFmt" => instance.numbering_format = Some(NumFmt::from_xml_element(child_node)?),
-                _ => {
-                    FtnEdnNumProps::try_parse_group_node(&mut instance.numbering_properties, child_node)?;
-                }
+    pub fn try_update_from_xml_element(mut self, xml_node: &XmlNode) -> Result<Self> {
+        match xml_node.local_name() {
+            "pos" => self.position = Some(xml_node.get_val_attribute()?.parse()?),
+            "numFmt" => self.numbering_format = Some(NumFmt::from_xml_element(xml_node)?),
+            _ => {
+                FtnEdnNumProps::try_parse_group_node(&mut self.numbering_properties, xml_node)?;
             }
         }
 
-        Ok(instance)
+        Ok(self)
     }
 }
 
@@ -4772,19 +4775,22 @@ impl EdnProps {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
         info!("parsing EdnProps");
 
-        let mut instance: Self = Default::default();
+        xml_node
+            .child_nodes
+            .iter()
+            .try_fold(Default::default(), Self::try_update_from_xml_element)
+    }
 
-        for child_node in &xml_node.child_nodes {
-            match child_node.local_name() {
-                "pos" => instance.position = Some(child_node.get_val_attribute()?.parse()?),
-                "numFmt" => instance.numbering_format = Some(NumFmt::from_xml_element(child_node)?),
-                _ => {
-                    FtnEdnNumProps::try_parse_group_node(&mut instance.numbering_properties, child_node)?;
-                }
+    pub fn try_update_from_xml_element(mut self, xml_node: &XmlNode) -> Result<Self> {
+        match xml_node.local_name() {
+            "pos" => self.position = Some(xml_node.get_val_attribute()?.parse()?),
+            "numFmt" => self.numbering_format = Some(NumFmt::from_xml_element(xml_node)?),
+            _ => {
+                FtnEdnNumProps::try_parse_group_node(&mut self.numbering_properties, xml_node)?;
             }
         }
 
-        Ok(instance)
+        Ok(self)
     }
 }
 
@@ -8544,15 +8550,14 @@ mod tests {
     impl FtnProps {
         pub fn test_xml(node_name: &'static str) -> String {
             format!(
-                r#"<{node_name}>
-                <pos w:val="pageBottom" />
-                {}
-                {}
-            </{node_name}>"#,
-                NumFmt::test_xml("numFmt"),
-                FtnEdnNumProps::test_xml(),
+                r#"<{node_name}>{}</{node_name}>"#,
+                Self::test_extension_xml(),
                 node_name = node_name,
             )
+        }
+
+        pub fn test_extension_xml() -> String {
+            format!(r#"<pos w:val="pageBottom" />{}{}"#, NumFmt::test_xml("numFmt"), FtnEdnNumProps::test_xml())
         }
 
         pub fn test_instance() -> Self {
@@ -8575,15 +8580,15 @@ mod tests {
 
     impl EdnProps {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(
-                r#"<{node_name}>
-                <pos w:val="docEnd" />
+            format!(r#"<{node_name}>{}</{node_name}>"#, Self::test_extension_xml(), node_name = node_name)
+        }
+
+        pub fn test_extension_xml() -> String {
+            format!(r#"<pos w:val="docEnd" />
                 {}
-                {}
-            </{node_name}>"#,
+                {}"#,
                 NumFmt::test_xml("numFmt"),
                 FtnEdnNumProps::test_xml(),
-                node_name = node_name,
             )
         }
 

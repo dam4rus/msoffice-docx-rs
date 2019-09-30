@@ -15,6 +15,7 @@ fn test_package_load() {
     assert!(package.main_document.is_some());
     assert_eq!(package.main_document_relationships.len(), 14);
     assert!(package.styles.is_some());
+    assert!(package.settings.is_some());
     assert_eq!(package.medias.len(), 4);
     assert_eq!(package.themes.len(), 1);
     package.themes.get("theme1").unwrap();
