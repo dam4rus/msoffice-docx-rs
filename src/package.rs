@@ -6,8 +6,7 @@ use crate::{
         },
         settings::Settings,
         simpletypes::TextScale,
-        styles::{PPrDefault, RPrDefault, Style, Styles, TblStylePr, StyleType},
-        table::{TcPr, TrPr},
+        styles::{Style, Styles, StyleType},
     },
 };
 use log::error;
@@ -409,7 +408,9 @@ impl Package {
 
     pub fn resolve_style_inheritance(&self, paragraph: &P, run: &R) -> Option<ResolvedStyle> {
         let default_style = self.resolve_default_style();
-        let paragraph_style = self.resolve_paragraph_style(paragraph);
+        let paragraph_style = self
+            .resolve_paragraph_style(paragraph)
+            .or_else(|| self.resolve_default_paragraph_style());
         let run_style = resolve_run_style(run);
 
         let calced_style = match (paragraph_style, run_style) {
