@@ -1,13 +1,12 @@
 use crate::{
-    error::{NoSuchFileError, NoSuchStyleError},
     wml::{
         document::{
             Border, Color, Document, EastAsianLayout, Em, FitText, Fonts, HighlightColor, HpsMeasure, Language,
-            PPrBase, RPrBase, Shd, SignedHpsMeasure, SignedTwipsMeasure, TextEffect, Underline, P, R,
+            PPrBase, RPrBase, Shd, SignedHpsMeasure, SignedTwipsMeasure, TextEffect, Underline, P, R, SectPrContents,
         },
         settings::Settings,
         simpletypes::TextScale,
-        styles::{PPrDefault, RPrDefault, Style, Styles, TblStylePr},
+        styles::{PPrDefault, RPrDefault, Style, Styles, TblStylePr, StyleType},
         table::{TcPr, TrPr},
     },
 };
@@ -227,6 +226,22 @@ pub struct ResolvedStyle {
 }
 
 impl ResolvedStyle {
+    pub fn from_wml_style(style: &Style) -> Self {
+        let paragraph_properties = Box::new(style
+            .paragraph_properties
+            .as_ref()
+            .map(|p_pr| p_pr.base.clone())
+            .unwrap_or_default());
+
+        let run_properties = Box::new(style
+            .run_properties
+            .as_ref()
+            .map(|r_pr| RunProperties::from_vec(&r_pr.r_pr_bases))
+            .unwrap_or_default());
+
+        Self { paragraph_properties, run_properties }
+    }
+
     pub fn update_with(mut self, other: Self) -> Self {
         *self.paragraph_properties = self.paragraph_properties.update_with(*other.paragraph_properties);
         *self.run_properties = self.run_properties.update_with(*other.run_properties);
@@ -309,35 +324,55 @@ impl Package {
             .as_ref()
             .and_then(|styles| styles.document_defaults.as_ref())
             .map(|doc_defaults| {
-                let mut resolved_style: ResolvedStyle = Default::default();
-                if let Some(RPrDefault(Some(ref r_pr))) = doc_defaults.run_properties_default {
-                    *resolved_style.run_properties = RunProperties::from_vec(&r_pr.r_pr_bases)
-                }
+                let run_properties = Box::new(doc_defaults
+                    .run_properties_default
+                    .as_ref()
+                    .and_then(|r_pr_default| r_pr_default.0.as_ref())
+                    .map(|r_pr| RunProperties::from_vec(&r_pr.r_pr_bases))
+                    .unwrap_or_default()
+                );
 
-                if let Some(PPrDefault(Some(ref p_pr))) = doc_defaults.paragraph_properties_default {
-                    *resolved_style.paragraph_properties = p_pr.base.clone();
-                }
+                let paragraph_properties = Box::new(doc_defaults
+                    .paragraph_properties_default
+                    .as_ref()
+                    .and_then(|p_pr_default| p_pr_default.0.as_ref())
+                    .map(|p_pr| p_pr.base.clone())
+                    .unwrap_or_default()
+                );
 
-                resolved_style
+                ResolvedStyle{ run_properties, paragraph_properties }
             })
     }
 
-    pub fn resolve_paragraph_style(&self, paragraph: &P) -> Result<Option<ResolvedStyle>, NoSuchStyleError> {
+    pub fn resolve_default_paragraph_style(&self) -> Option<ResolvedStyle> {
+        let styles = self.styles
+            .as_ref()
+            .map(|styles| &styles.styles)?;
+
+        let default_style = styles
+            .iter()
+            .find(|style| match (&style.style_type, &style.is_default) {
+                (Some(StyleType::Paragraph), Some(true)) => true,
+                _ => false
+            })?;
+        
+        Some(ResolvedStyle::from_wml_style(default_style))
+    }
+
+    pub fn resolve_paragraph_style(&self, paragraph: &P) -> Option<ResolvedStyle> {
         paragraph
             .properties
             .as_ref()
             .and_then(|props| props.base.style.as_ref())
-            .map(|style_name| self.resolve_style(style_name))
-            .transpose()
+            .and_then(|style_name| self.resolve_style(style_name))
     }
 
-    fn resolve_style<T: AsRef<str>>(&self, style_id: T) -> Result<ResolvedStyle, NoSuchStyleError> {
+    fn resolve_style<T: AsRef<str>>(&self, style_id: T) -> Option<ResolvedStyle> {
         // TODO(kalmar.robert) Use caching
         let styles = self
             .styles
             .as_ref()
-            .map(|styles| &styles.styles)
-            .ok_or(NoSuchStyleError {})?;
+            .map(|styles| &styles.styles)?;
 
         let top_most_style = styles
             .iter()
@@ -347,15 +382,14 @@ impl Package {
                     .as_ref()
                     .filter(|s_id| (*s_id).as_str() == style_id.as_ref())
                     .is_some()
-            })
-            .ok_or(NoSuchStyleError {})?;
+            })?;
 
         let style_hierarchy: Vec<&Style> = std::iter::successors(Some(top_most_style), |child_style| {
             styles.iter().find(|style| style.style_id == child_style.based_on)
         })
         .collect();
 
-        Ok(style_hierarchy
+        Some(style_hierarchy
             .iter()
             .rev()
             .fold(Default::default(), |mut resolved_style: ResolvedStyle, style| {
@@ -373,9 +407,9 @@ impl Package {
             }))
     }
 
-    pub fn resolve_style_inheritance(&self, paragraph: &P, run: &R) -> Result<Option<ResolvedStyle>, NoSuchStyleError> {
+    pub fn resolve_style_inheritance(&self, paragraph: &P, run: &R) -> Option<ResolvedStyle> {
         let default_style = self.resolve_default_style();
-        let paragraph_style = self.resolve_paragraph_style(paragraph)?;
+        let paragraph_style = self.resolve_paragraph_style(paragraph);
         let run_style = resolve_run_style(run);
 
         let calced_style = match (paragraph_style, run_style) {
@@ -383,25 +417,32 @@ impl Package {
             (p_style, r_style) => p_style.or(r_style),
         };
 
-        Ok(match (default_style, calced_style) {
+        match (default_style, calced_style) {
             (Some(def_style), Some(calced_style)) => Some(def_style.update_with(calced_style)),
             (def_style, calced_style) => def_style.or(calced_style),
-        })
+        }
     }
 
-    pub fn get_main_document_theme(&self) -> Result<&OfficeStyleSheet, NoSuchFileError> {
+    pub fn get_main_document_theme(&self) -> Option<&OfficeStyleSheet> {
         let theme_relation = self
             .main_document_relationships
             .iter()
-            .find(|rel| rel.rel_type == THEME_RELATION_TYPE)
-            .ok_or(NoSuchFileError {})?;
+            .find(|rel| rel.rel_type == THEME_RELATION_TYPE)?;
 
         let rel_target_file = Path::new(theme_relation.target.as_str())
             .file_stem()
-            .and_then(OsStr::to_str)
-            .ok_or(NoSuchFileError {})?;
+            .and_then(OsStr::to_str)?;
 
-        self.themes.get(rel_target_file).ok_or(NoSuchFileError {})
+        self.themes.get(rel_target_file)
+    }
+
+    pub fn get_main_document_section_properties(&self) -> Option<&SectPrContents> {
+        self
+            .main_document
+            .as_ref()
+            .and_then(|main_document| main_document.body.as_ref())
+            .and_then(|body| body.section_properties.as_ref())
+            .and_then(|sect_pr| sect_pr.contents.as_ref())
     }
 }
 
@@ -576,7 +617,7 @@ mod tests {
             ..Default::default()
         };
 
-        let paragraph_style = package.resolve_paragraph_style(&paragraph_for_test()).unwrap().unwrap();
+        let paragraph_style = package.resolve_paragraph_style(&paragraph_for_test()).unwrap();
         assert_eq!(
             *paragraph_style.paragraph_properties,
             ParagraphProperties {
@@ -625,7 +666,6 @@ mod tests {
 
         let style = package
             .resolve_style_inheritance(&paragraph_for_test(), &run_for_test())
-            .unwrap()
             .unwrap();
         assert_eq!(
             *style.paragraph_properties,

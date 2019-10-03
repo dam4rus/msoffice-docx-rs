@@ -937,6 +937,7 @@ impl Fonts {
     }
 }
 
+#[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum UnderlineType {
     #[strum(serialize = "single")]
@@ -4060,6 +4061,7 @@ impl Ind {
     }
 }
 
+#[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum Jc {
     #[strum(serialize = "start")]
