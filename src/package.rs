@@ -1,13 +1,11 @@
-use crate::{
-    wml::{
-        document::{
-            Border, Color, Document, EastAsianLayout, Em, FitText, Fonts, HighlightColor, HpsMeasure, Language,
-            PPrBase, RPrBase, Shd, SignedHpsMeasure, SignedTwipsMeasure, TextEffect, Underline, P, R, SectPrContents,
-        },
-        settings::Settings,
-        simpletypes::TextScale,
-        styles::{Style, Styles, StyleType},
+use crate::wml::{
+    document::{
+        Border, Color, Document, EastAsianLayout, Em, FitText, Fonts, HighlightColor, HpsMeasure, Language, PPrBase,
+        RPrBase, SectPrContents, Shd, SignedHpsMeasure, SignedTwipsMeasure, TextEffect, Underline, P, R,
     },
+    settings::Settings,
+    simpletypes::TextScale,
+    styles::{Style, StyleType, Styles},
 };
 use log::error;
 use msoffice_shared::{
@@ -226,19 +224,26 @@ pub struct ResolvedStyle {
 
 impl ResolvedStyle {
     pub fn from_wml_style(style: &Style) -> Self {
-        let paragraph_properties = Box::new(style
-            .paragraph_properties
-            .as_ref()
-            .map(|p_pr| p_pr.base.clone())
-            .unwrap_or_default());
+        let paragraph_properties = Box::new(
+            style
+                .paragraph_properties
+                .as_ref()
+                .map(|p_pr| p_pr.base.clone())
+                .unwrap_or_default(),
+        );
 
-        let run_properties = Box::new(style
-            .run_properties
-            .as_ref()
-            .map(|r_pr| RunProperties::from_vec(&r_pr.r_pr_bases))
-            .unwrap_or_default());
+        let run_properties = Box::new(
+            style
+                .run_properties
+                .as_ref()
+                .map(|r_pr| RunProperties::from_vec(&r_pr.r_pr_bases))
+                .unwrap_or_default(),
+        );
 
-        Self { paragraph_properties, run_properties }
+        Self {
+            paragraph_properties,
+            run_properties,
+        }
     }
 
     pub fn update_with(mut self, other: Self) -> Self {
@@ -323,38 +328,41 @@ impl Package {
             .as_ref()
             .and_then(|styles| styles.document_defaults.as_ref())
             .map(|doc_defaults| {
-                let run_properties = Box::new(doc_defaults
-                    .run_properties_default
-                    .as_ref()
-                    .and_then(|r_pr_default| r_pr_default.0.as_ref())
-                    .map(|r_pr| RunProperties::from_vec(&r_pr.r_pr_bases))
-                    .unwrap_or_default()
+                let run_properties = Box::new(
+                    doc_defaults
+                        .run_properties_default
+                        .as_ref()
+                        .and_then(|r_pr_default| r_pr_default.0.as_ref())
+                        .map(|r_pr| RunProperties::from_vec(&r_pr.r_pr_bases))
+                        .unwrap_or_default(),
                 );
 
-                let paragraph_properties = Box::new(doc_defaults
-                    .paragraph_properties_default
-                    .as_ref()
-                    .and_then(|p_pr_default| p_pr_default.0.as_ref())
-                    .map(|p_pr| p_pr.base.clone())
-                    .unwrap_or_default()
+                let paragraph_properties = Box::new(
+                    doc_defaults
+                        .paragraph_properties_default
+                        .as_ref()
+                        .and_then(|p_pr_default| p_pr_default.0.as_ref())
+                        .map(|p_pr| p_pr.base.clone())
+                        .unwrap_or_default(),
                 );
 
-                ResolvedStyle{ run_properties, paragraph_properties }
+                ResolvedStyle {
+                    run_properties,
+                    paragraph_properties,
+                }
             })
     }
 
     pub fn resolve_default_paragraph_style(&self) -> Option<ResolvedStyle> {
-        let styles = self.styles
-            .as_ref()
-            .map(|styles| &styles.styles)?;
+        let styles = self.styles.as_ref().map(|styles| &styles.styles)?;
 
         let default_style = styles
             .iter()
             .find(|style| match (&style.style_type, &style.is_default) {
                 (Some(StyleType::Paragraph), Some(true)) => true,
-                _ => false
+                _ => false,
             })?;
-        
+
         Some(ResolvedStyle::from_wml_style(default_style))
     }
 
@@ -368,42 +376,39 @@ impl Package {
 
     fn resolve_style<T: AsRef<str>>(&self, style_id: T) -> Option<ResolvedStyle> {
         // TODO(kalmar.robert) Use caching
-        let styles = self
-            .styles
-            .as_ref()
-            .map(|styles| &styles.styles)?;
+        let styles = self.styles.as_ref().map(|styles| &styles.styles)?;
 
-        let top_most_style = styles
-            .iter()
-            .find(|style| {
-                style
-                    .style_id
-                    .as_ref()
-                    .filter(|s_id| (*s_id).as_str() == style_id.as_ref())
-                    .is_some()
-            })?;
+        let top_most_style = styles.iter().find(|style| {
+            style
+                .style_id
+                .as_ref()
+                .filter(|s_id| (*s_id).as_str() == style_id.as_ref())
+                .is_some()
+        })?;
 
         let style_hierarchy: Vec<&Style> = std::iter::successors(Some(top_most_style), |child_style| {
             styles.iter().find(|style| style.style_id == child_style.based_on)
         })
         .collect();
 
-        Some(style_hierarchy
-            .iter()
-            .rev()
-            .fold(Default::default(), |mut resolved_style: ResolvedStyle, style| {
-                if let Some(style_p_pr) = &style.paragraph_properties {
-                    *resolved_style.paragraph_properties =
-                        resolved_style.paragraph_properties.update_with(style_p_pr.base.clone());
-                }
+        Some(
+            style_hierarchy
+                .iter()
+                .rev()
+                .fold(Default::default(), |mut resolved_style: ResolvedStyle, style| {
+                    if let Some(style_p_pr) = &style.paragraph_properties {
+                        *resolved_style.paragraph_properties =
+                            resolved_style.paragraph_properties.update_with(style_p_pr.base.clone());
+                    }
 
-                if let Some(style_r_pr) = &style.run_properties {
-                    let folded_style_r_pr = RunProperties::from_vec(&style_r_pr.r_pr_bases);
-                    *resolved_style.run_properties = resolved_style.run_properties.update_with(folded_style_r_pr);
-                }
+                    if let Some(style_r_pr) = &style.run_properties {
+                        let folded_style_r_pr = RunProperties::from_vec(&style_r_pr.r_pr_bases);
+                        *resolved_style.run_properties = resolved_style.run_properties.update_with(folded_style_r_pr);
+                    }
 
-                resolved_style
-            }))
+                    resolved_style
+                }),
+        )
     }
 
     pub fn resolve_style_inheritance(&self, paragraph: &P, run: &R) -> Option<ResolvedStyle> {
@@ -438,8 +443,7 @@ impl Package {
     }
 
     pub fn get_main_document_section_properties(&self) -> Option<&SectPrContents> {
-        self
-            .main_document
+        self.main_document
             .as_ref()
             .and_then(|main_document| main_document.body.as_ref())
             .and_then(|body| body.section_properties.as_ref())
