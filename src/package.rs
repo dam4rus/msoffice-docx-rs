@@ -327,33 +327,30 @@ impl Package {
     }
 
     pub fn resolve_default_style(&self) -> Option<ResolvedStyle> {
-        self.styles
-            .as_ref()?
-            .document_defaults.as_ref()
-            .map(|doc_defaults| {
-                let run_properties = Box::new(
-                    doc_defaults
-                        .run_properties_default
-                        .as_ref()
-                        .and_then(|r_pr_default| r_pr_default.0.as_ref())
-                        .map(|r_pr| RunProperties::from_vec(&r_pr.r_pr_bases))
-                        .unwrap_or_default(),
-                );
+        self.styles.as_ref()?.document_defaults.as_ref().map(|doc_defaults| {
+            let run_properties = Box::new(
+                doc_defaults
+                    .run_properties_default
+                    .as_ref()
+                    .and_then(|r_pr_default| r_pr_default.0.as_ref())
+                    .map(|r_pr| RunProperties::from_vec(&r_pr.r_pr_bases))
+                    .unwrap_or_default(),
+            );
 
-                let paragraph_properties = Box::new(
-                    doc_defaults
-                        .paragraph_properties_default
-                        .as_ref()
-                        .and_then(|p_pr_default| p_pr_default.0.as_ref())
-                        .map(|p_pr| p_pr.base.clone())
-                        .unwrap_or_default(),
-                );
+            let paragraph_properties = Box::new(
+                doc_defaults
+                    .paragraph_properties_default
+                    .as_ref()
+                    .and_then(|p_pr_default| p_pr_default.0.as_ref())
+                    .map(|p_pr| p_pr.base.clone())
+                    .unwrap_or_default(),
+            );
 
-                ResolvedStyle {
-                    run_properties,
-                    paragraph_properties,
-                }
-            })
+            ResolvedStyle {
+                run_properties,
+                paragraph_properties,
+            }
+        })
     }
 
     pub fn resolve_default_paragraph_style(&self) -> Option<ResolvedStyle> {
@@ -373,7 +370,9 @@ impl Package {
         paragraph
             .properties
             .as_ref()?
-            .base.style.as_ref()
+            .base
+            .style
+            .as_ref()
             .and_then(|style_name| self.resolve_style(style_name))
     }
 
@@ -448,9 +447,12 @@ impl Package {
     pub fn get_main_document_section_properties(&self) -> Option<&SectPrContents> {
         self.main_document
             .as_ref()?
-            .body.as_ref()?
-            .section_properties.as_ref()?
-            .contents.as_ref()
+            .body
+            .as_ref()?
+            .section_properties
+            .as_ref()?
+            .contents
+            .as_ref()
     }
 }
 
