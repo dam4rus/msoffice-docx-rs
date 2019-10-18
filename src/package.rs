@@ -83,8 +83,14 @@ impl RunProperties {
                     RPrBase::ComplexScriptItalic(i) => instance.complex_script_italic = Some(*i),
                     RPrBase::Capitals(caps) => instance.all_capitals = Some(*caps),
                     RPrBase::SmallCapitals(small_caps) => instance.all_small_capitals = Some(*small_caps),
-                    RPrBase::Strikethrough(strike) => instance.strikethrough = Some(*strike),
-                    RPrBase::DoubleStrikethrough(dbl_strike) => instance.double_strikethrough = Some(*dbl_strike),
+                    RPrBase::Strikethrough(strike) => {
+                        instance.strikethrough = Some(*strike);
+                        instance.double_strikethrough = None;
+                    }
+                    RPrBase::DoubleStrikethrough(dbl_strike) => {
+                        instance.double_strikethrough = Some(*dbl_strike);
+                        instance.strikethrough = None;
+                    }
                     RPrBase::Outline(outline) => instance.outline = Some(*outline),
                     RPrBase::Shadow(shadow) => instance.shadow = Some(*shadow),
                     RPrBase::Emboss(emboss) => instance.emboss = Some(*emboss),
@@ -217,9 +223,6 @@ impl RunProperties {
 pub struct ResolvedStyle {
     pub paragraph_properties: Box<ParagraphProperties>,
     pub run_properties: Box<RunProperties>,
-    // pub table_properties: TblPrBase,
-    // pub table_row_properties: TrPr,
-    // pub table_cell_properties: TcPr,
 }
 
 impl ResolvedStyle {
@@ -325,8 +328,8 @@ impl Package {
 
     pub fn resolve_default_style(&self) -> Option<ResolvedStyle> {
         self.styles
-            .as_ref()
-            .and_then(|styles| styles.document_defaults.as_ref())
+            .as_ref()?
+            .document_defaults.as_ref()
             .map(|doc_defaults| {
                 let run_properties = Box::new(
                     doc_defaults
@@ -354,7 +357,7 @@ impl Package {
     }
 
     pub fn resolve_default_paragraph_style(&self) -> Option<ResolvedStyle> {
-        let styles = self.styles.as_ref().map(|styles| &styles.styles)?;
+        let styles = &self.styles.as_ref()?.styles;
 
         let default_style = styles
             .iter()
@@ -369,14 +372,14 @@ impl Package {
     pub fn resolve_paragraph_style(&self, paragraph: &P) -> Option<ResolvedStyle> {
         paragraph
             .properties
-            .as_ref()
-            .and_then(|props| props.base.style.as_ref())
+            .as_ref()?
+            .base.style.as_ref()
             .and_then(|style_name| self.resolve_style(style_name))
     }
 
     fn resolve_style<T: AsRef<str>>(&self, style_id: T) -> Option<ResolvedStyle> {
         // TODO(kalmar.robert) Use caching
-        let styles = self.styles.as_ref().map(|styles| &styles.styles)?;
+        let styles = &self.styles.as_ref()?.styles;
 
         let top_most_style = styles.iter().find(|style| {
             style
@@ -444,10 +447,10 @@ impl Package {
 
     pub fn get_main_document_section_properties(&self) -> Option<&SectPrContents> {
         self.main_document
-            .as_ref()
-            .and_then(|main_document| main_document.body.as_ref())
-            .and_then(|body| body.section_properties.as_ref())
-            .and_then(|sect_pr| sect_pr.contents.as_ref())
+            .as_ref()?
+            .body.as_ref()?
+            .section_properties.as_ref()?
+            .contents.as_ref()
     }
 }
 

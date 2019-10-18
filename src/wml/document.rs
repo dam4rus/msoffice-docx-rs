@@ -111,6 +111,7 @@ pub enum ThemeColor {
     Text2,
 }
 
+#[repr(C)]
 #[derive(Debug, Clone, Copy, EnumString, PartialEq)]
 pub enum HighlightColor {
     #[strum(serialize = "black")]
@@ -147,6 +148,30 @@ pub enum HighlightColor {
     LightGray,
     #[strum(serialize = "none")]
     None,
+}
+
+impl HighlightColor {
+    pub fn to_rgb(&self) -> Option<[u8; 3]> {
+        match *self {
+            HighlightColor::Black => Some([0, 0, 0]),
+            HighlightColor::Blue => Some([0, 0, 0xff]),
+            HighlightColor::Cyan => Some([0, 0xff, 0xff]),
+            HighlightColor::Green => Some([0, 0xff, 0]),
+            HighlightColor::Magenta => Some([0xff, 0, 0xff]),
+            HighlightColor::Red => Some([0xff, 0, 0]),
+            HighlightColor::Yellow => Some([0xff, 0xff, 0]),
+            HighlightColor::White => Some([0xff, 0xff, 0xff]),
+            HighlightColor::DarkBlue => Some([0, 0, 0x8b]),
+            HighlightColor::DarkCyan => Some([0, 0x8b, 0x8b]),
+            HighlightColor::DarkGreen => Some([0, 0x64, 0]),
+            HighlightColor::DarkMagenta => Some([0x80, 0, 0x80]),
+            HighlightColor::DarkRed => Some([0x8b, 0, 0]),
+            HighlightColor::DarkYellow => Some([0x80, 0x80, 0]),
+            HighlightColor::DarkGray => Some([0xa9, 0xa9, 0xa9]),
+            HighlightColor::LightGray => Some([0xd3, 0xd3, 0xd3]),
+            HighlightColor::None => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -1471,6 +1496,7 @@ impl Border {
     }
 }
 
+#[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum ShdType {
     #[strum(serialize = "nil")]
