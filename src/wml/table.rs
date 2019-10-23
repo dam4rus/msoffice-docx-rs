@@ -283,9 +283,8 @@ impl TblPrChange {
             .child_nodes
             .iter()
             .find(|child_node| child_node.local_name() == "tblPr")
-            .map(TblPrBase::from_xml_element)
-            .transpose()?
-            .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "tblPr"))?;
+            .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "tblPr").into())
+            .and_then(TblPrBase::from_xml_element)?;
 
         Ok(Self { base, properties })
     }
@@ -449,9 +448,8 @@ impl TblPrExChange {
             .child_nodes
             .iter()
             .find(|child_node| child_node.local_name() == "tblPrEx")
-            .map(TblPrExBase::from_xml_element)
-            .transpose()?
-            .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "tblPrEx"))?;
+            .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "tblPrEx").into())
+            .and_then(TblPrExBase::from_xml_element)?;
 
         Ok(Self { base, properties_ex })
     }
@@ -542,9 +540,8 @@ impl TrPrChange {
             .child_nodes
             .iter()
             .find(|child_node| child_node.local_name() == "trPr")
-            .map(TrPrBase::from_xml_element)
-            .transpose()?
-            .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "trPr"))?;
+            .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "trPr").into())
+            .and_then(TrPrBase::from_xml_element)?;
 
         Ok(Self { base, properties })
     }
@@ -837,9 +834,8 @@ impl TcPrChange {
             .child_nodes
             .iter()
             .find(|child_node| child_node.local_name() == "tcPr")
-            .map(TcPrInner::from_xml_element)
-            .transpose()?
-            .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "tcPr"))?;
+            .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "tcPr").into())
+            .and_then(TcPrInner::from_xml_element)?;
 
         Ok(Self { base, properties })
     }

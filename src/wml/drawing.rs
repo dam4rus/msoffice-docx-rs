@@ -254,9 +254,8 @@ impl WrapTight {
             .child_nodes
             .iter()
             .find(|child_node| child_node.local_name() == "wrapPolygon")
-            .map(WrapPath::from_xml_element)
-            .transpose()?
-            .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "wrapPolygon"))?;
+            .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "wrapPolygon").into())
+            .and_then(WrapPath::from_xml_element)?;
 
         Ok(Self {
             wrap_polygon,
@@ -295,9 +294,8 @@ impl WrapThrough {
             .child_nodes
             .iter()
             .find(|child_node| child_node.local_name() == "wrapPolygon")
-            .map(WrapPath::from_xml_element)
-            .transpose()?
-            .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "wrapPolygon"))?;
+            .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "wrapPolygon").into())
+            .and_then(WrapPath::from_xml_element)?;
 
         Ok(Self {
             wrap_polygon,
@@ -463,9 +461,8 @@ impl PosH {
             .child_nodes
             .iter()
             .find(|child_node| PosHChoice::is_choice_member(child_node.local_name()))
-            .map(PosHChoice::from_xml_element)
-            .transpose()?
-            .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "align|posOffset"))?;
+            .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "align|posOffset").into())
+            .and_then(PosHChoice::from_xml_element)?;
 
         Ok(Self {
             align_or_offset,
@@ -564,9 +561,8 @@ impl PosV {
             .child_nodes
             .iter()
             .find(|child_node| PosVChoice::is_choice_member(child_node.local_name()))
-            .map(PosVChoice::from_xml_element)
-            .transpose()?
-            .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "align|posOffset"))?;
+            .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "align|posOffset").into())
+            .and_then(PosVChoice::from_xml_element)?;
 
         Ok(Self {
             align_or_offset,
@@ -747,9 +743,8 @@ impl TextboxInfo {
             .child_nodes
             .iter()
             .find(|child_node| child_node.local_name() == "txbxContent")
-            .map(TxbxContent::from_xml_element)
-            .transpose()?
-            .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "txbxContent"))?;
+            .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "txbxContent").into())
+            .and_then(TxbxContent::from_xml_element)?;
 
         Ok(Self { textbox_content, id })
     }

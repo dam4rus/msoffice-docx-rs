@@ -208,9 +208,8 @@ impl TblStylePr {
         let override_type = xml_node
             .attributes
             .get("w:type")
-            .map(|value| value.parse())
-            .transpose()?
-            .ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "type"))?;
+            .ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "type"))?
+            .parse()?;
 
         let initial_state = Self {
             paragraph_properties: None,

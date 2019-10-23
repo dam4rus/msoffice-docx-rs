@@ -646,9 +646,8 @@ impl FtnEndSepRef {
         let id = xml_node
             .attributes
             .get("w:id")
-            .map(|value| value.parse())
-            .transpose()?
-            .ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "w:id"))?;
+            .ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "w:id"))?
+            .parse()?;
 
         Ok(Self { id })
     }

@@ -1889,9 +1889,8 @@ impl RPrChange {
             .child_nodes
             .iter()
             .find(|child_node| child_node.local_name() == "rPr")
-            .map(RPrOriginal::from_xml_element)
-            .transpose()?
-            .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "rPr"))?;
+            .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "rPr").into())
+            .and_then(RPrOriginal::from_xml_element)?;
 
         Ok(Self { base, run_properties })
     }
@@ -4442,9 +4441,8 @@ impl ParaRPrChange {
             .child_nodes
             .iter()
             .find(|child_node| child_node.local_name() == "rPr")
-            .map(ParaRPrOriginal::from_xml_element)
-            .transpose()?
-            .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "rPr"))?;
+            .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "rPr").into())
+            .and_then(ParaRPrOriginal::from_xml_element)?;
 
         Ok(Self { base, run_properties })
     }
@@ -5529,9 +5527,8 @@ impl PPrChange {
             .child_nodes
             .iter()
             .find(|child_node| child_node.local_name() == "pPr")
-            .map(PPrBase::from_xml_element)
-            .transpose()?
-            .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "pPr"))?;
+            .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "pPr").into())
+            .and_then(PPrBase::from_xml_element)?;
 
         Ok(Self { base, properties })
     }
