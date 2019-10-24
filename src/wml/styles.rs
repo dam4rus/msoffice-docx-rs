@@ -161,7 +161,7 @@ impl LatentStyles {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum TblStyleOverrideType {
     #[strum(serialize = "wholeTable")]
     WholeTable,
@@ -238,7 +238,7 @@ impl TblStylePr {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum StyleType {
     #[strum(serialize = "paragraph")]
     Paragraph,

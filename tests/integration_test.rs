@@ -28,7 +28,7 @@ fn test_package_resolve_default_style() {
     let sample_docx_file = manifest_dir.join("tests/sample.docx");
 
     let package = Package::from_file(&sample_docx_file).unwrap();
-    let def_style = package.resolve_default_style().unwrap();
+    let def_style = package.resolve_document_default_style().unwrap();
     // TODO(kalmar.robert) Write real unit test
     println!("{:?}", def_style);
 }

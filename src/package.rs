@@ -226,6 +226,20 @@ pub struct ResolvedStyle {
 }
 
 impl ResolvedStyle {
+    pub fn from_paragraph_properties(paragraph_properties: Box<ParagraphProperties>) -> Self {
+        Self {
+            paragraph_properties,
+            ..Default::default()
+        }
+    }
+
+    pub fn from_run_properties(run_properties: Box<RunProperties>) -> Self {
+        Self {
+            run_properties,
+            ..Default::default()
+        }
+    }
+
     pub fn from_wml_style(style: &Style) -> Self {
         let paragraph_properties = Box::new(
             style
@@ -260,6 +274,16 @@ impl ResolvedStyle {
         *self.run_properties = self
             .run_properties
             .update_with_style_on_another_level(*other.run_properties);
+        self
+    }
+
+    pub fn update_paragraph_with(mut self, other: ParagraphProperties) -> Self {
+        *self.paragraph_properties = self.paragraph_properties.update_with(other);
+        self
+    }
+
+    pub fn update_run_with(mut self, other: RunProperties) -> Self {
+        *self.run_properties = self.run_properties.update_with(other);
         self
     }
 }
@@ -326,7 +350,7 @@ impl Package {
         Ok(instance)
     }
 
-    pub fn resolve_default_style(&self) -> Option<ResolvedStyle> {
+    pub fn resolve_document_default_style(&self) -> Option<ResolvedStyle> {
         self.styles.as_ref()?.document_defaults.as_ref().map(|doc_defaults| {
             let run_properties = Box::new(
                 doc_defaults
@@ -353,13 +377,14 @@ impl Package {
         })
     }
 
-    pub fn resolve_default_paragraph_style(&self) -> Option<ResolvedStyle> {
-        let styles = &self.styles.as_ref()?.styles;
-
-        let default_style = styles
+    pub fn resolve_default_style(&self, style_type: StyleType) -> Option<ResolvedStyle> {
+        let default_style = self
+            .styles
+            .as_ref()?
+            .styles
             .iter()
-            .find(|style| match (&style.style_type, &style.is_default) {
-                (Some(StyleType::Paragraph), Some(true)) => true,
+            .find(|style| match (style.style_type, style.is_default) {
+                (Some(iter_style_type), Some(true)) => iter_style_type == style_type,
                 _ => false,
             })?;
 
@@ -367,14 +392,48 @@ impl Package {
     }
 
     pub fn resolve_paragraph_style(&self, paragraph: &P) -> Option<ResolvedStyle> {
-        paragraph
+        let properties = paragraph
             .properties
-            .as_ref()?
+            .as_ref()?;
+
+        let run_properties = properties
+            .run_properties
+            .as_ref()
+            .map(|run_properties| RunProperties::from_vec(&run_properties.bases))
+            .map(|run_properties| {
+                match run_properties.style.as_ref().and_then(|style_name| self.resolve_style(style_name)) {
+                    Some(run_style) => run_properties.update_with(*run_style.run_properties),
+                    None => run_properties,
+                }
+            })
+            .unwrap_or_default();
+
+        Some(properties
             .base
             .style
             .as_ref()
             .and_then(|style_name| self.resolve_style(style_name))
+            .unwrap_or_default()
+            .update_paragraph_with(properties.base.clone())
+            .update_run_with(run_properties)
+        )
     }
+
+    pub fn resolve_run_style(&self, run: &R) -> Option<ResolvedStyle> {
+        let run_properties = run
+            .run_properties
+            .as_ref()
+            .map(|run_properties| RunProperties::from_vec(&run_properties.r_pr_bases))?;
+
+        Some(run_properties
+            .style
+            .as_ref()
+            .and_then(|style_name| self.resolve_style(style_name))
+            .unwrap_or_default()
+            .update_run_with(run_properties)
+        )
+    }
+
 
     fn resolve_style<T: AsRef<str>>(&self, style_id: T) -> Option<ResolvedStyle> {
         // TODO(kalmar.robert) Use caching
@@ -413,12 +472,16 @@ impl Package {
         )
     }
 
-    pub fn resolve_style_inheritance(&self, paragraph: &P, run: &R) -> Option<ResolvedStyle> {
-        let default_style = self.resolve_default_style();
-        let paragraph_style = self
-            .resolve_paragraph_style(paragraph)
-            .or_else(|| self.resolve_default_paragraph_style());
-        let run_style = resolve_run_style(run);
+    pub fn resolve_style_inheritance(&self, paragraph: Option<&P>, run: &R) -> Option<ResolvedStyle> {
+        let default_style = self.resolve_document_default_style();
+
+        let paragraph_style = paragraph
+            .and_then(|paragraph| self.resolve_paragraph_style(paragraph))
+            .or_else(|| self.resolve_default_style(StyleType::Paragraph));
+
+        let run_style = self
+            .resolve_run_style(run)
+            .or_else(|| self.resolve_default_style(StyleType::Character));
 
         let calced_style = match (paragraph_style, run_style) {
             (Some(p_style), Some(r_style)) => Some(p_style.update_with_style_on_another_level(r_style)),
@@ -456,15 +519,7 @@ impl Package {
     }
 }
 
-pub fn resolve_run_style(run: &R) -> Option<ResolvedStyle> {
-    run.run_properties
-        .as_ref()
-        .map(|props| RunProperties::from_vec(&props.r_pr_bases))
-        .map(|run_props| ResolvedStyle {
-            run_properties: Box::new(run_props),
-            ..Default::default()
-        })
-}
+
 
 fn update_or_toggle_on_off(lhs: Option<OnOff>, rhs: Option<OnOff>) -> Option<OnOff> {
     match (lhs, rhs) {
@@ -475,13 +530,13 @@ fn update_or_toggle_on_off(lhs: Option<OnOff>, rhs: Option<OnOff>) -> Option<OnO
 
 #[cfg(test)]
 mod tests {
-    use super::{resolve_run_style, Package, ParagraphProperties, RunProperties};
+    use super::{Package, ParagraphProperties, RunProperties};
     use crate::wml::{
         document::{
             Document, PPr, PPrBase, PPrGeneral, ParaRPr, RPr, RPrBase, TextAlignment, Underline, UnderlineType, P, R,
         },
         settings::Settings,
-        styles::{DocDefaults, PPrDefault, RPrDefault, Style, Styles},
+        styles::{DocDefaults, PPrDefault, RPrDefault, Style, Styles, StyleType},
     };
     use msoffice_shared::docprops::{AppInfo, Core};
 
@@ -521,6 +576,8 @@ mod tests {
         let normal_style = Style {
             name: Some(String::from("Normal")),
             style_id: Some(String::from("Normal")),
+            style_type: Some(StyleType::Paragraph),
+            is_default: Some(true),
             paragraph_properties: Some(PPrGeneral {
                 base: PPrBase {
                     start_on_next_page: Some(true),
@@ -538,6 +595,7 @@ mod tests {
         let child_style = Style {
             name: Some(String::from("Child")),
             style_id: Some(String::from("Child")),
+            style_type: Some(StyleType::Paragraph),
             based_on: Some(String::from("Normal")),
             paragraph_properties: Some(PPrGeneral {
                 base: PPrBase {
@@ -556,10 +614,29 @@ mod tests {
             ..Default::default()
         };
 
-        vec![normal_style, child_style]
+        let default_par_style = Style {
+            name: Some(String::from("DefaultParagraphFont")),
+            style_id: Some(String::from("DefaultParagraphFont")),
+            style_type: Some(StyleType::Character),
+            ui_priority: Some(1),
+            ..Default::default()
+        };
+
+        let emphasis_style = Style {
+            name: Some(String::from("Emphasis")),
+            style_id: Some(String::from("Emphasis")),
+            style_type: Some(StyleType::Character),
+            run_properties: Some(RPr {
+                r_pr_bases: vec![RPrBase::Italic(true)],
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+
+        vec![normal_style, child_style, default_par_style, emphasis_style]
     }
 
-    fn paragraph_for_test() -> P {
+    fn paragraph_with_style_for_test() -> P {
         P {
             properties: Some(PPr {
                 base: PPrBase {
@@ -577,10 +654,37 @@ mod tests {
         }
     }
 
+    fn paragraph_for_test() -> P {
+        P {
+            properties: Some(PPr {
+                base: PPrBase {
+                    keep_lines_on_one_page: Some(true),
+                    ..Default::default()
+                },
+                run_properties: Some(ParaRPr {
+                    bases: vec![RPrBase::Bold(true), RPrBase::Italic(true)],
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }
+    }
+
+    fn run_with_style_for_test() -> R {
+        R {
+            run_properties: Some(RPr {
+                r_pr_bases: vec![RPrBase::RunStyle(String::from("Emphasis"))],
+                ..Default::default()
+            }),
+            ..Default::default()
+        }
+    }
+
     fn run_for_test() -> R {
         R {
             run_properties: Some(RPr {
-                r_pr_bases: vec![RPrBase::Bold(true), RPrBase::Italic(true)],
+                r_pr_bases: vec![RPrBase::Italic(true)],
                 ..Default::default()
             }),
             ..Default::default()
@@ -598,7 +702,7 @@ mod tests {
             ..Default::default()
         };
 
-        let default_style = package.resolve_default_style().unwrap();
+        let default_style = package.resolve_document_default_style().unwrap();
         assert_eq!(
             *default_style.paragraph_properties,
             ParagraphProperties {
@@ -627,11 +731,13 @@ mod tests {
             ..Default::default()
         };
 
-        let paragraph_style = package.resolve_paragraph_style(&paragraph_for_test()).unwrap();
+        let paragraph_style = package.resolve_paragraph_style(&paragraph_with_style_for_test()).unwrap();
         assert_eq!(
             *paragraph_style.paragraph_properties,
             ParagraphProperties {
+                style: Some(String::from("Child")),
                 start_on_next_page: Some(true),
+                keep_lines_on_one_page: Some(true),
                 text_alignment: Some(TextAlignment::Center),
                 ..Default::default()
             }
@@ -640,6 +746,7 @@ mod tests {
         assert_eq!(
             *paragraph_style.run_properties,
             RunProperties {
+                bold: Some(true),
                 italic: Some(true),
                 underline: Some(Underline {
                     value: Some(UnderlineType::Single),
@@ -648,15 +755,51 @@ mod tests {
                 ..Default::default()
             }
         );
+
+        let paragraph_style = package.resolve_paragraph_style(&paragraph_for_test()).unwrap();
+        assert_eq!(
+            *paragraph_style.paragraph_properties,
+            ParagraphProperties {
+                keep_lines_on_one_page: Some(true),
+                ..Default::default()
+            }
+        );
+
+        assert_eq!(
+            *paragraph_style.run_properties,
+            RunProperties {
+                bold: Some(true),
+                italic: Some(true),
+                ..Default::default()
+            }
+        );
     }
 
     #[test]
     pub fn test_resolve_run_style() {
-        let run_properties = resolve_run_style(&run_for_test()).unwrap();
+        let package = Package {
+            styles: Some(Box::new(Styles {
+                document_defaults: None,
+                latent_styles: None,
+                styles: styles_for_test(),
+            })),
+            ..Default::default()
+        };
+
+        let run_properties = package.resolve_run_style(&run_with_style_for_test()).unwrap();
         assert_eq!(
             *run_properties.run_properties,
             RunProperties {
-                bold: Some(true),
+                style: Some(String::from("Emphasis")),
+                italic: Some(true),
+                ..Default::default()
+            }
+        );
+
+        let run_properties = package.resolve_run_style(&run_for_test()).unwrap();
+        assert_eq!(
+            *run_properties.run_properties,
+            RunProperties {
                 italic: Some(true),
                 ..Default::default()
             }
@@ -675,12 +818,14 @@ mod tests {
         };
 
         let style = package
-            .resolve_style_inheritance(&paragraph_for_test(), &run_for_test())
+            .resolve_style_inheritance(Some(&paragraph_with_style_for_test()), &run_with_style_for_test())
             .unwrap();
         assert_eq!(
             *style.paragraph_properties,
             ParagraphProperties {
+                style: Some(String::from("Child")),
                 start_on_next_page: Some(true),
+                keep_lines_on_one_page: Some(true),
                 text_alignment: Some(TextAlignment::Center),
                 ..Default::default()
             }
@@ -688,6 +833,7 @@ mod tests {
         assert_eq!(
             *style.run_properties,
             RunProperties {
+                style: Some(String::from("Emphasis")),
                 bold: Some(true),
                 italic: Some(false),
                 underline: Some(Underline {
