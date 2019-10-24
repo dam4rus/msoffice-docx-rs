@@ -151,8 +151,8 @@ pub enum HighlightColor {
 }
 
 impl HighlightColor {
-    pub fn to_rgb(&self) -> Option<[u8; 3]> {
-        match *self {
+    pub fn to_rgb(self) -> Option<[u8; 3]> {
+        match self {
             HighlightColor::Black => Some([0, 0, 0]),
             HighlightColor::Blue => Some([0, 0, 0xff]),
             HighlightColor::Cyan => Some([0, 0xff, 0xff]),

@@ -981,7 +981,7 @@ impl WordprocessingContentPart {
 #[derive(Debug, Clone, PartialEq)]
 pub enum WordprocessingShapeChoice {
     Shape(Box<WordprocessingShape>),
-    Group(WordprocessingGroup),
+    Group(Box<WordprocessingGroup>),
     GraphicFrame(GraphicFrame),
     Picture(Box<Picture>),
     ContentPart(WordprocessingContentPart),
@@ -1013,9 +1013,9 @@ impl WordprocessingGroup {
                 "wsp" => shapes.push(WordprocessingShapeChoice::Shape(Box::new(
                     WordprocessingShape::from_xml_element(child_node)?,
                 ))),
-                "grpSp" => shapes.push(WordprocessingShapeChoice::Group(WordprocessingGroup::from_xml_element(
+                "grpSp" => shapes.push(WordprocessingShapeChoice::Group(Box::new(WordprocessingGroup::from_xml_element(
                     child_node,
-                )?)),
+                )?))),
                 "graphicFrame" => shapes.push(WordprocessingShapeChoice::GraphicFrame(GraphicFrame::from_xml_element(
                     child_node,
                 )?)),
