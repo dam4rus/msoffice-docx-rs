@@ -378,44 +378,47 @@ impl Package {
     }
 
     pub fn resolve_default_style(&self, style_type: StyleType) -> Option<ResolvedStyle> {
-        let default_style = self
-            .styles
-            .as_ref()?
-            .styles
-            .iter()
-            .find(|style| match (style.style_type, style.is_default) {
-                (Some(iter_style_type), Some(true)) => iter_style_type == style_type,
-                _ => false,
-            })?;
+        let default_style =
+            self.styles
+                .as_ref()?
+                .styles
+                .iter()
+                .find(|style| match (style.style_type, style.is_default) {
+                    (Some(iter_style_type), Some(true)) => iter_style_type == style_type,
+                    _ => false,
+                })?;
 
         Some(ResolvedStyle::from_wml_style(default_style))
     }
 
     pub fn resolve_paragraph_style(&self, paragraph: &P) -> Option<ResolvedStyle> {
-        let properties = paragraph
-            .properties
-            .as_ref()?;
+        let properties = paragraph.properties.as_ref()?;
 
         let run_properties = properties
             .run_properties
             .as_ref()
             .map(|run_properties| RunProperties::from_vec(&run_properties.bases))
             .map(|run_properties| {
-                match run_properties.style.as_ref().and_then(|style_name| self.resolve_style(style_name)) {
+                match run_properties
+                    .style
+                    .as_ref()
+                    .and_then(|style_name| self.resolve_style(style_name))
+                {
                     Some(run_style) => run_properties.update_with(*run_style.run_properties),
                     None => run_properties,
                 }
             })
             .unwrap_or_default();
 
-        Some(properties
-            .base
-            .style
-            .as_ref()
-            .and_then(|style_name| self.resolve_style(style_name))
-            .unwrap_or_default()
-            .update_paragraph_with(properties.base.clone())
-            .update_run_with(run_properties)
+        Some(
+            properties
+                .base
+                .style
+                .as_ref()
+                .and_then(|style_name| self.resolve_style(style_name))
+                .unwrap_or_default()
+                .update_paragraph_with(properties.base.clone())
+                .update_run_with(run_properties),
         )
     }
 
@@ -425,15 +428,15 @@ impl Package {
             .as_ref()
             .map(|run_properties| RunProperties::from_vec(&run_properties.r_pr_bases))?;
 
-        Some(run_properties
-            .style
-            .as_ref()
-            .and_then(|style_name| self.resolve_style(style_name))
-            .unwrap_or_default()
-            .update_run_with(run_properties)
+        Some(
+            run_properties
+                .style
+                .as_ref()
+                .and_then(|style_name| self.resolve_style(style_name))
+                .unwrap_or_default()
+                .update_run_with(run_properties),
         )
     }
-
 
     fn resolve_style<T: AsRef<str>>(&self, style_id: T) -> Option<ResolvedStyle> {
         // TODO(kalmar.robert) Use caching
@@ -519,8 +522,6 @@ impl Package {
     }
 }
 
-
-
 fn update_or_toggle_on_off(lhs: Option<OnOff>, rhs: Option<OnOff>) -> Option<OnOff> {
     match (lhs, rhs) {
         (Some(lhs), Some(rhs)) => Some(lhs ^ rhs),
@@ -536,7 +537,7 @@ mod tests {
             Document, PPr, PPrBase, PPrGeneral, ParaRPr, RPr, RPrBase, TextAlignment, Underline, UnderlineType, P, R,
         },
         settings::Settings,
-        styles::{DocDefaults, PPrDefault, RPrDefault, Style, Styles, StyleType},
+        styles::{DocDefaults, PPrDefault, RPrDefault, Style, StyleType, Styles},
     };
     use msoffice_shared::docprops::{AppInfo, Core};
 
@@ -731,7 +732,9 @@ mod tests {
             ..Default::default()
         };
 
-        let paragraph_style = package.resolve_paragraph_style(&paragraph_with_style_for_test()).unwrap();
+        let paragraph_style = package
+            .resolve_paragraph_style(&paragraph_with_style_for_test())
+            .unwrap();
         assert_eq!(
             *paragraph_style.paragraph_properties,
             ParagraphProperties {

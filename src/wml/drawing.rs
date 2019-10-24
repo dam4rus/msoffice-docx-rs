@@ -1013,9 +1013,9 @@ impl WordprocessingGroup {
                 "wsp" => shapes.push(WordprocessingShapeChoice::Shape(Box::new(
                     WordprocessingShape::from_xml_element(child_node)?,
                 ))),
-                "grpSp" => shapes.push(WordprocessingShapeChoice::Group(Box::new(WordprocessingGroup::from_xml_element(
-                    child_node,
-                )?))),
+                "grpSp" => shapes.push(WordprocessingShapeChoice::Group(Box::new(
+                    WordprocessingGroup::from_xml_element(child_node)?,
+                ))),
                 "graphicFrame" => shapes.push(WordprocessingShapeChoice::GraphicFrame(GraphicFrame::from_xml_element(
                     child_node,
                 )?)),
