@@ -1075,9 +1075,9 @@ impl WordprocessingCanvas {
                     "wgp" => {
                         instance
                             .shapes
-                            .push(WordprocessingShapeChoice::Group(WordprocessingGroup::from_xml_element(
+                            .push(WordprocessingShapeChoice::Group(Box::new(WordprocessingGroup::from_xml_element(
                                 child_node,
-                            )?))
+                            )?)))
                     }
                     "graphicFrame" => {
                         instance
