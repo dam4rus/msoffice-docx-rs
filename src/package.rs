@@ -1,12 +1,12 @@
+use super::resolvedstyle::{ResolvedStyle, RunProperties};
 use crate::wml::{
     document::{
-        Document, SectPrContents, P, R, BlockLevelElts, ContentBlockContent, ContentRunContent, PContent, RPrBase,
+        BlockLevelElts, ContentBlockContent, ContentRunContent, Document, PContent, RPrBase, SectPrContents, P, R,
     },
-    settings::Settings,
     footnotes::{Footnotes, FtnEdn, FtnEdnType},
+    settings::Settings,
     styles::{Style, StyleType, Styles},
 };
-use super::resolvedstyle::{ResolvedStyle, RunProperties};
 use log::error;
 use msoffice_shared::{
     docprops::{AppInfo, Core},
@@ -143,16 +143,13 @@ impl Package {
                     .run_properties
                     .as_ref()
                     .and_then(|run_properties| {
-                        run_properties
-                            .bases
-                            .iter()
-                            .find_map(|r_pr_base| {
-                                if let RPrBase::RunStyle(style_name) = r_pr_base {
-                                    self.resolve_style(style_name)
-                                } else {
-                                    None
-                                }
-                            })
+                        run_properties.bases.iter().find_map(|r_pr_base| {
+                            if let RPrBase::RunStyle(style_name) = r_pr_base {
+                                self.resolve_style(style_name)
+                            } else {
+                                None
+                            }
+                        })
                     })
                     .unwrap_or_default();
 
@@ -188,21 +185,15 @@ impl Package {
     }
 
     pub fn resolve_run_style(&self, run: &R) -> Option<ResolvedStyle> {
-        run
-            .run_properties
-            .as_ref()
-            .and_then(|run_properties| {
-                run_properties
-                    .r_pr_bases
-                    .iter()
-                    .find_map(|r_pr_base| {
-                        if let RPrBase::RunStyle(style_name) = r_pr_base {
-                            self.resolve_style(style_name)
-                        } else {
-                            None
-                        }
-                    })
+        run.run_properties.as_ref().and_then(|run_properties| {
+            run_properties.r_pr_bases.iter().find_map(|r_pr_base| {
+                if let RPrBase::RunStyle(style_name) = r_pr_base {
+                    self.resolve_style(style_name)
+                } else {
+                    None
+                }
             })
+        })
 
         // Some(
         //     run_properties
@@ -288,36 +279,33 @@ impl Package {
             (def_style, calced_style) => def_style.or(calced_style),
         };
 
-        calced_style
-            .map(|resolved_style| {
-                let paragraph_style = paragraph
-                    .and_then(|p| p.properties.as_ref())
-                    .map(|p_pr| {
-                        let run_properties = Box::new(p_pr
-                            .run_properties
-                            .as_ref()
-                            .map(|r_pr| RunProperties::from_vec(&r_pr.bases))
-                            .unwrap_or_default()
-                        );
+        calced_style.map(|resolved_style| {
+            let paragraph_style = paragraph.and_then(|p| p.properties.as_ref()).map(|p_pr| {
+                let run_properties = Box::new(
+                    p_pr.run_properties
+                        .as_ref()
+                        .map(|r_pr| RunProperties::from_vec(&r_pr.bases))
+                        .unwrap_or_default(),
+                );
 
-                        ResolvedStyle {
-                            paragraph_properties: Box::new(p_pr.base.clone()),
-                            run_properties,
-                        }
-                    });
-                
-                let run_style = run
-                    .run_properties
-                    .as_ref()
-                    .map(|r_pr| RunProperties::from_vec(&r_pr.r_pr_bases));
-
-                match (paragraph_style, run_style) {
-                    (Some(p_style), Some(r_style)) => resolved_style.update_with(p_style).update_run_with(r_style),
-                    (Some(p_style), None) => resolved_style.update_with(p_style),
-                    (None, Some(r_style)) => resolved_style.update_run_with(r_style),
-                    _ => resolved_style,
+                ResolvedStyle {
+                    paragraph_properties: Box::new(p_pr.base.clone()),
+                    run_properties,
                 }
-            })
+            });
+
+            let run_style = run
+                .run_properties
+                .as_ref()
+                .map(|r_pr| RunProperties::from_vec(&r_pr.r_pr_bases));
+
+            match (paragraph_style, run_style) {
+                (Some(p_style), Some(r_style)) => resolved_style.update_with(p_style).update_run_with(r_style),
+                (Some(p_style), None) => resolved_style.update_with(p_style),
+                (None, Some(r_style)) => resolved_style.update_run_with(r_style),
+                _ => resolved_style,
+            }
+        })
     }
 
     pub fn get_main_document_theme(&self) -> Option<&OfficeStyleSheet> {
@@ -345,11 +333,7 @@ impl Package {
     }
 
     pub fn find_footnote_with_id(&self, id: i32) -> Option<&FtnEdn> {
-        self.footnotes
-            .as_ref()?
-            .0
-            .iter()
-            .find(|ftn_edn| ftn_edn.id == id)
+        self.footnotes.as_ref()?.0.iter().find(|ftn_edn| ftn_edn.id == id)
     }
 
     pub fn resolve_footnote_style(&self, footnote_type: FtnEdnType) -> Option<ResolvedStyle> {
@@ -359,16 +343,13 @@ impl Package {
             .iter()
             .find(|ftn_edn| ftn_edn.ftn_edn_type == Some(footnote_type))
             .and_then(|ftn_edn| {
-                ftn_edn
-                    .block_level_elements
-                    .iter()
-                    .find_map(|block_level_elt| {
-                        if let BlockLevelElts::Chunk(ContentBlockContent::Paragraph(par)) = &block_level_elt {
-                            Some(par)
-                        } else {
-                            None
-                        }
-                    })
+                ftn_edn.block_level_elements.iter().find_map(|block_level_elt| {
+                    if let BlockLevelElts::Chunk(ContentBlockContent::Paragraph(par)) = &block_level_elt {
+                        Some(par)
+                    } else {
+                        None
+                    }
+                })
             })
             .map(|paragraph| {
                 let run_properties = paragraph
@@ -378,12 +359,11 @@ impl Package {
                         if let PContent::ContentRunContent(crc) = content {
                             if let ContentRunContent::Run(run) = &(**crc) {
                                 return Some(
-                                    run
-                                        .run_properties
+                                    run.run_properties
                                         .as_ref()
                                         .map(|r_pr| RunProperties::from_vec(&r_pr.r_pr_bases))
-                                        .unwrap_or_default()
-                                )
+                                        .unwrap_or_default(),
+                                );
                             }
                         }
 
@@ -391,11 +371,16 @@ impl Package {
                     })
                     .unwrap_or_default();
 
-                self
-                    .resolve_paragraph_style(paragraph)
+                self.resolve_paragraph_style(paragraph)
                     .unwrap_or_default()
                     .update_run_with(run_properties)
-                    .update_paragraph_with(paragraph.properties.as_ref().map(|p_pr| p_pr.base.clone()).unwrap_or_default())
+                    .update_paragraph_with(
+                        paragraph
+                            .properties
+                            .as_ref()
+                            .map(|p_pr| p_pr.base.clone())
+                            .unwrap_or_default(),
+                    )
             })
     }
 }
@@ -404,17 +389,17 @@ impl Package {
 mod tests {
     use super::{Package, RunProperties};
     use crate::{
+        resolvedstyle::ParagraphProperties,
         wml::{
             document::{
-                Document, PPr, PPrBase, PPrGeneral, ParaRPr, RPr, RPrBase, TextAlignment, Underline, UnderlineType, P,
-                R, SignedTwipsMeasure, LineSpacingRule, BlockLevelElts, ContentBlockContent, Spacing, PContent,
-                ContentRunContent, RunInnerContent,
+                BlockLevelElts, ContentBlockContent, ContentRunContent, Document, LineSpacingRule, PContent, PPr,
+                PPrBase, PPrGeneral, ParaRPr, RPr, RPrBase, RunInnerContent, SignedTwipsMeasure, Spacing,
+                TextAlignment, Underline, UnderlineType, P, R,
             },
+            footnotes::{Footnotes, FtnEdn, FtnEdnType},
             settings::Settings,
             styles::{DocDefaults, PPrDefault, RPrDefault, Style, StyleType, Styles},
-            footnotes::{Footnotes, FtnEdn, FtnEdnType},
         },
-        resolvedstyle::ParagraphProperties,
     };
     use msoffice_shared::docprops::{AppInfo, Core};
 
@@ -550,33 +535,28 @@ mod tests {
                 latent_styles: None,
                 styles: styles_for_test(),
             })),
-            footnotes: Some(Footnotes(
-                vec![FtnEdn {
-                    ftn_edn_type: Some(FtnEdnType::Separator),
-                    id: 0,
-                    block_level_elements: vec![
-                        BlockLevelElts::Chunk(ContentBlockContent::Paragraph(Box::new(P {
-                            properties: Some(PPr {
-                                base: PPrBase {
-                                    spacing: Some(Spacing {
-                                        line: Some(SignedTwipsMeasure::Decimal(240)),
-                                        line_rule: Some(LineSpacingRule::Auto),
-                                        ..Default::default()
-                                    }),
-                                    ..Default::default()
-                                },
+            footnotes: Some(Footnotes(vec![FtnEdn {
+                ftn_edn_type: Some(FtnEdnType::Separator),
+                id: 0,
+                block_level_elements: vec![BlockLevelElts::Chunk(ContentBlockContent::Paragraph(Box::new(P {
+                    properties: Some(PPr {
+                        base: PPrBase {
+                            spacing: Some(Spacing {
+                                line: Some(SignedTwipsMeasure::Decimal(240)),
+                                line_rule: Some(LineSpacingRule::Auto),
                                 ..Default::default()
                             }),
-                            contents: vec![PContent::ContentRunContent(Box::new(ContentRunContent::Run(R {
-                                run_inner_contents: vec![RunInnerContent::Separator],
-                                ..Default::default()
-                            })))],
                             ..Default::default()
-                        }
-                        )))
-                    ]
-                }]
-            )),
+                        },
+                        ..Default::default()
+                    }),
+                    contents: vec![PContent::ContentRunContent(Box::new(ContentRunContent::Run(R {
+                        run_inner_contents: vec![RunInnerContent::Separator],
+                        ..Default::default()
+                    })))],
+                    ..Default::default()
+                })))],
+            }])),
             ..Default::default()
         }
     }

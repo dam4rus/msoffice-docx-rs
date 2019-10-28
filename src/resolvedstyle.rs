@@ -1,7 +1,7 @@
 use crate::wml::{
     document::{
-        Fonts, SignedTwipsMeasure, HpsMeasure, SignedHpsMeasure, PPrBase, Color, HighlightColor, Underline, TextEffect,
-        Border, Shd, FitText, Em, RPrBase, Language, EastAsianLayout,
+        Border, Color, EastAsianLayout, Em, FitText, Fonts, HighlightColor, HpsMeasure, Language, PPrBase, RPrBase,
+        Shd, SignedHpsMeasure, SignedTwipsMeasure, TextEffect, Underline,
     },
     simpletypes::TextScale,
     styles::Style,

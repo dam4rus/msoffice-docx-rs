@@ -1,11 +1,8 @@
+use super::{document::BlockLevelElts, simpletypes::DecimalNumber};
 use msoffice_shared::{
+    error::{LimitViolationError, MaxOccurs, MissingAttributeError},
     xml::XmlNode,
-    error::{MissingAttributeError, LimitViolationError, MaxOccurs},
     xsdtypes::XsdChoice,
-};
-use super::{
-    document::BlockLevelElts,
-    simpletypes::DecimalNumber,
 };
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
@@ -88,15 +85,16 @@ impl Footnotes {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::wml::document::{P, ContentBlockContent};
+    use crate::wml::document::{ContentBlockContent, P};
 
     impl Footnotes {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name}>
+            format!(
+                r#"<{node_name}>
                 {}
             </{node_name}>"#,
                 FtnEdn::test_xml("w:footnote"),
-                node_name=node_name,
+                node_name = node_name,
             )
         }
 
@@ -113,14 +111,15 @@ mod tests {
             Footnotes::test_instance(),
         );
     }
-    
+
     impl FtnEdn {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name} w:type="normal" w:id="1">
+            format!(
+                r#"<{node_name} w:type="normal" w:id="1">
                 {}
             </{node_name}>"#,
                 P::test_xml("w:p"),
-                node_name=node_name,
+                node_name = node_name,
             )
         }
 
@@ -128,7 +127,9 @@ mod tests {
             Self {
                 ftn_edn_type: Some(FtnEdnType::Normal),
                 id: 1,
-                block_level_elements: vec![BlockLevelElts::Chunk(ContentBlockContent::Paragraph(Box::new(P::test_instance())))]
+                block_level_elements: vec![BlockLevelElts::Chunk(ContentBlockContent::Paragraph(Box::new(
+                    P::test_instance(),
+                )))],
             }
         }
     }
