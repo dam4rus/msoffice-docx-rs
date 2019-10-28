@@ -6,5 +6,6 @@ extern crate strum_macros;
 
 pub mod package;
 pub mod wml;
+pub mod resolvedstyle;
 
 pub extern crate msoffice_shared as shared;

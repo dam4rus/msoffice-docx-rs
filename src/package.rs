@@ -1,18 +1,17 @@
 use crate::wml::{
     document::{
-        Border, Color, Document, EastAsianLayout, Em, FitText, Fonts, HighlightColor, HpsMeasure, Language, PPrBase,
-        RPrBase, SectPrContents, Shd, SignedHpsMeasure, SignedTwipsMeasure, TextEffect, Underline, P, R,
+        Document, SectPrContents, P, R, BlockLevelElts, ContentBlockContent, ContentRunContent, PContent, RPrBase,
     },
     settings::Settings,
-    simpletypes::TextScale,
+    footnotes::{Footnotes, FtnEdn, FtnEdnType},
     styles::{Style, StyleType, Styles},
 };
+use super::resolvedstyle::{ResolvedStyle, RunProperties};
 use log::error;
 use msoffice_shared::{
     docprops::{AppInfo, Core},
     drawingml::sharedstylesheet::OfficeStyleSheet,
     relationship::{Relationship, THEME_RELATION_TYPE},
-    sharedtypes::{OnOff, VerticalAlignRun},
     xml::zip_file_to_xml_node,
 };
 use std::{
@@ -24,270 +23,6 @@ use std::{
 };
 use zip::ZipArchive;
 
-pub type ParagraphProperties = PPrBase;
-
-#[derive(Debug, Clone, PartialEq, Default)]
-pub struct RunProperties {
-    pub style: Option<String>,
-    pub fonts: Option<Fonts>,
-    pub bold: Option<OnOff>,
-    pub complex_script_bold: Option<OnOff>,
-    pub italic: Option<OnOff>,
-    pub complex_script_italic: Option<OnOff>,
-    pub all_capitals: Option<OnOff>,
-    pub all_small_capitals: Option<OnOff>,
-    pub strikethrough: Option<OnOff>,
-    pub double_strikethrough: Option<OnOff>,
-    pub outline: Option<OnOff>,
-    pub shadow: Option<OnOff>,
-    pub emboss: Option<OnOff>,
-    pub imprint: Option<OnOff>,
-    pub no_proofing: Option<OnOff>,
-    pub snap_to_grid: Option<OnOff>,
-    pub vanish: Option<OnOff>,
-    pub web_hidden: Option<OnOff>,
-    pub color: Option<Color>,
-    pub spacing: Option<SignedTwipsMeasure>,
-    pub width: Option<TextScale>,
-    pub kerning: Option<HpsMeasure>,
-    pub position: Option<SignedHpsMeasure>,
-    pub font_size: Option<HpsMeasure>,
-    pub complex_script_font_size: Option<HpsMeasure>,
-    pub highlight: Option<HighlightColor>,
-    pub underline: Option<Underline>,
-    pub effect: Option<TextEffect>,
-    pub border: Option<Border>,
-    pub shading: Option<Shd>,
-    pub fit_text: Option<FitText>,
-    pub vertical_alignment: Option<VerticalAlignRun>,
-    pub rtl: Option<OnOff>,
-    pub complex_script: Option<OnOff>,
-    pub emphasis_mark: Option<Em>,
-    pub language: Option<Language>,
-    pub east_asian_layout: Option<EastAsianLayout>,
-    pub special_vanish: Option<OnOff>,
-    pub o_math: Option<OnOff>,
-}
-
-impl RunProperties {
-    pub fn from_vec(properties_vec: &[RPrBase]) -> Self {
-        properties_vec
-            .iter()
-            .fold(Default::default(), |mut instance: Self, property| {
-                match property {
-                    RPrBase::RunStyle(style) => instance.style = Some(style.clone()),
-                    RPrBase::RunFonts(fonts) => instance.fonts = Some(fonts.clone()),
-                    RPrBase::Bold(b) => instance.bold = Some(*b),
-                    RPrBase::ComplexScriptBold(b) => instance.complex_script_bold = Some(*b),
-                    RPrBase::Italic(i) => instance.italic = Some(*i),
-                    RPrBase::ComplexScriptItalic(i) => instance.complex_script_italic = Some(*i),
-                    RPrBase::Capitals(caps) => instance.all_capitals = Some(*caps),
-                    RPrBase::SmallCapitals(small_caps) => instance.all_small_capitals = Some(*small_caps),
-                    RPrBase::Strikethrough(strike) => {
-                        instance.strikethrough = Some(*strike);
-                        instance.double_strikethrough = None;
-                    }
-                    RPrBase::DoubleStrikethrough(dbl_strike) => {
-                        instance.double_strikethrough = Some(*dbl_strike);
-                        instance.strikethrough = None;
-                    }
-                    RPrBase::Outline(outline) => instance.outline = Some(*outline),
-                    RPrBase::Shadow(shadow) => instance.shadow = Some(*shadow),
-                    RPrBase::Emboss(emboss) => instance.emboss = Some(*emboss),
-                    RPrBase::Imprint(imprint) => instance.imprint = Some(*imprint),
-                    RPrBase::NoProofing(no_proof) => instance.no_proofing = Some(*no_proof),
-                    RPrBase::SnapToGrid(snap_to_grid) => instance.snap_to_grid = Some(*snap_to_grid),
-                    RPrBase::Vanish(vanish) => instance.vanish = Some(*vanish),
-                    RPrBase::WebHidden(web_hidden) => instance.web_hidden = Some(*web_hidden),
-                    RPrBase::Color(color) => instance.color = Some(*color),
-                    RPrBase::Spacing(spacing) => instance.spacing = Some(*spacing),
-                    RPrBase::Width(width) => instance.width = Some(*width),
-                    RPrBase::Kerning(kerning) => instance.kerning = Some(*kerning),
-                    RPrBase::Position(pos) => instance.position = Some(*pos),
-                    RPrBase::FontSize(size) => instance.font_size = Some(*size),
-                    RPrBase::ComplexScriptFontSize(cs_size) => instance.complex_script_font_size = Some(*cs_size),
-                    RPrBase::Highlight(color) => instance.highlight = Some(*color),
-                    RPrBase::Underline(u) => instance.underline = Some(*u),
-                    RPrBase::Effect(effect) => instance.effect = Some(*effect),
-                    RPrBase::Border(border) => instance.border = Some(*border),
-                    RPrBase::Shading(shd) => instance.shading = Some(*shd),
-                    RPrBase::FitText(fit_text) => instance.fit_text = Some(*fit_text),
-                    RPrBase::VerticalAlignment(align) => instance.vertical_alignment = Some(*align),
-                    RPrBase::Rtl(rtl) => instance.rtl = Some(*rtl),
-                    RPrBase::ComplexScript(cs) => instance.complex_script = Some(*cs),
-                    RPrBase::EmphasisMark(em) => instance.emphasis_mark = Some(*em),
-                    RPrBase::Language(lang) => instance.language = Some(lang.clone()),
-                    RPrBase::EastAsianLayout(ea_layout) => instance.east_asian_layout = Some(*ea_layout),
-                    RPrBase::SpecialVanish(vanish) => instance.special_vanish = Some(*vanish),
-                    RPrBase::OMath(o_math) => instance.o_math = Some(*o_math),
-                }
-
-                instance
-            })
-    }
-
-    pub fn update_with(mut self, other: Self) -> Self {
-        self.style = other.style.or(self.style);
-        self.fonts = match (self.fonts, other.fonts) {
-            (Some(lhs), Some(rhs)) => Some(lhs.update_with(rhs)),
-            (lhs, rhs) => rhs.or(lhs),
-        };
-        self.bold = other.bold.or(self.bold);
-        self.complex_script_bold = other.complex_script_bold.or(self.complex_script_bold);
-        self.italic = other.italic.or(self.italic);
-        self.complex_script_italic = other.complex_script_italic.or(self.complex_script_italic);
-        self.all_capitals = other.all_capitals.or(self.all_capitals);
-        self.all_small_capitals = other.all_small_capitals.or(self.all_small_capitals);
-        self.strikethrough = other.strikethrough.or(self.strikethrough);
-        self.double_strikethrough = other.double_strikethrough.or(self.double_strikethrough);
-        self.outline = other.outline.or(self.outline);
-        self.shadow = other.shadow.or(self.shadow);
-        self.emboss = other.emboss.or(self.emboss);
-        self.imprint = other.imprint.or(self.imprint);
-        self.no_proofing = other.no_proofing.or(self.no_proofing);
-        self.snap_to_grid = other.snap_to_grid.or(self.snap_to_grid);
-        self.vanish = other.vanish.or(self.vanish);
-        self.web_hidden = other.web_hidden.or(self.web_hidden);
-        self.color = other.color.or(self.color);
-        self.spacing = other.spacing.or(self.spacing);
-        self.width = other.width.or(self.width);
-        self.kerning = other.kerning.or(self.kerning);
-        self.position = other.position.or(self.position);
-        self.font_size = other.font_size.or(self.font_size);
-        self.complex_script_font_size = other.complex_script_font_size.or(self.complex_script_font_size);
-        self.highlight = other.highlight.or(self.highlight);
-        self.underline = other.underline.or(self.underline);
-        self.effect = other.effect.or(self.effect);
-        self.border = other.border.or(self.border);
-        self.shading = other.shading.or(self.shading);
-        self.fit_text = other.fit_text.or(self.fit_text);
-        self.vertical_alignment = other.vertical_alignment.or(self.vertical_alignment);
-        self.rtl = other.rtl.or(self.rtl);
-        self.complex_script = other.complex_script.or(self.complex_script);
-        self.emphasis_mark = other.emphasis_mark.or(self.emphasis_mark);
-        self.language = other.language.or(self.language);
-        self.east_asian_layout = other.east_asian_layout.or(self.east_asian_layout);
-        self.special_vanish = other.special_vanish.or(self.special_vanish);
-        self.o_math = other.o_math.or(self.o_math);
-        self
-    }
-
-    pub fn update_with_style_on_another_level(mut self, other: Self) -> Self {
-        self.style = other.style.or(self.style);
-        self.fonts = match (self.fonts, other.fonts) {
-            (Some(lhs), Some(rhs)) => Some(lhs.update_with(rhs)),
-            (lhs, rhs) => rhs.or(lhs),
-        };
-        self.bold = update_or_toggle_on_off(self.bold, other.bold);
-        self.complex_script_bold = update_or_toggle_on_off(self.complex_script_bold, other.complex_script_bold);
-        self.italic = update_or_toggle_on_off(self.italic, other.italic);
-        self.complex_script_italic = update_or_toggle_on_off(self.complex_script_italic, other.complex_script_italic);
-        self.all_capitals = update_or_toggle_on_off(self.all_capitals, other.all_capitals);
-        self.all_small_capitals = update_or_toggle_on_off(self.all_small_capitals, other.all_small_capitals);
-        self.strikethrough = update_or_toggle_on_off(self.strikethrough, other.strikethrough);
-        self.double_strikethrough = update_or_toggle_on_off(self.double_strikethrough, other.double_strikethrough);
-        self.outline = update_or_toggle_on_off(self.outline, other.outline);
-        self.shadow = update_or_toggle_on_off(self.shadow, other.shadow);
-        self.emboss = update_or_toggle_on_off(self.emboss, other.emboss);
-        self.imprint = update_or_toggle_on_off(self.imprint, other.imprint);
-        self.no_proofing = update_or_toggle_on_off(self.no_proofing, other.no_proofing);
-        self.snap_to_grid = update_or_toggle_on_off(self.snap_to_grid, other.snap_to_grid);
-        self.vanish = update_or_toggle_on_off(self.vanish, other.vanish);
-        self.web_hidden = update_or_toggle_on_off(self.web_hidden, other.web_hidden);
-        self.color = other.color.or(self.color);
-        self.spacing = other.spacing.or(self.spacing);
-        self.width = other.width.or(self.width);
-        self.kerning = other.kerning.or(self.kerning);
-        self.position = other.position.or(self.position);
-        self.font_size = other.font_size.or(self.font_size);
-        self.complex_script_font_size = other.complex_script_font_size.or(self.complex_script_font_size);
-        self.highlight = other.highlight.or(self.highlight);
-        self.underline = other.underline.or(self.underline);
-        self.effect = other.effect.or(self.effect);
-        self.border = other.border.or(self.border);
-        self.shading = other.shading.or(self.shading);
-        self.fit_text = other.fit_text.or(self.fit_text);
-        self.vertical_alignment = other.vertical_alignment.or(self.vertical_alignment);
-        self.rtl = update_or_toggle_on_off(self.rtl, other.rtl);
-        self.complex_script = update_or_toggle_on_off(self.complex_script, self.complex_script);
-        self.emphasis_mark = other.emphasis_mark.or(self.emphasis_mark);
-        self.language = other.language.or(self.language);
-        self.east_asian_layout = other.east_asian_layout.or(self.east_asian_layout);
-        self.special_vanish = update_or_toggle_on_off(self.special_vanish, other.special_vanish);
-        self.o_math = update_or_toggle_on_off(self.o_math, other.o_math);
-        self
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Default)]
-pub struct ResolvedStyle {
-    pub paragraph_properties: Box<ParagraphProperties>,
-    pub run_properties: Box<RunProperties>,
-}
-
-impl ResolvedStyle {
-    pub fn from_paragraph_properties(paragraph_properties: Box<ParagraphProperties>) -> Self {
-        Self {
-            paragraph_properties,
-            ..Default::default()
-        }
-    }
-
-    pub fn from_run_properties(run_properties: Box<RunProperties>) -> Self {
-        Self {
-            run_properties,
-            ..Default::default()
-        }
-    }
-
-    pub fn from_wml_style(style: &Style) -> Self {
-        let paragraph_properties = Box::new(
-            style
-                .paragraph_properties
-                .as_ref()
-                .map(|p_pr| p_pr.base.clone())
-                .unwrap_or_default(),
-        );
-
-        let run_properties = Box::new(
-            style
-                .run_properties
-                .as_ref()
-                .map(|r_pr| RunProperties::from_vec(&r_pr.r_pr_bases))
-                .unwrap_or_default(),
-        );
-
-        Self {
-            paragraph_properties,
-            run_properties,
-        }
-    }
-
-    pub fn update_with(mut self, other: Self) -> Self {
-        *self.paragraph_properties = self.paragraph_properties.update_with(*other.paragraph_properties);
-        *self.run_properties = self.run_properties.update_with(*other.run_properties);
-        self
-    }
-
-    pub fn update_with_style_on_another_level(mut self, other: Self) -> Self {
-        *self.paragraph_properties = self.paragraph_properties.update_with(*other.paragraph_properties);
-        *self.run_properties = self
-            .run_properties
-            .update_with_style_on_another_level(*other.run_properties);
-        self
-    }
-
-    pub fn update_paragraph_with(mut self, other: ParagraphProperties) -> Self {
-        *self.paragraph_properties = self.paragraph_properties.update_with(other);
-        self
-    }
-
-    pub fn update_run_with(mut self, other: RunProperties) -> Self {
-        *self.run_properties = self.run_properties.update_with(other);
-        self
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct Package {
     pub app_info: Option<AppInfo>,
@@ -295,6 +30,7 @@ pub struct Package {
     pub main_document: Option<Box<Document>>,
     pub main_document_relationships: Vec<Relationship>,
     pub styles: Option<Box<Styles>>,
+    pub footnotes: Option<Footnotes>,
     pub settings: Option<Box<Settings>>,
     pub medias: Vec<PathBuf>,
     pub themes: HashMap<String, OfficeStyleSheet>,
@@ -330,6 +66,10 @@ impl Package {
                 "word/settings.xml" => {
                     let xml_node = zip_file_to_xml_node(&mut zip_file)?;
                     instance.settings = Some(Box::new(Settings::from_xml_element(&xml_node)?));
+                }
+                "word/footnotes.xml" => {
+                    let xml_node = zip_file_to_xml_node(&mut zip_file)?;
+                    instance.footnotes = Some(Footnotes::from_xml_element(&xml_node)?);
                 }
                 path if path.starts_with("word/media/") => instance.medias.push(PathBuf::from(file_path)),
                 path if path.starts_with("word/theme/") => {
@@ -393,50 +133,102 @@ impl Package {
 
     pub fn resolve_paragraph_style(&self, paragraph: &P) -> Option<ResolvedStyle> {
         let properties = paragraph.properties.as_ref()?;
-
-        let run_properties = properties
-            .run_properties
+        properties
+            .base
+            .style
             .as_ref()
-            .map(|run_properties| RunProperties::from_vec(&run_properties.bases))
-            .map(|run_properties| {
-                match run_properties
-                    .style
+            .and_then(|style_name| self.resolve_style(style_name))
+            .map(|resolved_style| {
+                let run_style = properties
+                    .run_properties
                     .as_ref()
-                    .and_then(|style_name| self.resolve_style(style_name))
-                {
-                    Some(run_style) => run_properties.update_with(*run_style.run_properties),
-                    None => run_properties,
-                }
-            })
-            .unwrap_or_default();
+                    .and_then(|run_properties| {
+                        run_properties
+                            .bases
+                            .iter()
+                            .find_map(|r_pr_base| {
+                                if let RPrBase::RunStyle(style_name) = r_pr_base {
+                                    self.resolve_style(style_name)
+                                } else {
+                                    None
+                                }
+                            })
+                    })
+                    .unwrap_or_default();
 
-        Some(
-            properties
-                .base
-                .style
-                .as_ref()
-                .and_then(|style_name| self.resolve_style(style_name))
-                .unwrap_or_default()
-                .update_paragraph_with(properties.base.clone())
-                .update_run_with(run_properties),
-        )
+                resolved_style.update_with(run_style)
+            })
+
+        // let run_properties = properties
+        //     .run_properties
+        //     .as_ref()
+        //     .map(|run_properties| RunProperties::from_vec(&run_properties.bases))
+        //     .map(|run_properties| {
+        //         match run_properties
+        //             .style
+        //             .as_ref()
+        //             .and_then(|style_name| self.resolve_style(style_name))
+        //         {
+        //             Some(run_style) => run_properties.update_with(*run_style.run_properties),
+        //             None => run_properties,
+        //         }
+        //     })
+        //     .unwrap_or_default();
+
+        // Some(
+        //     properties
+        //         .base
+        //         .style
+        //         .as_ref()
+        //         .and_then(|style_name| self.resolve_style(style_name))
+        //         .unwrap_or_default()
+        //         .update_paragraph_with(properties.base.clone())
+        //         .update_run_with(run_properties),
+        // )
     }
 
     pub fn resolve_run_style(&self, run: &R) -> Option<ResolvedStyle> {
-        let run_properties = run
+        run
             .run_properties
             .as_ref()
-            .map(|run_properties| RunProperties::from_vec(&run_properties.r_pr_bases))?;
+            .and_then(|run_properties| {
+                run_properties
+                    .r_pr_bases
+                    .iter()
+                    .find_map(|r_pr_base| {
+                        if let RPrBase::RunStyle(style_name) = r_pr_base {
+                            self.resolve_style(style_name)
+                        } else {
+                            None
+                        }
+                    })
+            })
 
-        Some(
-            run_properties
-                .style
-                .as_ref()
-                .and_then(|style_name| self.resolve_style(style_name))
-                .unwrap_or_default()
-                .update_run_with(run_properties),
-        )
+        // Some(
+        //     run_properties
+        //         .style
+        //         .as_ref()
+        //         .and_then(|style_name| self.resolve_style(style_name))
+        //         .unwrap_or_default()
+        //         .update_run_with(run_properties),
+        // )
     }
+
+    // pub fn resolve_run_style(&self, run: &R) -> Option<ResolvedStyle> {
+    //     let run_properties = run
+    //         .run_properties
+    //         .as_ref()
+    //         .map(|run_properties| RunProperties::from_vec(&run_properties.r_pr_bases))?;
+
+    //     Some(
+    //         run_properties
+    //             .style
+    //             .as_ref()
+    //             .and_then(|style_name| self.resolve_style(style_name))
+    //             .unwrap_or_default()
+    //             .update_run_with(run_properties),
+    //     )
+    // }
 
     fn resolve_style<T: AsRef<str>>(&self, style_id: T) -> Option<ResolvedStyle> {
         // TODO(kalmar.robert) Use caching
@@ -491,10 +283,41 @@ impl Package {
             (p_style, r_style) => p_style.or(r_style),
         };
 
-        match (default_style, calced_style) {
+        let calced_style = match (default_style, calced_style) {
             (Some(def_style), Some(calced_style)) => Some(def_style.update_with(calced_style)),
             (def_style, calced_style) => def_style.or(calced_style),
-        }
+        };
+
+        calced_style
+            .map(|resolved_style| {
+                let paragraph_style = paragraph
+                    .and_then(|p| p.properties.as_ref())
+                    .map(|p_pr| {
+                        let run_properties = Box::new(p_pr
+                            .run_properties
+                            .as_ref()
+                            .map(|r_pr| RunProperties::from_vec(&r_pr.bases))
+                            .unwrap_or_default()
+                        );
+
+                        ResolvedStyle {
+                            paragraph_properties: Box::new(p_pr.base.clone()),
+                            run_properties,
+                        }
+                    });
+                
+                let run_style = run
+                    .run_properties
+                    .as_ref()
+                    .map(|r_pr| RunProperties::from_vec(&r_pr.r_pr_bases));
+
+                match (paragraph_style, run_style) {
+                    (Some(p_style), Some(r_style)) => resolved_style.update_with(p_style).update_run_with(r_style),
+                    (Some(p_style), None) => resolved_style.update_with(p_style),
+                    (None, Some(r_style)) => resolved_style.update_run_with(r_style),
+                    _ => resolved_style,
+                }
+            })
     }
 
     pub fn get_main_document_theme(&self) -> Option<&OfficeStyleSheet> {
@@ -520,28 +343,83 @@ impl Package {
             .contents
             .as_ref()
     }
-}
 
-fn update_or_toggle_on_off(lhs: Option<OnOff>, rhs: Option<OnOff>) -> Option<OnOff> {
-    match (lhs, rhs) {
-        (Some(lhs), Some(rhs)) => Some(lhs ^ rhs),
-        (lhs, rhs) => rhs.or(lhs),
+    pub fn find_footnote_with_id(&self, id: i32) -> Option<&FtnEdn> {
+        self.footnotes
+            .as_ref()?
+            .0
+            .iter()
+            .find(|ftn_edn| ftn_edn.id == id)
+    }
+
+    pub fn resolve_footnote_style(&self, footnote_type: FtnEdnType) -> Option<ResolvedStyle> {
+        self.footnotes
+            .as_ref()?
+            .0
+            .iter()
+            .find(|ftn_edn| ftn_edn.ftn_edn_type == Some(footnote_type))
+            .and_then(|ftn_edn| {
+                ftn_edn
+                    .block_level_elements
+                    .iter()
+                    .find_map(|block_level_elt| {
+                        if let BlockLevelElts::Chunk(ContentBlockContent::Paragraph(par)) = &block_level_elt {
+                            Some(par)
+                        } else {
+                            None
+                        }
+                    })
+            })
+            .map(|paragraph| {
+                let run_properties = paragraph
+                    .contents
+                    .iter()
+                    .find_map(|content| {
+                        if let PContent::ContentRunContent(crc) = content {
+                            if let ContentRunContent::Run(run) = &(**crc) {
+                                return Some(
+                                    run
+                                        .run_properties
+                                        .as_ref()
+                                        .map(|r_pr| RunProperties::from_vec(&r_pr.r_pr_bases))
+                                        .unwrap_or_default()
+                                )
+                            }
+                        }
+
+                        None
+                    })
+                    .unwrap_or_default();
+
+                self
+                    .resolve_paragraph_style(paragraph)
+                    .unwrap_or_default()
+                    .update_run_with(run_properties)
+                    .update_paragraph_with(paragraph.properties.as_ref().map(|p_pr| p_pr.base.clone()).unwrap_or_default())
+            })
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{Package, ParagraphProperties, RunProperties};
-    use crate::wml::{
-        document::{
-            Document, PPr, PPrBase, PPrGeneral, ParaRPr, RPr, RPrBase, TextAlignment, Underline, UnderlineType, P, R,
+    use super::{Package, RunProperties};
+    use crate::{
+        wml::{
+            document::{
+                Document, PPr, PPrBase, PPrGeneral, ParaRPr, RPr, RPrBase, TextAlignment, Underline, UnderlineType, P,
+                R, SignedTwipsMeasure, LineSpacingRule, BlockLevelElts, ContentBlockContent, Spacing, PContent,
+                ContentRunContent, RunInnerContent,
+            },
+            settings::Settings,
+            styles::{DocDefaults, PPrDefault, RPrDefault, Style, StyleType, Styles},
+            footnotes::{Footnotes, FtnEdn, FtnEdnType},
         },
-        settings::Settings,
-        styles::{DocDefaults, PPrDefault, RPrDefault, Style, StyleType, Styles},
+        resolvedstyle::ParagraphProperties,
     };
     use msoffice_shared::docprops::{AppInfo, Core};
 
     #[test]
+    #[ignore]
     fn test_size_of() {
         use std::mem::size_of;
 
@@ -655,23 +533,6 @@ mod tests {
         }
     }
 
-    fn paragraph_for_test() -> P {
-        P {
-            properties: Some(PPr {
-                base: PPrBase {
-                    keep_lines_on_one_page: Some(true),
-                    ..Default::default()
-                },
-                run_properties: Some(ParaRPr {
-                    bases: vec![RPrBase::Bold(true), RPrBase::Italic(true)],
-                    ..Default::default()
-                }),
-                ..Default::default()
-            }),
-            ..Default::default()
-        }
-    }
-
     fn run_with_style_for_test() -> R {
         R {
             run_properties: Some(RPr {
@@ -682,26 +543,47 @@ mod tests {
         }
     }
 
-    fn run_for_test() -> R {
-        R {
-            run_properties: Some(RPr {
-                r_pr_bases: vec![RPrBase::Italic(true)],
-                ..Default::default()
-            }),
+    fn package_for_test() -> Package {
+        Package {
+            styles: Some(Box::new(Styles {
+                document_defaults: Some(doc_defaults_for_test()),
+                latent_styles: None,
+                styles: styles_for_test(),
+            })),
+            footnotes: Some(Footnotes(
+                vec![FtnEdn {
+                    ftn_edn_type: Some(FtnEdnType::Separator),
+                    id: 0,
+                    block_level_elements: vec![
+                        BlockLevelElts::Chunk(ContentBlockContent::Paragraph(Box::new(P {
+                            properties: Some(PPr {
+                                base: PPrBase {
+                                    spacing: Some(Spacing {
+                                        line: Some(SignedTwipsMeasure::Decimal(240)),
+                                        line_rule: Some(LineSpacingRule::Auto),
+                                        ..Default::default()
+                                    }),
+                                    ..Default::default()
+                                },
+                                ..Default::default()
+                            }),
+                            contents: vec![PContent::ContentRunContent(Box::new(ContentRunContent::Run(R {
+                                run_inner_contents: vec![RunInnerContent::Separator],
+                                ..Default::default()
+                            })))],
+                            ..Default::default()
+                        }
+                        )))
+                    ]
+                }]
+            )),
             ..Default::default()
         }
     }
 
     #[test]
     pub fn test_resolve_default_style() {
-        let package = Package {
-            styles: Some(Box::new(Styles {
-                document_defaults: Some(doc_defaults_for_test()),
-                latent_styles: None,
-                styles: Vec::new(),
-            })),
-            ..Default::default()
-        };
+        let package = package_for_test();
 
         let default_style = package.resolve_document_default_style().unwrap();
         assert_eq!(
@@ -723,14 +605,7 @@ mod tests {
 
     #[test]
     pub fn test_resolve_paragraph_style() {
-        let package = Package {
-            styles: Some(Box::new(Styles {
-                document_defaults: None,
-                latent_styles: None,
-                styles: styles_for_test(),
-            })),
-            ..Default::default()
-        };
+        let package = package_for_test();
 
         let paragraph_style = package
             .resolve_paragraph_style(&paragraph_with_style_for_test())
@@ -738,9 +613,7 @@ mod tests {
         assert_eq!(
             *paragraph_style.paragraph_properties,
             ParagraphProperties {
-                style: Some(String::from("Child")),
                 start_on_next_page: Some(true),
-                keep_lines_on_one_page: Some(true),
                 text_alignment: Some(TextAlignment::Center),
                 ..Default::default()
             }
@@ -749,7 +622,6 @@ mod tests {
         assert_eq!(
             *paragraph_style.run_properties,
             RunProperties {
-                bold: Some(true),
                 italic: Some(true),
                 underline: Some(Underline {
                     value: Some(UnderlineType::Single),
@@ -758,48 +630,13 @@ mod tests {
                 ..Default::default()
             }
         );
-
-        let paragraph_style = package.resolve_paragraph_style(&paragraph_for_test()).unwrap();
-        assert_eq!(
-            *paragraph_style.paragraph_properties,
-            ParagraphProperties {
-                keep_lines_on_one_page: Some(true),
-                ..Default::default()
-            }
-        );
-
-        assert_eq!(
-            *paragraph_style.run_properties,
-            RunProperties {
-                bold: Some(true),
-                italic: Some(true),
-                ..Default::default()
-            }
-        );
     }
 
     #[test]
     pub fn test_resolve_run_style() {
-        let package = Package {
-            styles: Some(Box::new(Styles {
-                document_defaults: None,
-                latent_styles: None,
-                styles: styles_for_test(),
-            })),
-            ..Default::default()
-        };
+        let package = package_for_test();
 
         let run_properties = package.resolve_run_style(&run_with_style_for_test()).unwrap();
-        assert_eq!(
-            *run_properties.run_properties,
-            RunProperties {
-                style: Some(String::from("Emphasis")),
-                italic: Some(true),
-                ..Default::default()
-            }
-        );
-
-        let run_properties = package.resolve_run_style(&run_for_test()).unwrap();
         assert_eq!(
             *run_properties.run_properties,
             RunProperties {
@@ -811,14 +648,7 @@ mod tests {
 
     #[test]
     pub fn test_resolve_style_inheritance() {
-        let package = Package {
-            styles: Some(Box::new(Styles {
-                document_defaults: Some(doc_defaults_for_test()),
-                latent_styles: None,
-                styles: styles_for_test(),
-            })),
-            ..Default::default()
-        };
+        let package = package_for_test();
 
         let style = package
             .resolve_style_inheritance(Some(&paragraph_with_style_for_test()), &run_with_style_for_test())
@@ -838,9 +668,26 @@ mod tests {
             RunProperties {
                 style: Some(String::from("Emphasis")),
                 bold: Some(true),
-                italic: Some(false),
+                italic: Some(true),
                 underline: Some(Underline {
                     value: Some(UnderlineType::Single),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }
+        );
+    }
+
+    #[test]
+    pub fn test_resolve_footnote_separator_style() {
+        let package = package_for_test();
+        let style = package.resolve_footnote_style(FtnEdnType::Separator).unwrap();
+        assert_eq!(
+            *style.paragraph_properties,
+            ParagraphProperties {
+                spacing: Some(Spacing {
+                    line: Some(SignedTwipsMeasure::Decimal(240)),
+                    line_rule: Some(LineSpacingRule::Auto),
                     ..Default::default()
                 }),
                 ..Default::default()

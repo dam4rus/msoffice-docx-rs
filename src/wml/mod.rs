@@ -4,5 +4,6 @@ pub mod error;
 pub mod settings;
 pub mod simpletypes;
 pub mod styles;
+pub mod footnotes;
 pub mod table;
 pub mod util;

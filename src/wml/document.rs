@@ -4004,6 +4004,7 @@ impl Tabs {
     }
 }
 
+#[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum LineSpacingRule {
     #[strum(serialize = "auto")]
