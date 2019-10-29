@@ -19,7 +19,7 @@ use msoffice_shared::{
         UniversalMeasure, VerticalAlignRun, XAlign, XmlName, YAlign,
     },
     xml::{parse_xml_bool, XmlNode},
-    xsdtypes::{XsdType, XsdChoice},
+    xsdtypes::{XsdChoice, XsdType},
 };
 use std::str::FromStr;
 
@@ -766,7 +766,6 @@ impl XsdChoice for PContent {
             _ => ContentRunContent::is_choice_member(&node_name),
         }
     }
-
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -7432,10 +7431,9 @@ mod tests {
 
         pub fn test_instance() -> Self {
             Self(vec![
-                    DrawingChoice::Anchor(Anchor::test_instance()),
-                    DrawingChoice::Inline(Inline::test_instance()),
-                ],
-            )
+                DrawingChoice::Anchor(Anchor::test_instance()),
+                DrawingChoice::Inline(Inline::test_instance()),
+            ])
         }
     }
 

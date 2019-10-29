@@ -1,16 +1,16 @@
-use msoffice_shared::{
-    xml::{XmlNode, parse_xml_bool},
-    error::{MissingChildNodeError, MissingAttributeError, LimitViolationError, MaxOccurs, NotGroupMemberError},
-    sharedtypes::OnOff,
-    xsdtypes::{XsdType, XsdChoice},
-};
 use super::{
-    simpletypes::{DecimalNumber, LongHexNumber, parse_on_off_xml_element},
-    document::{Drawing, NumFmt, Jc, PPrGeneral, RPr, Rel, Control},
+    document::{Control, Drawing, Jc, NumFmt, PPrGeneral, RPr, Rel},
+    simpletypes::{parse_on_off_xml_element, DecimalNumber, LongHexNumber},
     util::XmlNodeExt,
 };
-use std::any::Any;
 use log::info;
+use msoffice_shared::{
+    error::{LimitViolationError, MaxOccurs, MissingAttributeError, MissingChildNodeError, NotGroupMemberError},
+    sharedtypes::OnOff,
+    xml::{parse_xml_bool, XmlNode},
+    xsdtypes::{XsdChoice, XsdType},
+};
+use std::any::Any;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -59,7 +59,10 @@ impl XsdType for NumPicBulletChoice {
         match xml_node.local_name() {
             "drawing" => Ok(NumPicBulletChoice::Drawing(Drawing::from_xml_element(xml_node)?)),
             "pict" => Ok(NumPicBulletChoice::Picture(Picture::from_xml_element(xml_node)?)),
-            _ => Err(Box::new(NotGroupMemberError::new(xml_node.name.clone(), "NumPicBulletChoice"))),
+            _ => Err(Box::new(NotGroupMemberError::new(
+                xml_node.name.clone(),
+                "NumPicBulletChoice",
+            ))),
         }
     }
 }
@@ -96,10 +99,7 @@ impl NumPicBullet {
             .ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "w:numPicBulletId"))?
             .parse()?;
 
-        Ok(Self {
-            choice,
-            symbol_id,
-        })
+        Ok(Self { choice, symbol_id })
     }
 }
 
@@ -301,7 +301,8 @@ impl AbstractNum {
                     0,
                     MaxOccurs::Value(9),
                     len as u32,
-                )).into()),
+                ))
+                .into()),
             })
     }
 }
@@ -330,7 +331,7 @@ impl NumLvl {
             .get("w:ilvl")
             .ok_or_else(|| MissingAttributeError::new(xml_node.name.clone(), "w:ilvl"))?
             .parse()?;
-        
+
         xml_node
             .child_nodes
             .iter()
@@ -374,8 +375,8 @@ impl Num {
             }
         }
 
-        let abstract_num_id = abstract_num_id
-            .ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "w:abstractNumId"))?;
+        let abstract_num_id =
+            abstract_num_id.ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "w:abstractNumId"))?;
 
         match level_overrides.len() {
             0..=9 => Ok(Self {
@@ -411,10 +412,16 @@ impl Numbering {
             .iter()
             .try_fold(Default::default(), |mut instance: Self, child_node| {
                 match child_node.local_name() {
-                    "numPicBullet" => instance.picture_numbering_symbols.push(NumPicBullet::from_xml_element(child_node)?),
-                    "abstractNum" => instance.abstract_numberings.push(AbstractNum::from_xml_element(child_node)?),
+                    "numPicBullet" => instance
+                        .picture_numbering_symbols
+                        .push(NumPicBullet::from_xml_element(child_node)?),
+                    "abstractNum" => instance
+                        .abstract_numberings
+                        .push(AbstractNum::from_xml_element(child_node)?),
                     "num" => instance.numberings.push(Num::from_xml_element(child_node)?),
-                    "numIdMacAtCleanup" => instance.numbering_id_mac_at_cleanup = Some(child_node.get_val_attribute()?.parse()?),
+                    "numIdMacAtCleanup" => {
+                        instance.numbering_id_mac_at_cleanup = Some(child_node.get_val_attribute()?.parse()?)
+                    }
                     _ => (),
                 }
 
@@ -429,13 +436,14 @@ mod tests {
 
     impl Picture {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name}>
+            format!(
+                r#"<{node_name}>
                 {}
                 {}
             </{node_name}>"#,
                 Rel::test_xml("w:movie"),
                 Control::test_xml("w:control"),
-                node_name=node_name,
+                node_name = node_name,
             )
         }
 
@@ -447,7 +455,7 @@ mod tests {
             }
         }
     }
-    
+
     #[test]
     fn test_picture_from_xml() {
         let xml = Picture::test_xml("w:numPicBullet");
@@ -459,7 +467,10 @@ mod tests {
 
     impl LevelText {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name} w:val="Example" w:null="false"></{node_name}>"#, node_name=node_name)
+            format!(
+                r#"<{node_name} w:val="Example" w:null="false"></{node_name}>"#,
+                node_name = node_name
+            )
         }
 
         pub fn test_instance() -> Self {
@@ -481,7 +492,8 @@ mod tests {
 
     impl Lvl {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name} w:ilvl="1" w:tplc="ffffffff" w:tentative="false">
+            format!(
+                r#"<{node_name} w:ilvl="1" w:tplc="ffffffff" w:tentative="false">
                 <w:start w:val="1" />
                 {}
                 <w:lvlRestart w:val="1" />
@@ -498,7 +510,7 @@ mod tests {
                 LevelText::test_xml("w:lvlText"),
                 PPrGeneral::test_xml("w:pPr"),
                 RPr::test_xml("w:rPr"),
-                node_name=node_name,
+                node_name = node_name,
             )
         }
 
@@ -521,7 +533,7 @@ mod tests {
             }
         }
     }
-    
+
     #[test]
     fn test_lvl_from_xml() {
         let xml = Lvl::test_xml("w:lvl");
@@ -533,7 +545,8 @@ mod tests {
 
     impl AbstractNum {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name} w:abstractNumId="1">
+            format!(
+                r#"<{node_name} w:abstractNumId="1">
                 <w:nsid w:val="ffffffff" />
                 <w:multiLevelType w:val="singleLevel" />
                 <w:tmpl w:val="fefefefe" />
@@ -543,8 +556,8 @@ mod tests {
                 {lvl}
                 {lvl}
             </{node_name}>"#,
-                lvl=Lvl::test_xml("w:lvl"),
-                node_name=node_name,
+                lvl = Lvl::test_xml("w:lvl"),
+                node_name = node_name,
             )
         }
 
@@ -573,12 +586,13 @@ mod tests {
 
     impl NumLvl {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name} w:ilvl="1">
+            format!(
+                r#"<{node_name} w:ilvl="1">
                 <startOverride w:val="1" />
                 {}
             </{node_name}>"#,
                 Lvl::test_xml("w:lvl"),
-                node_name=node_name,
+                node_name = node_name,
             )
         }
 
@@ -590,7 +604,7 @@ mod tests {
             }
         }
     }
-    
+
     #[test]
     fn test_num_lvl_from_xml() {
         let xml = NumLvl::test_xml("w:numLvl");
@@ -602,13 +616,14 @@ mod tests {
 
     impl Num {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name} w:numId="1">
+            format!(
+                r#"<{node_name} w:numId="1">
                 <w:abstractNumId w:val="1" />
                 {lvl_override}
                 {lvl_override}
             </{node_name}>"#,
-                lvl_override=NumLvl::test_xml("w:lvlOverride"),
-                node_name=node_name,
+                lvl_override = NumLvl::test_xml("w:lvlOverride"),
+                node_name = node_name,
             )
         }
 
@@ -632,14 +647,15 @@ mod tests {
 
     impl Numbering {
         pub fn test_xml(node_name: &'static str) -> String {
-            format!(r#"<{node_name}>
+            format!(
+                r#"<{node_name}>
                 {}
                 {}
                 <w:numIdMacAtCleanup w:val="1" />
             </{node_name}>"#,
                 AbstractNum::test_xml("w:abstractNum"),
                 Num::test_xml("w:num"),
-                node_name=node_name,
+                node_name = node_name,
             )
         }
 
@@ -660,6 +676,9 @@ mod tests {
         let test_instance = Numbering::test_instance();
         assert_eq!(numbering.abstract_numberings, test_instance.abstract_numberings);
         assert_eq!(numbering.numberings, test_instance.numberings);
-        assert_eq!(numbering.numbering_id_mac_at_cleanup, test_instance.numbering_id_mac_at_cleanup);
+        assert_eq!(
+            numbering.numbering_id_mac_at_cleanup,
+            test_instance.numbering_id_mac_at_cleanup
+        );
     }
 }

@@ -12,7 +12,7 @@ use msoffice_shared::{
     error::{LimitViolationError, MaxOccurs, MissingAttributeError, MissingChildNodeError, NotGroupMemberError},
     sharedtypes::{OnOff, TwipsMeasure, XAlign, XmlName, YAlign},
     xml::{parse_xml_bool, XmlNode},
-    xsdtypes::{XsdType, XsdChoice},
+    xsdtypes::{XsdChoice, XsdType},
 };
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;

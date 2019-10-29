@@ -1,13 +1,13 @@
 use super::resolvedstyle::{ResolvedStyle, RunProperties};
 use crate::wml::{
     document::{
-        BlockLevelElts, ContentBlockContent, ContentRunContent, Document, PContent, RPrBase, SectPrContents, P, R, RPr,
-        PPr,
+        BlockLevelElts, ContentBlockContent, ContentRunContent, Document, PContent, PPr, RPr, RPrBase, SectPrContents,
+        P, R,
     },
     footnotes::{Footnotes, FtnEdn, FtnEdnType},
+    numbering::{Lvl, Numbering},
     settings::Settings,
     styles::{Style, StyleType, Styles},
-    numbering::{Numbering, Lvl},
 };
 use log::error;
 use msoffice_shared::{
@@ -327,8 +327,7 @@ impl Package {
                     .unwrap_or_default();
 
                 if let Some(p_pr) = &paragraph.properties {
-                    self
-                        .resolve_paragraph_style(p_pr)
+                    self.resolve_paragraph_style(p_pr)
                         .unwrap_or_default()
                         .update_run_with(run_properties)
                         .update_paragraph_with(p_pr.base.clone())
@@ -358,7 +357,10 @@ impl Package {
         }
 
         let numbering = self.numbering.as_ref()?;
-        let num = numbering.numberings.iter().find(|num| num.numbering_id == numbering_id)?;
+        let num = numbering
+            .numberings
+            .iter()
+            .find(|num| num.numbering_id == numbering_id)?;
         let abstract_num = numbering
             .abstract_numberings
             .iter()
@@ -599,7 +601,9 @@ mod tests {
     pub fn test_resolve_run_style() {
         let package = package_for_test();
 
-        let run_properties = package.resolve_run_style(&run_with_style_for_test().run_properties.unwrap()).unwrap();
+        let run_properties = package
+            .resolve_run_style(&run_with_style_for_test().run_properties.unwrap())
+            .unwrap();
         assert_eq!(
             *run_properties.run_properties,
             RunProperties {
