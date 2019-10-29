@@ -1,11 +1,13 @@
 use super::resolvedstyle::{ResolvedStyle, RunProperties};
 use crate::wml::{
     document::{
-        BlockLevelElts, ContentBlockContent, ContentRunContent, Document, PContent, RPrBase, SectPrContents, P, R,
+        BlockLevelElts, ContentBlockContent, ContentRunContent, Document, PContent, RPrBase, SectPrContents, P, R, RPr,
+        PPr,
     },
     footnotes::{Footnotes, FtnEdn, FtnEdnType},
     settings::Settings,
     styles::{Style, StyleType, Styles},
+    numbering::{Numbering, Lvl},
 };
 use log::error;
 use msoffice_shared::{
@@ -23,7 +25,7 @@ use std::{
 };
 use zip::ZipArchive;
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Default)]
 pub struct Package {
     pub app_info: Option<AppInfo>,
     pub core: Option<Core>,
@@ -31,6 +33,7 @@ pub struct Package {
     pub main_document_relationships: Vec<Relationship>,
     pub styles: Option<Box<Styles>>,
     pub footnotes: Option<Footnotes>,
+    pub numbering: Option<Numbering>,
     pub settings: Option<Box<Settings>>,
     pub medias: Vec<PathBuf>,
     pub themes: HashMap<String, OfficeStyleSheet>,
@@ -70,6 +73,10 @@ impl Package {
                 "word/footnotes.xml" => {
                     let xml_node = zip_file_to_xml_node(&mut zip_file)?;
                     instance.footnotes = Some(Footnotes::from_xml_element(&xml_node)?);
+                }
+                "word/numbering.xml" => {
+                    let xml_node = zip_file_to_xml_node(&mut zip_file)?;
+                    instance.numbering = Some(Numbering::from_xml_element(&xml_node)?);
                 }
                 path if path.starts_with("word/media/") => instance.medias.push(PathBuf::from(file_path)),
                 path if path.starts_with("word/theme/") => {
@@ -131,15 +138,14 @@ impl Package {
         Some(ResolvedStyle::from_wml_style(default_style))
     }
 
-    pub fn resolve_paragraph_style(&self, paragraph: &P) -> Option<ResolvedStyle> {
-        let properties = paragraph.properties.as_ref()?;
-        properties
+    pub fn resolve_paragraph_style(&self, paragraph_properties: &PPr) -> Option<ResolvedStyle> {
+        paragraph_properties
             .base
             .style
             .as_ref()
             .and_then(|style_name| self.resolve_style(style_name))
             .map(|resolved_style| {
-                let run_style = properties
+                let run_style = paragraph_properties
                     .run_properties
                     .as_ref()
                     .and_then(|run_properties| {
@@ -155,71 +161,17 @@ impl Package {
 
                 resolved_style.update_with(run_style)
             })
-
-        // let run_properties = properties
-        //     .run_properties
-        //     .as_ref()
-        //     .map(|run_properties| RunProperties::from_vec(&run_properties.bases))
-        //     .map(|run_properties| {
-        //         match run_properties
-        //             .style
-        //             .as_ref()
-        //             .and_then(|style_name| self.resolve_style(style_name))
-        //         {
-        //             Some(run_style) => run_properties.update_with(*run_style.run_properties),
-        //             None => run_properties,
-        //         }
-        //     })
-        //     .unwrap_or_default();
-
-        // Some(
-        //     properties
-        //         .base
-        //         .style
-        //         .as_ref()
-        //         .and_then(|style_name| self.resolve_style(style_name))
-        //         .unwrap_or_default()
-        //         .update_paragraph_with(properties.base.clone())
-        //         .update_run_with(run_properties),
-        // )
     }
 
-    pub fn resolve_run_style(&self, run: &R) -> Option<ResolvedStyle> {
-        run.run_properties.as_ref().and_then(|run_properties| {
-            run_properties.r_pr_bases.iter().find_map(|r_pr_base| {
-                if let RPrBase::RunStyle(style_name) = r_pr_base {
-                    self.resolve_style(style_name)
-                } else {
-                    None
-                }
-            })
+    pub fn resolve_run_style(&self, run_properties: &RPr) -> Option<ResolvedStyle> {
+        run_properties.r_pr_bases.iter().find_map(|r_pr_base| {
+            if let RPrBase::RunStyle(style_name) = r_pr_base {
+                self.resolve_style(style_name)
+            } else {
+                None
+            }
         })
-
-        // Some(
-        //     run_properties
-        //         .style
-        //         .as_ref()
-        //         .and_then(|style_name| self.resolve_style(style_name))
-        //         .unwrap_or_default()
-        //         .update_run_with(run_properties),
-        // )
     }
-
-    // pub fn resolve_run_style(&self, run: &R) -> Option<ResolvedStyle> {
-    //     let run_properties = run
-    //         .run_properties
-    //         .as_ref()
-    //         .map(|run_properties| RunProperties::from_vec(&run_properties.r_pr_bases))?;
-
-    //     Some(
-    //         run_properties
-    //             .style
-    //             .as_ref()
-    //             .and_then(|style_name| self.resolve_style(style_name))
-    //             .unwrap_or_default()
-    //             .update_run_with(run_properties),
-    //     )
-    // }
 
     fn resolve_style<T: AsRef<str>>(&self, style_id: T) -> Option<ResolvedStyle> {
         // TODO(kalmar.robert) Use caching
@@ -262,11 +214,14 @@ impl Package {
         let default_style = self.resolve_document_default_style();
 
         let paragraph_style = paragraph
-            .and_then(|paragraph| self.resolve_paragraph_style(paragraph))
+            .and_then(|paragraph| paragraph.properties.as_ref())
+            .and_then(|p_pr| self.resolve_paragraph_style(p_pr))
             .or_else(|| self.resolve_default_style(StyleType::Paragraph));
 
-        let run_style = self
-            .resolve_run_style(run)
+        let run_style = run
+            .run_properties
+            .as_ref()
+            .and_then(|r_pr| self.resolve_run_style(r_pr))
             .or_else(|| self.resolve_default_style(StyleType::Character));
 
         let calced_style = match (paragraph_style, run_style) {
@@ -371,17 +326,45 @@ impl Package {
                     })
                     .unwrap_or_default();
 
-                self.resolve_paragraph_style(paragraph)
-                    .unwrap_or_default()
-                    .update_run_with(run_properties)
-                    .update_paragraph_with(
-                        paragraph
-                            .properties
-                            .as_ref()
-                            .map(|p_pr| p_pr.base.clone())
-                            .unwrap_or_default(),
-                    )
+                if let Some(p_pr) = &paragraph.properties {
+                    self
+                        .resolve_paragraph_style(p_pr)
+                        .unwrap_or_default()
+                        .update_run_with(run_properties)
+                        .update_paragraph_with(p_pr.base.clone())
+                } else {
+                    ResolvedStyle::from_run_properties(Box::new(run_properties))
+                }
+
+                // paragraph
+                //     .properties
+                //     .as_ref()
+                //     .and_then(|p_pr| self.resolve_paragraph_style(p_pr))
+                //     .unwrap_or_default()
+                //     .update_run_with(run_properties)
+                //     .update_paragraph_with(
+                //         paragraph
+                //             .properties
+                //             .as_ref()
+                //             .map(|p_pr| p_pr.base.clone())
+                //             .unwrap_or_default(),
+                //     )
             })
+    }
+
+    pub fn find_numbering_level(&self, numbering_id: i32, level: i32) -> Option<&Lvl> {
+        if !(0..=8).contains(&level) {
+            return None;
+        }
+
+        let numbering = self.numbering.as_ref()?;
+        let num = numbering.numberings.iter().find(|num| num.numbering_id == numbering_id)?;
+        let abstract_num = numbering
+            .abstract_numberings
+            .iter()
+            .find(|abstract_num| abstract_num.abstract_num_id == num.abstract_num_id)?;
+
+        abstract_num.levels.iter().find(|lvl| lvl.level == level)
     }
 }
 
@@ -588,7 +571,7 @@ mod tests {
         let package = package_for_test();
 
         let paragraph_style = package
-            .resolve_paragraph_style(&paragraph_with_style_for_test())
+            .resolve_paragraph_style(&paragraph_with_style_for_test().properties.unwrap())
             .unwrap();
         assert_eq!(
             *paragraph_style.paragraph_properties,
@@ -616,7 +599,7 @@ mod tests {
     pub fn test_resolve_run_style() {
         let package = package_for_test();
 
-        let run_properties = package.resolve_run_style(&run_with_style_for_test()).unwrap();
+        let run_properties = package.resolve_run_style(&run_with_style_for_test().run_properties.unwrap()).unwrap();
         assert_eq!(
             *run_properties.run_properties,
             RunProperties {

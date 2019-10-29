@@ -12,7 +12,7 @@ use msoffice_shared::{
     error::{LimitViolationError, MaxOccurs, MissingAttributeError, MissingChildNodeError, NotGroupMemberError},
     sharedtypes::{OnOff, TwipsMeasure, XAlign, XmlName, YAlign},
     xml::{parse_xml_bool, XmlNode},
-    xsdtypes::XsdChoice,
+    xsdtypes::{XsdType, XsdChoice},
 };
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
@@ -769,14 +769,7 @@ pub enum CellMarkupElements {
     Merge(CellMergeTrackChange),
 }
 
-impl XsdChoice for CellMarkupElements {
-    fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
-        match node_name.as_ref() {
-            "cellIns" | "cellDel" | "cellMerge" => true,
-            _ => false,
-        }
-    }
-
+impl XsdType for CellMarkupElements {
     fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
         match xml_node.local_name() {
             "cellIns" => Ok(CellMarkupElements::Insertion(TrackChange::from_xml_element(xml_node)?)),
@@ -788,6 +781,15 @@ impl XsdChoice for CellMarkupElements {
                 xml_node.name.clone(),
                 "CellMarkupElements",
             ))),
+        }
+    }
+}
+
+impl XsdChoice for CellMarkupElements {
+    fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
+        match node_name.as_ref() {
+            "cellIns" | "cellDel" | "cellMerge" => true,
+            _ => false,
         }
     }
 }
@@ -1008,14 +1010,7 @@ pub enum ContentCellContent {
     RunLevelElement(RunLevelElts),
 }
 
-impl XsdChoice for ContentCellContent {
-    fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
-        match node_name.as_ref() {
-            "tc" | "customXml" | "sdt" => true,
-            _ => RunLevelElts::is_choice_member(&node_name),
-        }
-    }
-
+impl XsdType for ContentCellContent {
     fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
         match xml_node.local_name() {
             "tc" => Ok(ContentCellContent::Cell(Box::new(Tc::from_xml_element(xml_node)?))),
@@ -1030,6 +1025,15 @@ impl XsdChoice for ContentCellContent {
                 xml_node.name.clone(),
                 "ContentCellContent",
             ))),
+        }
+    }
+}
+
+impl XsdChoice for ContentCellContent {
+    fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
+        match node_name.as_ref() {
+            "tc" | "customXml" | "sdt" => true,
+            _ => RunLevelElts::is_choice_member(&node_name),
         }
     }
 }
@@ -1177,14 +1181,7 @@ pub enum ContentRowContent {
     RunLevelElements(RunLevelElts),
 }
 
-impl XsdChoice for ContentRowContent {
-    fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
-        match node_name.as_ref() {
-            "tr" | "customXml" | "sdt" => true,
-            _ => RunLevelElts::is_choice_member(&node_name),
-        }
-    }
-
+impl XsdType for ContentRowContent {
     fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
         match xml_node.local_name() {
             "tr" => Ok(ContentRowContent::Table(Box::new(Row::from_xml_element(xml_node)?))),
@@ -1197,6 +1194,15 @@ impl XsdChoice for ContentRowContent {
                 xml_node.name.clone(),
                 "ContentRowContent",
             ))),
+        }
+    }
+}
+
+impl XsdChoice for ContentRowContent {
+    fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
+        match node_name.as_ref() {
+            "tr" | "customXml" | "sdt" => true,
+            _ => RunLevelElts::is_choice_member(&node_name),
         }
     }
 }

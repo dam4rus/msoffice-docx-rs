@@ -19,7 +19,7 @@ use msoffice_shared::{
         UniversalMeasure, VerticalAlignRun, XAlign, XmlName, YAlign,
     },
     xml::{parse_xml_bool, XmlNode},
-    xsdtypes::XsdChoice,
+    xsdtypes::{XsdType, XsdChoice},
 };
 use std::str::FromStr;
 
@@ -743,14 +743,7 @@ pub enum PContent {
     SubDocument(Rel),
 }
 
-impl XsdChoice for PContent {
-    fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
-        match node_name.as_ref() {
-            "fldSimple" | "hyperlink" | "subDoc" => true,
-            _ => ContentRunContent::is_choice_member(&node_name),
-        }
-    }
-
+impl XsdType for PContent {
     fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
         info!("parsing PContent");
 
@@ -764,6 +757,16 @@ impl XsdChoice for PContent {
             _ => Err(Box::new(NotGroupMemberError::new(xml_node.name.clone(), "PContent"))),
         }
     }
+}
+
+impl XsdChoice for PContent {
+    fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
+        match node_name.as_ref() {
+            "fldSimple" | "hyperlink" | "subDoc" => true,
+            _ => ContentRunContent::is_choice_member(&node_name),
+        }
+    }
+
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1787,18 +1790,7 @@ pub enum RPrBase {
     OMath(OnOff),
 }
 
-impl XsdChoice for RPrBase {
-    fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
-        match node_name.as_ref() {
-            "rStyle" | "rFonts" | "b" | "bCs" | "i" | "iCs" | "caps" | "smallCaps" | "strike" | "dstrike"
-            | "outline" | "shadow" | "emboss" | "imprint" | "noProof" | "snapToGrid" | "vanish" | "webHidden"
-            | "color" | "spacing" | "w" | "kern" | "position" | "sz" | "szCs" | "highlight" | "u" | "effect"
-            | "bdr" | "shd" | "fitText" | "vertAlign" | "rtl" | "cs" | "em" | "lang" | "eastAsianLayout"
-            | "specVanish" | "oMath" => true,
-            _ => false,
-        }
-    }
-
+impl XsdType for RPrBase {
     fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
         info!("parsing RPrBase");
 
@@ -1851,6 +1843,19 @@ impl XsdChoice for RPrBase {
             "specVanish" => Ok(RPrBase::SpecialVanish(parse_on_off_xml_element(xml_node)?)),
             "oMath" => Ok(RPrBase::OMath(parse_on_off_xml_element(xml_node)?)),
             _ => Err(Box::new(NotGroupMemberError::new(xml_node.name.clone(), "RPrBase"))),
+        }
+    }
+}
+
+impl XsdChoice for RPrBase {
+    fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
+        match node_name.as_ref() {
+            "rStyle" | "rFonts" | "b" | "bCs" | "i" | "iCs" | "caps" | "smallCaps" | "strike" | "dstrike"
+            | "outline" | "shadow" | "emboss" | "imprint" | "noProof" | "snapToGrid" | "vanish" | "webHidden"
+            | "color" | "spacing" | "w" | "kern" | "position" | "sz" | "szCs" | "highlight" | "u" | "effect"
+            | "bdr" | "shd" | "fitText" | "vertAlign" | "rtl" | "cs" | "em" | "lang" | "eastAsianLayout"
+            | "specVanish" | "oMath" => true,
+            _ => false,
         }
     }
 }
@@ -2620,14 +2625,7 @@ pub enum DrawingChoice {
     Inline(Inline),
 }
 
-impl XsdChoice for DrawingChoice {
-    fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
-        match node_name.as_ref() {
-            "anchor" | "inline" => true,
-            _ => false,
-        }
-    }
-
+impl XsdType for DrawingChoice {
     fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
         match xml_node.local_name() {
             "anchor" => Ok(DrawingChoice::Anchor(Anchor::from_xml_element(xml_node)?)),
@@ -2640,10 +2638,17 @@ impl XsdChoice for DrawingChoice {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
-pub struct Drawing {
-    pub anchor_or_inline_vec: Vec<DrawingChoice>,
+impl XsdChoice for DrawingChoice {
+    fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
+        match node_name.as_ref() {
+            "anchor" | "inline" => true,
+            _ => false,
+        }
+    }
 }
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct Drawing(pub Vec<DrawingChoice>);
 
 impl Drawing {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
@@ -2655,7 +2660,7 @@ impl Drawing {
             .filter_map(DrawingChoice::try_from_xml_element)
             .collect::<Result<Vec<_>>>()?;
 
-        Ok(Self { anchor_or_inline_vec })
+        Ok(Self(anchor_or_inline_vec))
     }
 }
 
@@ -2901,15 +2906,7 @@ pub enum FFData {
     TextInput(FFTextInput),
 }
 
-impl XsdChoice for FFData {
-    fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
-        match node_name.as_ref() {
-            "name" | "label" | "tabIndex" | "enabled" | "calcOnExit" | "entryMacro" | "exitMacro" | "helpText"
-            | "statusText" | "checkBox" | "ddList" | "textInput" => true,
-            _ => false,
-        }
-    }
-
+impl XsdType for FFData {
     fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
         match xml_node.local_name() {
             "name" => Ok(FFData::Name(xml_node.get_val_attribute()?.clone())),
@@ -2925,6 +2922,16 @@ impl XsdChoice for FFData {
             "ddList" => Ok(FFData::DropDownList(FFDDList::from_xml_element(xml_node)?)),
             "textInput" => Ok(FFData::TextInput(FFTextInput::from_xml_element(xml_node)?)),
             _ => Err(Box::new(NotGroupMemberError::new(xml_node.name.clone(), "FFData"))),
+        }
+    }
+}
+
+impl XsdChoice for FFData {
+    fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
+        match node_name.as_ref() {
+            "name" | "label" | "tabIndex" | "enabled" | "calcOnExit" | "entryMacro" | "exitMacro" | "helpText"
+            | "statusText" | "checkBox" | "ddList" | "textInput" => true,
+            _ => false,
         }
     }
 }
@@ -3055,14 +3062,7 @@ pub enum RubyContentChoice {
     RunLevelElement(RunLevelElts),
 }
 
-impl XsdChoice for RubyContentChoice {
-    fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
-        match node_name.as_ref() {
-            "r" => true,
-            _ => RunLevelElts::is_choice_member(&node_name),
-        }
-    }
-
+impl XsdType for RubyContentChoice {
     fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
         match xml_node.local_name() {
             "r" => Ok(RubyContentChoice::Run(R::from_xml_element(xml_node)?)),
@@ -3073,6 +3073,15 @@ impl XsdChoice for RubyContentChoice {
                 xml_node.name.clone(),
                 "RubyContentChoice",
             ))),
+        }
+    }
+}
+
+impl XsdChoice for RubyContentChoice {
+    fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
+        match node_name.as_ref() {
+            "r" => true,
+            _ => RunLevelElts::is_choice_member(&node_name),
         }
     }
 }
@@ -3443,11 +3452,7 @@ pub enum RunTrackChangeChoice {
     // OMathMathElements(OMathMathElements),
 }
 
-impl XsdChoice for RunTrackChangeChoice {
-    fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
-        ContentRunContent::is_choice_member(node_name)
-    }
-
+impl XsdType for RunTrackChangeChoice {
     fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
         let local_name = xml_node.local_name();
         if ContentRunContent::is_choice_member(local_name) {
@@ -3460,6 +3465,12 @@ impl XsdChoice for RunTrackChangeChoice {
                 "RunTrackChangeChoice",
             )))
         }
+    }
+}
+
+impl XsdChoice for RunTrackChangeChoice {
+    fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
+        ContentRunContent::is_choice_member(node_name)
     }
 }
 
@@ -4519,14 +4530,7 @@ pub enum HdrFtrReferences {
     Footer(HdrFtrRef),
 }
 
-impl XsdChoice for HdrFtrReferences {
-    fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
-        match node_name.as_ref() {
-            "headerReference" | "footerReference" => true,
-            _ => false,
-        }
-    }
-
+impl XsdType for HdrFtrReferences {
     fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
         match xml_node.local_name() {
             "headerReference" => Ok(HdrFtrReferences::Header(HdrFtrRef::from_xml_element(xml_node)?)),
@@ -4535,6 +4539,15 @@ impl XsdChoice for HdrFtrReferences {
                 xml_node.name.clone(),
                 "HdrFtrReferences",
             ))),
+        }
+    }
+}
+
+impl XsdChoice for HdrFtrReferences {
+    fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
+        match node_name.as_ref() {
+            "headerReference" | "footerReference" => true,
+            _ => false,
         }
     }
 }
@@ -5631,14 +5644,7 @@ pub enum ContentBlockContent {
     RunLevelElement(RunLevelElts),
 }
 
-impl XsdChoice for ContentBlockContent {
-    fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
-        match node_name.as_ref() {
-            "customXml" | "sdt" | "p" | "tbl" => true,
-            _ => RunLevelElts::is_choice_member(&node_name),
-        }
-    }
-
+impl XsdType for ContentBlockContent {
     fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
         info!("parsing ContentBlockContent");
 
@@ -5658,6 +5664,15 @@ impl XsdChoice for ContentBlockContent {
                 xml_node.name.clone(),
                 "ContentBlockContent",
             ))),
+        }
+    }
+}
+
+impl XsdChoice for ContentBlockContent {
+    fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
+        match node_name.as_ref() {
+            "customXml" | "sdt" | "p" | "tbl" => true,
+            _ => RunLevelElts::is_choice_member(&node_name),
         }
     }
 }
@@ -5711,11 +5726,7 @@ pub enum BlockLevelElts {
     AltChunk(AltChunk),
 }
 
-impl XsdChoice for BlockLevelElts {
-    fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
-        node_name.as_ref() == "altChunk" || ContentBlockContent::is_choice_member(node_name)
-    }
-
+impl XsdType for BlockLevelElts {
     fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
         info!("parsing BlockLevelElts");
 
@@ -5729,6 +5740,12 @@ impl XsdChoice for BlockLevelElts {
                 "BlockLevelElts",
             ))),
         }
+    }
+}
+
+impl XsdChoice for BlockLevelElts {
+    fn is_choice_member<T: AsRef<str>>(node_name: T) -> bool {
+        node_name.as_ref() == "altChunk" || ContentBlockContent::is_choice_member(node_name)
     }
 }
 
@@ -7414,12 +7431,11 @@ mod tests {
         }
 
         pub fn test_instance() -> Self {
-            Self {
-                anchor_or_inline_vec: vec![
+            Self(vec![
                     DrawingChoice::Anchor(Anchor::test_instance()),
                     DrawingChoice::Inline(Inline::test_instance()),
                 ],
-            }
+            )
         }
     }
 
