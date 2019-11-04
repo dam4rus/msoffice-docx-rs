@@ -3867,17 +3867,19 @@ impl NumPr {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
         info!("parsing NumPr");
 
-        let mut instance: Self = Default::default();
-        for child_node in &xml_node.child_nodes {
-            match child_node.local_name() {
-                "ilvl" => instance.indent_level = Some(child_node.get_val_attribute()?.parse()?),
-                "numId" => instance.numbering_id = Some(child_node.get_val_attribute()?.parse()?),
-                "ins" => instance.inserted = Some(TrackChange::from_xml_element(child_node)?),
-                _ => (),
-            }
-        }
+        xml_node
+            .child_nodes
+            .iter()
+            .try_fold(Default::default(), |mut instance: Self, child_node|{
+                match child_node.local_name() {
+                    "ilvl" => instance.indent_level = Some(child_node.get_val_attribute()?.parse()?),
+                    "numId" => instance.numbering_id = Some(child_node.get_val_attribute()?.parse()?),
+                    "ins" => instance.inserted = Some(TrackChange::from_xml_element(child_node)?),
+                    _ => (),
+                }
 
-        Ok(instance)
+                Ok(instance)
+            })
     }
 }
 
@@ -4563,6 +4565,7 @@ pub enum FtnPos {
     DocumentEnd,
 }
 
+#[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum NumberFormat {
     #[strum(serialize = "decimal")]
