@@ -18,9 +18,9 @@ use msoffice_shared::{
         CalendarType, ConformanceClass, Lang, OnOff, Percentage, PositiveUniversalMeasure, TwipsMeasure,
         UniversalMeasure, VerticalAlignRun, XAlign, XmlName, YAlign,
     },
+    update::{update_options, Update},
     xml::{parse_xml_bool, XmlNode},
     xsdtypes::{XsdChoice, XsdType},
-    update::{Update, update_options},
 };
 use std::str::FromStr;
 
@@ -3976,7 +3976,7 @@ impl NumPr {
         xml_node
             .child_nodes
             .iter()
-            .try_fold(Default::default(), |mut instance: Self, child_node|{
+            .try_fold(Default::default(), |mut instance: Self, child_node| {
                 match child_node.local_name() {
                     "ilvl" => instance.indent_level = Some(child_node.get_val_attribute()?.parse()?),
                     "numId" => instance.numbering_id = Some(child_node.get_val_attribute()?.parse()?),

@@ -8,7 +8,7 @@ use crate::wml::{
 };
 use msoffice_shared::{
     sharedtypes::{OnOff, VerticalAlignRun},
-    update::{Update, update_options},
+    update::{update_options, Update},
 };
 
 pub type ParagraphProperties = PPrBase;

@@ -14,8 +14,8 @@ use msoffice_shared::{
     docprops::{AppInfo, Core},
     drawingml::sharedstylesheet::OfficeStyleSheet,
     relationship::{Relationship, THEME_RELATION_TYPE},
-    xml::zip_file_to_xml_node,
     update::Update,
+    xml::zip_file_to_xml_node,
 };
 use std::{
     collections::HashMap,
@@ -225,9 +225,9 @@ impl Package {
                 .map(|r_pr| RunProperties::from_vec(&r_pr.r_pr_bases));
 
             match (paragraph.properties.as_ref(), run_style) {
-                (Some(p_style), Some(r_style)) => {
-                    resolved_style.update_paragraph_with(p_style.base.clone()).update_run_with(r_style)
-                }
+                (Some(p_style), Some(r_style)) => resolved_style
+                    .update_paragraph_with(p_style.base.clone())
+                    .update_run_with(r_style),
                 (Some(p_style), None) => resolved_style.update_paragraph_with(p_style.base.clone()),
                 (None, Some(r_style)) => resolved_style.update_run_with(r_style),
                 _ => resolved_style,
@@ -333,7 +333,7 @@ impl Package {
                 .paragraph_properties
                 .as_ref()
                 .map(|p_pr| p_pr.base.clone())
-                .unwrap_or_default()
+                .unwrap_or_default(),
         );
 
         let run_properties = Box::new(
@@ -341,7 +341,7 @@ impl Package {
                 .run_properties
                 .as_ref()
                 .map(|r_pr| RunProperties::from_vec(&r_pr.r_pr_bases))
-                .unwrap_or_default()
+                .unwrap_or_default(),
         );
 
         ResolvedStyle {
