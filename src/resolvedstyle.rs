@@ -6,7 +6,10 @@ use crate::wml::{
     simpletypes::TextScale,
     styles::Style,
 };
-use msoffice_shared::sharedtypes::{OnOff, VerticalAlignRun};
+use msoffice_shared::{
+    sharedtypes::{OnOff, VerticalAlignRun},
+    update::{Update, update_options},
+};
 
 pub type ParagraphProperties = PPrBase;
 
@@ -110,96 +113,74 @@ impl RunProperties {
             })
     }
 
-    pub fn update_with(mut self, other: Self) -> Self {
-        self.style = other.style.or(self.style);
-        self.fonts = match (self.fonts, other.fonts) {
-            (Some(lhs), Some(rhs)) => Some(lhs.update_with(rhs)),
-            (lhs, rhs) => rhs.or(lhs),
-        };
-        self.bold = other.bold.or(self.bold);
-        self.complex_script_bold = other.complex_script_bold.or(self.complex_script_bold);
-        self.italic = other.italic.or(self.italic);
-        self.complex_script_italic = other.complex_script_italic.or(self.complex_script_italic);
-        self.all_capitals = other.all_capitals.or(self.all_capitals);
-        self.all_small_capitals = other.all_small_capitals.or(self.all_small_capitals);
-        self.strikethrough = other.strikethrough.or(self.strikethrough);
-        self.double_strikethrough = other.double_strikethrough.or(self.double_strikethrough);
-        self.outline = other.outline.or(self.outline);
-        self.shadow = other.shadow.or(self.shadow);
-        self.emboss = other.emboss.or(self.emboss);
-        self.imprint = other.imprint.or(self.imprint);
-        self.no_proofing = other.no_proofing.or(self.no_proofing);
-        self.snap_to_grid = other.snap_to_grid.or(self.snap_to_grid);
-        self.vanish = other.vanish.or(self.vanish);
-        self.web_hidden = other.web_hidden.or(self.web_hidden);
-        self.color = other.color.or(self.color);
-        self.spacing = other.spacing.or(self.spacing);
-        self.width = other.width.or(self.width);
-        self.kerning = other.kerning.or(self.kerning);
-        self.position = other.position.or(self.position);
-        self.font_size = other.font_size.or(self.font_size);
-        self.complex_script_font_size = other.complex_script_font_size.or(self.complex_script_font_size);
-        self.highlight = other.highlight.or(self.highlight);
-        self.underline = other.underline.or(self.underline);
-        self.effect = other.effect.or(self.effect);
-        self.border = other.border.or(self.border);
-        self.shading = other.shading.or(self.shading);
-        self.fit_text = other.fit_text.or(self.fit_text);
-        self.vertical_alignment = other.vertical_alignment.or(self.vertical_alignment);
-        self.rtl = other.rtl.or(self.rtl);
-        self.complex_script = other.complex_script.or(self.complex_script);
-        self.emphasis_mark = other.emphasis_mark.or(self.emphasis_mark);
-        self.language = other.language.or(self.language);
-        self.east_asian_layout = other.east_asian_layout.or(self.east_asian_layout);
-        self.special_vanish = other.special_vanish.or(self.special_vanish);
-        self.o_math = other.o_math.or(self.o_math);
-        self
+    pub fn update_with(self, other: Self) -> Self {
+        Self {
+            style: other.style.or(self.style),
+            fonts: update_options(self.fonts, other.fonts),
+            bold: other.bold.or(self.bold),
+            complex_script_bold: other.complex_script_bold.or(self.complex_script_bold),
+            italic: other.italic.or(self.italic),
+            complex_script_italic: other.complex_script_italic.or(self.complex_script_italic),
+            all_capitals: other.all_capitals.or(self.all_capitals),
+            all_small_capitals: other.all_small_capitals.or(self.all_small_capitals),
+            strikethrough: other.strikethrough.or(self.strikethrough),
+            double_strikethrough: other.double_strikethrough.or(self.double_strikethrough),
+            outline: other.outline.or(self.outline),
+            shadow: other.shadow.or(self.shadow),
+            emboss: other.emboss.or(self.emboss),
+            imprint: other.imprint.or(self.imprint),
+            no_proofing: other.no_proofing.or(self.no_proofing),
+            snap_to_grid: other.snap_to_grid.or(self.snap_to_grid),
+            vanish: other.vanish.or(self.vanish),
+            web_hidden: other.web_hidden.or(self.web_hidden),
+            color: update_options(self.color, other.color),
+            spacing: other.spacing.or(self.spacing),
+            width: other.width.or(self.width),
+            kerning: other.kerning.or(self.kerning),
+            position: other.position.or(self.position),
+            font_size: other.font_size.or(self.font_size),
+            complex_script_font_size: other.complex_script_font_size.or(self.complex_script_font_size),
+            highlight: other.highlight.or(self.highlight),
+            underline: update_options(self.underline, other.underline),
+            effect: other.effect.or(self.effect),
+            border: update_options(self.border, other.border),
+            shading: update_options(self.shading, other.shading),
+            fit_text: other.fit_text.or(self.fit_text),
+            vertical_alignment: other.vertical_alignment.or(self.vertical_alignment),
+            rtl: other.rtl.or(self.rtl),
+            complex_script: other.complex_script.or(self.complex_script),
+            emphasis_mark: other.emphasis_mark.or(self.emphasis_mark),
+            language: update_options(self.language, other.language),
+            east_asian_layout: update_options(self.east_asian_layout, other.east_asian_layout),
+            special_vanish: other.special_vanish.or(self.special_vanish),
+            o_math: other.o_math.or(self.o_math),
+        }
     }
 
-    pub fn update_with_style_on_another_level(mut self, other: Self) -> Self {
-        self.style = other.style.or(self.style);
-        self.fonts = match (self.fonts, other.fonts) {
-            (Some(lhs), Some(rhs)) => Some(lhs.update_with(rhs)),
-            (lhs, rhs) => rhs.or(lhs),
-        };
-        self.bold = update_or_toggle_on_off(self.bold, other.bold);
-        self.complex_script_bold = update_or_toggle_on_off(self.complex_script_bold, other.complex_script_bold);
-        self.italic = update_or_toggle_on_off(self.italic, other.italic);
-        self.complex_script_italic = update_or_toggle_on_off(self.complex_script_italic, other.complex_script_italic);
-        self.all_capitals = update_or_toggle_on_off(self.all_capitals, other.all_capitals);
-        self.all_small_capitals = update_or_toggle_on_off(self.all_small_capitals, other.all_small_capitals);
-        self.strikethrough = update_or_toggle_on_off(self.strikethrough, other.strikethrough);
-        self.double_strikethrough = update_or_toggle_on_off(self.double_strikethrough, other.double_strikethrough);
-        self.outline = update_or_toggle_on_off(self.outline, other.outline);
-        self.shadow = update_or_toggle_on_off(self.shadow, other.shadow);
-        self.emboss = update_or_toggle_on_off(self.emboss, other.emboss);
-        self.imprint = update_or_toggle_on_off(self.imprint, other.imprint);
-        self.no_proofing = update_or_toggle_on_off(self.no_proofing, other.no_proofing);
-        self.snap_to_grid = update_or_toggle_on_off(self.snap_to_grid, other.snap_to_grid);
-        self.vanish = update_or_toggle_on_off(self.vanish, other.vanish);
-        self.web_hidden = update_or_toggle_on_off(self.web_hidden, other.web_hidden);
-        self.color = other.color.or(self.color);
-        self.spacing = other.spacing.or(self.spacing);
-        self.width = other.width.or(self.width);
-        self.kerning = other.kerning.or(self.kerning);
-        self.position = other.position.or(self.position);
-        self.font_size = other.font_size.or(self.font_size);
-        self.complex_script_font_size = other.complex_script_font_size.or(self.complex_script_font_size);
-        self.highlight = other.highlight.or(self.highlight);
-        self.underline = other.underline.or(self.underline);
-        self.effect = other.effect.or(self.effect);
-        self.border = other.border.or(self.border);
-        self.shading = other.shading.or(self.shading);
-        self.fit_text = other.fit_text.or(self.fit_text);
-        self.vertical_alignment = other.vertical_alignment.or(self.vertical_alignment);
-        self.rtl = update_or_toggle_on_off(self.rtl, other.rtl);
-        self.complex_script = update_or_toggle_on_off(self.complex_script, self.complex_script);
-        self.emphasis_mark = other.emphasis_mark.or(self.emphasis_mark);
-        self.language = other.language.or(self.language);
-        self.east_asian_layout = other.east_asian_layout.or(self.east_asian_layout);
-        self.special_vanish = update_or_toggle_on_off(self.special_vanish, other.special_vanish);
-        self.o_math = update_or_toggle_on_off(self.o_math, other.o_math);
-        self
+    pub fn update_with_style_on_another_level(self, other: Self) -> Self {
+        Self {
+            bold: update_or_toggle_on_off(self.bold, other.bold),
+            complex_script_bold: update_or_toggle_on_off(self.complex_script_bold, other.complex_script_bold),
+            italic: update_or_toggle_on_off(self.italic, other.italic),
+            complex_script_italic: update_or_toggle_on_off(self.complex_script_italic, other.complex_script_italic),
+            all_capitals: update_or_toggle_on_off(self.all_capitals, other.all_capitals),
+            all_small_capitals: update_or_toggle_on_off(self.all_small_capitals, other.all_small_capitals),
+            strikethrough: update_or_toggle_on_off(self.strikethrough, other.strikethrough),
+            double_strikethrough: update_or_toggle_on_off(self.double_strikethrough, other.double_strikethrough),
+            outline: update_or_toggle_on_off(self.outline, other.outline),
+            shadow: update_or_toggle_on_off(self.shadow, other.shadow),
+            emboss: update_or_toggle_on_off(self.emboss, other.emboss),
+            imprint: update_or_toggle_on_off(self.imprint, other.imprint),
+            no_proofing: update_or_toggle_on_off(self.no_proofing, other.no_proofing),
+            snap_to_grid: update_or_toggle_on_off(self.snap_to_grid, other.snap_to_grid),
+            vanish: update_or_toggle_on_off(self.vanish, other.vanish),
+            web_hidden: update_or_toggle_on_off(self.web_hidden, other.web_hidden),
+            rtl: update_or_toggle_on_off(self.rtl, other.rtl),
+            complex_script: update_or_toggle_on_off(self.complex_script, self.complex_script),
+            special_vanish: update_or_toggle_on_off(self.special_vanish, other.special_vanish),
+            o_math: update_or_toggle_on_off(self.o_math, other.o_math),
+            ..self.update_with(other)
+        }
     }
 }
 #[derive(Debug, Clone, PartialEq, Default)]

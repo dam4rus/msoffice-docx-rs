@@ -20,6 +20,7 @@ use msoffice_shared::{
     },
     xml::{parse_xml_bool, XmlNode},
     xsdtypes::{XsdChoice, XsdType},
+    update::{Update, update_options},
 };
 use std::str::FromStr;
 
@@ -302,6 +303,17 @@ impl Color {
             theme_tint,
             theme_shade,
         })
+    }
+}
+
+impl Update for Color {
+    fn update_with(self, other: Self) -> Self {
+        Self {
+            value: other.value,
+            theme_color: other.theme_color.or(self.theme_color),
+            theme_tint: other.theme_tint.or(self.theme_tint),
+            theme_shade: other.theme_shade.or(self.theme_shade),
+        }
     }
 }
 
@@ -949,18 +961,21 @@ impl Fonts {
 
         Ok(instance)
     }
+}
 
-    pub fn update_with(mut self, other: Self) -> Self {
-        self.hint = other.hint.or(self.hint);
-        self.ascii = other.ascii.or(self.ascii);
-        self.high_ansi = other.high_ansi.or(self.high_ansi);
-        self.east_asia = other.east_asia.or(self.east_asia);
-        self.complex_script = other.complex_script.or(self.complex_script);
-        self.ascii_theme = other.ascii_theme.or(self.ascii_theme);
-        self.high_ansi_theme = other.high_ansi_theme.or(self.high_ansi_theme);
-        self.east_asia_theme = other.east_asia_theme.or(self.east_asia_theme);
-        self.complex_script_theme = other.complex_script_theme.or(self.complex_script_theme);
-        self
+impl Update for Fonts {
+    fn update_with(self, other: Self) -> Self {
+        Self {
+            hint: other.hint.or(self.hint),
+            ascii: other.ascii.or(self.ascii),
+            high_ansi: other.high_ansi.or(self.high_ansi),
+            east_asia: other.east_asia.or(self.east_asia),
+            complex_script: other.complex_script.or(self.complex_script),
+            ascii_theme: other.ascii_theme.or(self.ascii_theme),
+            high_ansi_theme: other.high_ansi_theme.or(self.high_ansi_theme),
+            east_asia_theme: other.east_asia_theme.or(self.east_asia_theme),
+            complex_script_theme: other.complex_script_theme.or(self.complex_script_theme),
+        }
     }
 }
 
@@ -1031,6 +1046,18 @@ impl Underline {
         }
 
         Ok(instance)
+    }
+}
+
+impl Update for Underline {
+    fn update_with(self, other: Self) -> Self {
+        Self {
+            value: other.value.or(self.value),
+            color: other.color.or(self.color),
+            theme_color: other.theme_color.or(self.theme_color),
+            theme_tint: other.theme_tint.or(self.theme_tint),
+            theme_shade: other.theme_shade.or(self.theme_shade),
+        }
     }
 }
 
@@ -1498,6 +1525,22 @@ impl Border {
     }
 }
 
+impl Update for Border {
+    fn update_with(self, other: Self) -> Self {
+        Self {
+            value: other.value,
+            color: other.color.or(self.color),
+            theme_color: other.theme_color.or(self.theme_color),
+            theme_tint: other.theme_tint.or(self.theme_tint),
+            theme_shade: other.theme_shade.or(self.theme_shade),
+            size: other.size.or(self.size),
+            spacing: other.spacing.or(self.spacing),
+            shadow: other.shadow.or(self.shadow),
+            frame: other.frame.or(self.frame),
+        }
+    }
+}
+
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, EnumString)]
 pub enum ShdType {
@@ -1636,6 +1679,22 @@ impl Shd {
     }
 }
 
+impl Update for Shd {
+    fn update_with(self, other: Self) -> Self {
+        Self {
+            value: other.value,
+            color: other.color.or(self.color),
+            theme_color: other.theme_color.or(self.theme_color),
+            theme_tint: other.theme_tint.or(self.theme_tint),
+            theme_shade: other.theme_shade.or(self.theme_shade),
+            fill: other.fill.or(self.fill),
+            theme_fill: other.theme_fill.or(self.theme_fill),
+            theme_fill_tint: other.theme_fill_tint.or(self.theme_fill_tint),
+            theme_fill_shade: other.theme_fill_shade.or(self.theme_fill_shade),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct FitText {
     pub value: TwipsMeasure,
@@ -1688,17 +1747,29 @@ impl Language {
     pub fn from_xml_element(xml_node: &XmlNode) -> Self {
         info!("parsing Language");
 
-        let mut instance: Self = Default::default();
-        for (attr, value) in &xml_node.attributes {
-            match attr.as_ref() {
-                "w:val" => instance.value = Some(value.clone()),
-                "w:eastAsia" => instance.east_asia = Some(value.clone()),
-                "w:bidi" => instance.bidirectional = Some(value.clone()),
-                _ => (),
-            }
-        }
+        xml_node
+            .attributes
+            .iter()
+            .fold(Default::default(), |mut instance: Self, (attr, value)| {
+                match attr.as_ref() {
+                    "w:val" => instance.value = Some(value.clone()),
+                    "w:eastAsia" => instance.east_asia = Some(value.clone()),
+                    "w:bidi" => instance.bidirectional = Some(value.clone()),
+                    _ => (),
+                }
 
-        instance
+                instance
+            })
+    }
+}
+
+impl Update for Language {
+    fn update_with(self, other: Self) -> Self {
+        Self {
+            value: other.value.or(self.value),
+            east_asia: other.east_asia.or(self.east_asia),
+            bidirectional: other.bidirectional.or(self.bidirectional),
+        }
     }
 }
 
@@ -1729,20 +1800,33 @@ impl EastAsianLayout {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
         info!("parsing EastAsianLayout");
 
-        let mut instance: Self = Default::default();
+        xml_node
+            .attributes
+            .iter()
+            .try_fold(Default::default(), |mut instance: Self, (attr, value)| {
+                match attr.as_ref() {
+                    "w:id" => instance.id = Some(value.parse()?),
+                    "w:combine" => instance.combine = Some(parse_xml_bool(value)?),
+                    "w:combineBrackets" => instance.combine_brackets = Some(value.parse()?),
+                    "w:vert" => instance.vertical = Some(parse_xml_bool(value)?),
+                    "w:vertCompress" => instance.vertical_compress = Some(parse_xml_bool(value)?),
+                    _ => (),
+                }
 
-        for (attr, value) in &xml_node.attributes {
-            match attr.as_ref() {
-                "w:id" => instance.id = Some(value.parse()?),
-                "w:combine" => instance.combine = Some(parse_xml_bool(value)?),
-                "w:combineBrackets" => instance.combine_brackets = Some(value.parse()?),
-                "w:vert" => instance.vertical = Some(parse_xml_bool(value)?),
-                "w:vertCompress" => instance.vertical_compress = Some(parse_xml_bool(value)?),
-                _ => (),
-            }
+                Ok(instance)
+            })
+    }
+}
+
+impl Update for EastAsianLayout {
+    fn update_with(self, other: Self) -> Self {
+        Self {
+            id: other.id.or(self.id),
+            combine: other.combine.or(self.combine),
+            combine_brackets: other.combine_brackets.or(self.combine_brackets),
+            vertical: other.vertical.or(self.vertical),
+            vertical_compress: other.vertical_compress.or(self.vertical_compress),
         }
-
-        Ok(instance)
     }
 }
 
@@ -3856,6 +3940,28 @@ impl FramePr {
     }
 }
 
+impl Update for FramePr {
+    fn update_with(self, other: Self) -> Self {
+        Self {
+            drop_cap: other.drop_cap.or(self.drop_cap),
+            lines: other.lines.or(self.lines),
+            width: other.width.or(self.width),
+            height: other.height.or(self.height),
+            vertical_space: other.vertical_space.or(self.vertical_space),
+            horizontal_space: other.horizontal_space.or(self.horizontal_space),
+            wrap: other.wrap.or(self.wrap),
+            horizontal_anchor: other.horizontal_anchor.or(self.horizontal_anchor),
+            vertical_anchor: other.vertical_anchor.or(self.vertical_anchor),
+            x: other.x.or(self.x),
+            x_align: other.x_align.or(self.x_align),
+            y: other.y.or(self.y),
+            y_align: other.y_align.or(self.y_align),
+            height_rule: other.height_rule.or(self.height_rule),
+            anchor_lock: other.anchor_lock.or(self.anchor_lock),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct NumPr {
     pub indent_level: Option<DecimalNumber>,
@@ -3880,6 +3986,16 @@ impl NumPr {
 
                 Ok(instance)
             })
+    }
+}
+
+impl Update for NumPr {
+    fn update_with(self, other: Self) -> Self {
+        Self {
+            indent_level: other.indent_level.or(self.indent_level),
+            numbering_id: other.numbering_id.or(self.numbering_id),
+            inserted: other.inserted.or(self.inserted),
+        }
     }
 }
 
@@ -3912,6 +4028,19 @@ impl PBdr {
         }
 
         Ok(instance)
+    }
+}
+
+impl Update for PBdr {
+    fn update_with(self, other: Self) -> Self {
+        Self {
+            top: update_options(self.top, other.top),
+            left: update_options(self.left, other.left),
+            bottom: update_options(self.bottom, other.bottom),
+            right: update_options(self.right, other.right),
+            between: update_options(self.between, other.between),
+            bar: update_options(self.bar, other.bar),
+        }
     }
 }
 
@@ -4043,23 +4172,39 @@ impl Spacing {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
         info!("parsing Spacing");
 
-        let mut instance: Self = Default::default();
+        xml_node
+            .attributes
+            .iter()
+            .try_fold(Default::default(), |mut instance: Self, (attr, value)| {
+                match attr.as_ref() {
+                    "w:before" => instance.before = Some(value.parse()?),
+                    "w:beforeLines" => instance.before_lines = Some(value.parse()?),
+                    "w:beforeAutospacing" => instance.before_autospacing = Some(parse_xml_bool(value)?),
+                    "w:after" => instance.after = Some(value.parse()?),
+                    "w:afterLines" => instance.after_lines = Some(value.parse()?),
+                    "w:afterAutospacing" => instance.after_autospacing = Some(parse_xml_bool(value)?),
+                    "w:line" => instance.line = Some(value.parse()?),
+                    "w:lineRule" => instance.line_rule = Some(value.parse()?),
+                    _ => (),
+                }
 
-        for (attr, value) in &xml_node.attributes {
-            match attr.as_ref() {
-                "w:before" => instance.before = Some(value.parse()?),
-                "w:beforeLines" => instance.before_lines = Some(value.parse()?),
-                "w:beforeAutospacing" => instance.before_autospacing = Some(parse_xml_bool(value)?),
-                "w:after" => instance.after = Some(value.parse()?),
-                "w:afterLines" => instance.after_lines = Some(value.parse()?),
-                "w:afterAutospacing" => instance.after_autospacing = Some(parse_xml_bool(value)?),
-                "w:line" => instance.line = Some(value.parse()?),
-                "w:lineRule" => instance.line_rule = Some(value.parse()?),
-                _ => (),
-            }
+                Ok(instance)
+            })
+    }
+}
+
+impl Update for Spacing {
+    fn update_with(self, other: Self) -> Self {
+        Self {
+            before: other.before.or(self.before),
+            before_lines: other.before_lines.or(self.before_lines),
+            before_autospacing: other.before_autospacing.or(self.before_autospacing),
+            after: other.after.or(self.after),
+            after_lines: other.after_lines.or(self.after_lines),
+            after_autospacing: other.after_autospacing.or(self.after_autospacing),
+            line: other.line.or(self.line),
+            line_rule: other.line_rule.or(self.line_rule),
         }
-
-        Ok(instance)
     }
 }
 
@@ -4069,6 +4214,14 @@ pub struct Ind {
     pub start_chars: Option<DecimalNumber>,
     pub end: Option<SignedTwipsMeasure>,
     pub end_chars: Option<DecimalNumber>,
+    // Deprecated
+    pub left: Option<SignedTwipsMeasure>,
+    // Deprecated
+    pub left_chars: Option<DecimalNumber>,
+    // Deprecated
+    pub right: Option<SignedTwipsMeasure>,
+    // Deprecated
+    pub right_chars: Option<DecimalNumber>,
     pub hanging: Option<TwipsMeasure>,
     pub hanging_chars: Option<DecimalNumber>,
     pub first_line: Option<TwipsMeasure>,
@@ -4087,6 +4240,10 @@ impl Ind {
                 "w:startChars" => instance.start_chars = Some(value.parse()?),
                 "w:end" => instance.end = Some(value.parse()?),
                 "w:endChars" => instance.end_chars = Some(value.parse()?),
+                "w:left" => instance.left = Some(value.parse()?),
+                "w:leftChars" => instance.left_chars = Some(value.parse()?),
+                "w:right" => instance.right = Some(value.parse()?),
+                "w:rightChars" => instance.right_chars = Some(value.parse()?),
                 "w:hanging" => instance.hanging = Some(value.parse()?),
                 "w:hangingChars" => instance.hanging_chars = Some(value.parse()?),
                 "w:firstLine" => instance.first_line = Some(value.parse()?),
@@ -4096,6 +4253,25 @@ impl Ind {
         }
 
         Ok(instance)
+    }
+}
+
+impl Update for Ind {
+    fn update_with(self, other: Self) -> Self {
+        Self {
+            start: other.start.or(self.start),
+            start_chars: other.start_chars.or(self.start_chars),
+            end: other.end.or(self.end),
+            end_chars: other.end_chars.or(self.end_chars),
+            left: other.left.or(self.left),
+            left_chars: other.left_chars.or(self.left_chars),
+            right: other.right.or(self.right),
+            right_chars: other.right_chars.or(self.right_chars),
+            hanging: other.hanging.or(self.hanging),
+            hanging_chars: other.hanging_chars.or(self.hanging_chars),
+            first_line: other.first_line.or(self.first_line),
+            first_line_chars: other.first_line_chars.or(self.first_line_chars),
+        }
     }
 }
 
@@ -4216,6 +4392,25 @@ impl Cnf {
     }
 }
 
+impl Update for Cnf {
+    fn update_with(self, other: Self) -> Self {
+        Self {
+            first_row: other.first_column.or(self.first_row),
+            last_row: other.last_row.or(self.last_row),
+            first_column: other.first_column.or(self.first_column),
+            last_column: other.last_column.or(self.last_column),
+            odd_vertical_band: other.odd_vertical_band.or(self.odd_vertical_band),
+            even_vertical_band: other.even_vertical_band.or(self.even_vertical_band),
+            odd_horizontal_band: other.odd_horizontal_band.or(self.odd_horizontal_band),
+            even_horizontal_band: other.even_horizontal_band.or(self.even_horizontal_band),
+            first_row_first_column: other.first_row_first_column.or(self.first_row_first_column),
+            first_row_last_column: other.first_row_last_column.or(self.first_row_last_column),
+            last_row_first_column: other.last_row_first_column.or(self.last_row_first_column),
+            last_row_last_column: other.last_row_last_column.or(self.last_row_last_column),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct PPrBase {
     pub style: Option<String>,
@@ -4303,46 +4498,49 @@ impl PPrBase {
 
         Ok(self)
     }
+}
 
-    pub fn update_with(mut self, other: Self) -> Self {
-        self.style = other.style.or(self.style);
-        self.keep_with_next = other.keep_with_next.or(self.keep_with_next);
-        self.keep_lines_on_one_page = other.keep_lines_on_one_page.or(self.keep_lines_on_one_page);
-        self.start_on_next_page = other.start_on_next_page.or(self.start_on_next_page);
-        self.frame_properties = other.frame_properties.or(self.frame_properties);
-        self.widow_control = other.widow_control.or(self.widow_control);
-        self.numbering_properties = other.numbering_properties.or(self.numbering_properties);
-        self.suppress_line_numbers = other.suppress_line_numbers.or(self.suppress_line_numbers);
-        self.borders = other.borders.or(self.borders);
-        self.shading = other.shading.or(self.shading);
-        self.tabs = other.tabs.or(self.tabs);
-        self.suppress_auto_hyphens = other.suppress_auto_hyphens.or(self.suppress_auto_hyphens);
-        self.kinsoku = other.kinsoku.or(self.kinsoku);
-        self.word_wrapping = other.word_wrapping.or(self.word_wrapping);
-        self.overflow_punctuations = other.overflow_punctuations.or(self.overflow_punctuations);
-        self.top_line_punctuations = other.top_line_punctuations.or(self.top_line_punctuations);
-        self.auto_space_latin_and_east_asian = other
-            .auto_space_latin_and_east_asian
-            .or(self.auto_space_latin_and_east_asian);
-        self.auto_space_east_asian_and_numbers = other
-            .auto_space_east_asian_and_numbers
-            .or(self.auto_space_east_asian_and_numbers);
-        self.bidirectional = other.bidirectional.or(self.bidirectional);
-        self.adjust_right_indent = other.adjust_right_indent.or(self.adjust_right_indent);
-        self.snap_to_grid = other.snap_to_grid.or(self.snap_to_grid);
-        self.spacing = other.spacing.or(self.spacing);
-        self.indent = other.indent.or(self.indent);
-        self.contextual_spacing = other.contextual_spacing.or(self.contextual_spacing);
-        self.mirror_indents = other.mirror_indents.or(self.mirror_indents);
-        self.suppress_overlapping = other.suppress_overlapping.or(self.suppress_overlapping);
-        self.alignment = other.alignment.or(self.alignment);
-        self.text_direction = other.text_direction.or(self.text_direction);
-        self.text_alignment = other.text_alignment.or(self.text_alignment);
-        self.textbox_tight_wrap = other.textbox_tight_wrap.or(self.textbox_tight_wrap);
-        self.outline_level = other.outline_level.or(self.outline_level);
-        self.div_id = other.div_id.or(self.div_id);
-        self.conditional_formatting = other.conditional_formatting.or(self.conditional_formatting);
-        self
+impl Update for PPrBase {
+    fn update_with(self, other: Self) -> Self {
+        Self {
+            style: other.style.or(self.style),
+            keep_with_next: other.keep_with_next.or(self.keep_with_next),
+            keep_lines_on_one_page: other.keep_lines_on_one_page.or(self.keep_lines_on_one_page),
+            start_on_next_page: other.start_on_next_page.or(self.start_on_next_page),
+            frame_properties: update_options(self.frame_properties, other.frame_properties),
+            widow_control: other.widow_control.or(self.widow_control),
+            numbering_properties: update_options(self.numbering_properties, other.numbering_properties),
+            suppress_line_numbers: other.suppress_line_numbers.or(self.suppress_line_numbers),
+            borders: update_options(self.borders, other.borders),
+            shading: update_options(self.shading, other.shading),
+            tabs: other.tabs.or(self.tabs),
+            suppress_auto_hyphens: other.suppress_auto_hyphens.or(self.suppress_auto_hyphens),
+            kinsoku: other.kinsoku.or(self.kinsoku),
+            word_wrapping: other.word_wrapping.or(self.word_wrapping),
+            overflow_punctuations: other.overflow_punctuations.or(self.overflow_punctuations),
+            top_line_punctuations: other.top_line_punctuations.or(self.top_line_punctuations),
+            auto_space_latin_and_east_asian: other
+                .auto_space_latin_and_east_asian
+                .or(self.auto_space_latin_and_east_asian),
+            auto_space_east_asian_and_numbers: other
+                .auto_space_east_asian_and_numbers
+                .or(self.auto_space_east_asian_and_numbers),
+            bidirectional: other.bidirectional.or(self.bidirectional),
+            adjust_right_indent: other.adjust_right_indent.or(self.adjust_right_indent),
+            snap_to_grid: other.snap_to_grid.or(self.snap_to_grid),
+            spacing: update_options(self.spacing, other.spacing),
+            indent: update_options(self.indent, other.indent),
+            contextual_spacing: other.contextual_spacing.or(self.contextual_spacing),
+            mirror_indents: other.mirror_indents.or(self.mirror_indents),
+            suppress_overlapping: other.suppress_overlapping.or(self.suppress_overlapping),
+            alignment: other.alignment.or(self.alignment),
+            text_direction: other.text_direction.or(self.text_direction),
+            text_alignment: other.text_alignment.or(self.text_alignment),
+            textbox_tight_wrap: other.textbox_tight_wrap.or(self.textbox_tight_wrap),
+            outline_level: other.outline_level.or(self.outline_level),
+            div_id: other.div_id.or(self.div_id),
+            conditional_formatting: update_options(self.conditional_formatting, other.conditional_formatting),
+        }
     }
 }
 
@@ -8199,6 +8397,10 @@ mod tests {
                 start_chars: Some(0),
                 end: Some(SignedTwipsMeasure::Decimal(50)),
                 end_chars: Some(10),
+                left: None,
+                left_chars: None,
+                right: None,
+                right_chars: None,
                 hanging: Some(TwipsMeasure::Decimal(50)),
                 hanging_chars: Some(5),
                 first_line: Some(TwipsMeasure::Decimal(50)),

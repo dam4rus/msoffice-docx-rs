@@ -15,6 +15,7 @@ use msoffice_shared::{
     drawingml::sharedstylesheet::OfficeStyleSheet,
     relationship::{Relationship, THEME_RELATION_TYPE},
     xml::zip_file_to_xml_node,
+    update::Update,
 };
 use std::{
     collections::HashMap,
@@ -144,23 +145,6 @@ impl Package {
             .style
             .as_ref()
             .and_then(|style_name| self.resolve_style_with_id(style_name))
-            .map(|resolved_style| {
-                let run_style = paragraph_properties
-                    .run_properties
-                    .as_ref()
-                    .and_then(|run_properties| {
-                        run_properties.bases.iter().find_map(|r_pr_base| {
-                            if let RPrBase::RunStyle(style_name) = r_pr_base {
-                                self.resolve_style_with_id(style_name)
-                            } else {
-                                None
-                            }
-                        })
-                    })
-                    .unwrap_or_default();
-
-                resolved_style.update_with(run_style)
-            })
     }
 
     pub fn resolve_run_style(&self, run_properties: &RPr) -> Option<ResolvedStyle> {
@@ -210,11 +194,10 @@ impl Package {
         )
     }
 
-    pub fn resolve_style_inheritance(&self, paragraph: Option<&P>, run: &R) -> Option<ResolvedStyle> {
-        let default_style = self.resolve_document_default_style();
-
+    pub fn resolve_style_inheritance(&self, paragraph: &P, run: &R) -> Option<ResolvedStyle> {
         let paragraph_style = paragraph
-            .and_then(|paragraph| paragraph.properties.as_ref())
+            .properties
+            .as_ref()
             .and_then(|p_pr| self.resolve_paragraph_style(p_pr))
             .or_else(|| self.resolve_default_style(StyleType::Paragraph));
 
@@ -229,34 +212,23 @@ impl Package {
             (p_style, r_style) => p_style.or(r_style),
         };
 
+        let default_style = self.resolve_document_default_style();
         let calced_style = match (default_style, calced_style) {
             (Some(def_style), Some(calced_style)) => Some(def_style.update_with(calced_style)),
             (def_style, calced_style) => def_style.or(calced_style),
         };
 
         calced_style.map(|resolved_style| {
-            let paragraph_style = paragraph.and_then(|p| p.properties.as_ref()).map(|p_pr| {
-                let run_properties = Box::new(
-                    p_pr.run_properties
-                        .as_ref()
-                        .map(|r_pr| RunProperties::from_vec(&r_pr.bases))
-                        .unwrap_or_default(),
-                );
-
-                ResolvedStyle {
-                    paragraph_properties: Box::new(p_pr.base.clone()),
-                    run_properties,
-                }
-            });
-
             let run_style = run
                 .run_properties
                 .as_ref()
                 .map(|r_pr| RunProperties::from_vec(&r_pr.r_pr_bases));
 
-            match (paragraph_style, run_style) {
-                (Some(p_style), Some(r_style)) => resolved_style.update_with(p_style).update_run_with(r_style),
-                (Some(p_style), None) => resolved_style.update_with(p_style),
+            match (paragraph.properties.as_ref(), run_style) {
+                (Some(p_style), Some(r_style)) => {
+                    resolved_style.update_paragraph_with(p_style.base.clone()).update_run_with(r_style)
+                }
+                (Some(p_style), None) => resolved_style.update_paragraph_with(p_style.base.clone()),
                 (None, Some(r_style)) => resolved_style.update_run_with(r_style),
                 _ => resolved_style,
             }
@@ -627,7 +599,7 @@ mod tests {
         let package = package_for_test();
 
         let style = package
-            .resolve_style_inheritance(Some(&paragraph_with_style_for_test()), &run_with_style_for_test())
+            .resolve_style_inheritance(&paragraph_with_style_for_test(), &run_with_style_for_test())
             .unwrap();
         assert_eq!(
             *style.paragraph_properties,
@@ -644,7 +616,7 @@ mod tests {
             RunProperties {
                 style: Some(String::from("Emphasis")),
                 bold: Some(true),
-                italic: Some(true),
+                italic: Some(false),
                 underline: Some(Underline {
                     value: Some(UnderlineType::Single),
                     ..Default::default()
