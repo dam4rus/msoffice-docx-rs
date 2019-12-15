@@ -357,6 +357,7 @@ impl Styles {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::str::FromStr;
 
     impl DocDefaults {
         pub fn test_xml(node_name: &'static str) -> String {
@@ -387,7 +388,7 @@ mod tests {
     pub fn test_doc_defaults_from_xml() {
         let xml = DocDefaults::test_xml("docDefaults");
         assert_eq!(
-            DocDefaults::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            DocDefaults::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             DocDefaults::test_instance()
         );
     }
@@ -417,7 +418,7 @@ mod tests {
     pub fn test_lsd_exception_from_xml() {
         let xml = LsdException::test_xml("lsdException");
         assert_eq!(
-            LsdException::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            LsdException::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             LsdException::test_instance()
         );
     }
@@ -451,7 +452,7 @@ mod tests {
     pub fn test_latent_styles_from_xml() {
         let xml = LatentStyles::test_xml("latentStyles");
         assert_eq!(
-            LatentStyles::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            LatentStyles::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             LatentStyles::test_instance()
         );
     }
@@ -491,7 +492,7 @@ mod tests {
     pub fn test_tbl_style_pr_from_xml() {
         let xml = TblStylePr::test_xml("tblStylePr");
         assert_eq!(
-            TblStylePr::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TblStylePr::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             TblStylePr::test_instance()
         );
     }
@@ -569,7 +570,7 @@ mod tests {
     pub fn test_style_from_xml() {
         let xml = Style::test_xml("style");
         assert_eq!(
-            Style::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            Style::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             Style::test_instance()
         );
     }
@@ -602,7 +603,7 @@ mod tests {
     pub fn test_styles_from_xml() {
         let xml = Styles::test_xml("styles");
         assert_eq!(
-            Styles::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            Styles::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             Styles::test_instance()
         );
     }

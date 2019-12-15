@@ -433,6 +433,7 @@ impl Numbering {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::str::FromStr;
 
     impl Picture {
         pub fn test_xml(node_name: &'static str) -> String {
@@ -459,7 +460,7 @@ mod tests {
     #[test]
     fn test_picture_from_xml() {
         let xml = Picture::test_xml("w:numPicBullet");
-        let picture = Picture::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let picture = Picture::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         let test_instance = Picture::test_instance();
         assert_eq!(picture.movie, test_instance.movie);
         assert_eq!(picture.control, test_instance.control);
@@ -485,7 +486,7 @@ mod tests {
     fn test_level_text_from_xml() {
         let xml = LevelText::test_xml("w:levelText");
         assert_eq!(
-            LevelText::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            LevelText::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             LevelText::test_instance()
         );
     }
@@ -538,7 +539,7 @@ mod tests {
     fn test_lvl_from_xml() {
         let xml = Lvl::test_xml("w:lvl");
         assert_eq!(
-            Lvl::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            Lvl::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             Lvl::test_instance()
         );
     }
@@ -579,7 +580,7 @@ mod tests {
     fn test_abstract_num_from_xml() {
         let xml = AbstractNum::test_xml("w:abstractNum");
         assert_eq!(
-            AbstractNum::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            AbstractNum::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             AbstractNum::test_instance()
         );
     }
@@ -609,7 +610,7 @@ mod tests {
     fn test_num_lvl_from_xml() {
         let xml = NumLvl::test_xml("w:numLvl");
         assert_eq!(
-            NumLvl::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            NumLvl::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             NumLvl::test_instance()
         );
     }
@@ -640,7 +641,7 @@ mod tests {
     fn test_num_from_xml() {
         let xml = Num::test_xml("w:num");
         assert_eq!(
-            Num::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            Num::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             Num::test_instance()
         );
     }
@@ -672,7 +673,7 @@ mod tests {
     #[test]
     fn test_numbering_from_xml() {
         let xml = Numbering::test_xml("w:numbering");
-        let numbering = Numbering::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let numbering = Numbering::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         let test_instance = Numbering::test_instance();
         assert_eq!(numbering.abstract_numberings, test_instance.abstract_numberings);
         assert_eq!(numbering.numberings, test_instance.numberings);

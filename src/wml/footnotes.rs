@@ -86,6 +86,7 @@ impl Footnotes {
 mod tests {
     use super::*;
     use crate::wml::document::{ContentBlockContent, P};
+    use std::str::FromStr;
 
     impl Footnotes {
         pub fn test_xml(node_name: &'static str) -> String {
@@ -107,7 +108,7 @@ mod tests {
     pub fn test_footnotes_from_xml() {
         let xml = Footnotes::test_xml("w:footnotes");
         assert_eq!(
-            Footnotes::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            Footnotes::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             Footnotes::test_instance(),
         );
     }
@@ -138,7 +139,7 @@ mod tests {
     pub fn test_ftn_edn_from_xml() {
         let xml = FtnEdn::test_xml("w:ftnEdn");
         assert_eq!(
-            FtnEdn::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            FtnEdn::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             FtnEdn::test_instance(),
         );
     }

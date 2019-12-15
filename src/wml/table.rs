@@ -1278,6 +1278,7 @@ impl Tbl {
 mod tests {
     use super::*;
     use crate::wml::document::{Bookmark, ContentBlockContent, DecimalNumberOrPercent, ProofErr};
+    use std::str::FromStr;
 
     impl TblPPr {
         pub fn test_xml(node_name: &'static str) -> String {
@@ -1309,7 +1310,7 @@ mod tests {
     pub fn test_tbl_p_pr_from_xml() {
         let xml = TblPPr::test_xml("tblPPr");
         assert_eq!(
-            TblPPr::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TblPPr::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             TblPPr::test_instance(),
         );
     }
@@ -1336,7 +1337,7 @@ mod tests {
     pub fn test_tbl_width_from_xml() {
         let xml = TblWidth::test_xml("tblWidth");
         assert_eq!(
-            TblWidth::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TblWidth::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             TblWidth::test_instance(),
         );
     }
@@ -1378,7 +1379,7 @@ mod tests {
     pub fn test_tbl_borders_from_xml() {
         let xml = TblBorders::test_xml("tblBorders");
         assert_eq!(
-            TblBorders::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TblBorders::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             TblBorders::test_instance(),
         );
     }
@@ -1414,7 +1415,7 @@ mod tests {
     pub fn test_tbl_cell_mar_from_xml() {
         let xml = TblCellMar::test_xml("tblCellMar");
         assert_eq!(
-            TblCellMar::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TblCellMar::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             TblCellMar::test_instance(),
         );
     }
@@ -1443,7 +1444,7 @@ mod tests {
     pub fn test_tbl_look_from_xml() {
         let xml = TblLook::test_xml("tblLook");
         assert_eq!(
-            TblLook::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TblLook::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             TblLook::test_instance(),
         );
     }
@@ -1514,7 +1515,7 @@ mod tests {
     pub fn test_tbl_pr_base_from_xml() {
         let xml = TblPrBase::test_xml("tblPrBase");
         assert_eq!(
-            TblPrBase::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TblPrBase::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             TblPrBase::test_instance(),
         );
     }
@@ -1543,7 +1544,7 @@ mod tests {
     pub fn test_tbl_pr_change_from_xml() {
         let xml = TblPrChange::test_xml("tblPrChange");
         assert_eq!(
-            TblPrChange::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TblPrChange::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             TblPrChange::test_instance(),
         );
     }
@@ -1573,7 +1574,7 @@ mod tests {
     pub fn test_tbl_pr_from_xml() {
         let xml = TblPr::test_xml("tblPr");
         assert_eq!(
-            TblPr::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TblPr::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             TblPr::test_instance(),
         );
     }
@@ -1594,7 +1595,7 @@ mod tests {
     pub fn test_tbl_grid_col_from_xml() {
         let xml = TblGridCol::test_xml("tblGridCol");
         assert_eq!(
-            TblGridCol::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TblGridCol::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             TblGridCol::test_instance(),
         );
     }
@@ -1625,7 +1626,7 @@ mod tests {
     pub fn test_tbl_grid_base_from_xml() {
         let xml = TblGridBase::test_xml("tblGridBase");
         assert_eq!(
-            TblGridBase::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TblGridBase::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             TblGridBase::test_instance(),
         );
     }
@@ -1651,7 +1652,7 @@ mod tests {
     pub fn test_tbl_grid_change_from_xml() {
         let xml = TblGridChange::test_xml("tblGridChange");
         assert_eq!(
-            TblGridChange::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TblGridChange::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             TblGridChange::test_instance(),
         );
     }
@@ -1681,7 +1682,7 @@ mod tests {
     pub fn test_tbl_grid_from_xml() {
         let xml = TblGrid::test_xml("tblGrid");
         assert_eq!(
-            TblGrid::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TblGrid::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             TblGrid::test_instance(),
         );
     }
@@ -1736,7 +1737,7 @@ mod tests {
     pub fn test_tbl_pr_ex_base_from_xml() {
         let xml = TblPrExBase::test_xml("tblPrExBase");
         assert_eq!(
-            TblPrExBase::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TblPrExBase::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             TblPrExBase::test_instance(),
         );
     }
@@ -1765,7 +1766,7 @@ mod tests {
     pub fn test_tbl_pr_ex_change_from_xml() {
         let xml = TblPrExChange::test_xml("tblPrExChange");
         assert_eq!(
-            TblPrExChange::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TblPrExChange::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             TblPrExChange::test_instance(),
         );
     }
@@ -1795,7 +1796,7 @@ mod tests {
     pub fn test_tbl_pr_ex_from_xml() {
         let xml = TblPrEx::test_xml("tblPrEx");
         assert_eq!(
-            TblPrEx::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TblPrEx::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             TblPrEx::test_instance(),
         );
     }
@@ -1853,7 +1854,7 @@ mod tests {
     pub fn test_tr_pr_base_from_xml() {
         let xml = TrPrBase::test_xml("trPrBase");
         assert_eq!(
-            TrPrBase::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TrPrBase::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             TrPrBase::test_instance(),
         );
     }
@@ -1880,7 +1881,7 @@ mod tests {
     pub fn test_tr_pr_change_from_xml() {
         let xml = TrPrChange::test_xml("trPrChange");
         assert_eq!(
-            TrPrChange::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TrPrChange::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             TrPrChange::test_instance(),
         );
     }
@@ -1916,7 +1917,7 @@ mod tests {
     pub fn test_tr_pr_from_xml() {
         let xml = TrPr::test_xml("trPr");
         assert_eq!(
-            TrPr::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TrPr::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             TrPr::test_instance(),
         );
     }
@@ -1964,7 +1965,7 @@ mod tests {
     pub fn test_tc_borders_from_xml() {
         let xml = TcBorders::test_xml("tcBorders");
         assert_eq!(
-            TcBorders::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TcBorders::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             TcBorders::test_instance(),
         );
     }
@@ -2000,7 +2001,7 @@ mod tests {
     pub fn test_tc_mar_from_xml() {
         let xml = TcMar::test_xml("tcMar");
         assert_eq!(
-            TcMar::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TcMar::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             TcMar::test_instance(),
         );
     }
@@ -2022,7 +2023,7 @@ mod tests {
     pub fn test_headers_from_xml() {
         let xml = Headers::test_xml("headers");
         assert_eq!(
-            Headers::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            Headers::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             Headers::test_instance(),
         );
     }
@@ -2083,7 +2084,7 @@ mod tests {
     pub fn test_tc_pr_base_from_xml() {
         let xml = TcPrBase::test_xml("tcPrBase");
         assert_eq!(
-            TcPrBase::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TcPrBase::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             TcPrBase::test_instance(),
         );
     }
@@ -2110,7 +2111,7 @@ mod tests {
     pub fn test_cell_merge_track_change_from_xml() {
         let xml = CellMergeTrackChange::test_xml("cellMergeTrackChange");
         assert_eq!(
-            CellMergeTrackChange::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            CellMergeTrackChange::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             CellMergeTrackChange::test_instance(),
         );
     }
@@ -2140,7 +2141,7 @@ mod tests {
     pub fn test_tc_pr_inner_from_xml() {
         let xml = TcPrInner::test_xml("tcPrInner");
         assert_eq!(
-            TcPrInner::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TcPrInner::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             TcPrInner::test_instance(),
         );
     }
@@ -2167,7 +2168,7 @@ mod tests {
     pub fn test_tc_pr_change_from_xml() {
         let xml = TcPrChange::test_xml("tcPrChange");
         assert_eq!(
-            TcPrChange::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TcPrChange::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             TcPrChange::test_instance(),
         );
     }
@@ -2197,7 +2198,7 @@ mod tests {
     pub fn test_tc_pr_from_xml() {
         let xml = TcPr::test_xml("tcPr");
         assert_eq!(
-            TcPr::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TcPr::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             TcPr::test_instance(),
         );
     }
@@ -2230,7 +2231,7 @@ mod tests {
     pub fn test_tc_from_xml() {
         let xml = Tc::test_xml("tc");
         assert_eq!(
-            Tc::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            Tc::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             Tc::test_instance(),
         );
     }
@@ -2262,7 +2263,7 @@ mod tests {
     pub fn test_custom_xml_cell_from_xml() {
         let xml = CustomXmlCell::test_xml("customXmlCell");
         assert_eq!(
-            CustomXmlCell::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            CustomXmlCell::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             CustomXmlCell::test_instance(),
         );
     }
@@ -2293,7 +2294,7 @@ mod tests {
     pub fn test_std_content_cell_from_xml() {
         let xml = SdtContentCell::test_xml("sdtContentCell");
         assert_eq!(
-            SdtContentCell::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            SdtContentCell::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             SdtContentCell::test_instance(),
         );
     }
@@ -2326,7 +2327,7 @@ mod tests {
     pub fn test_std_cell_from_xml() {
         let xml = SdtCell::test_xml("sdtCell");
         assert_eq!(
-            SdtCell::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            SdtCell::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             SdtCell::test_instance(),
         );
     }
@@ -2363,7 +2364,7 @@ mod tests {
     pub fn test_row_from_xml() {
         let xml = Row::test_xml("row");
         assert_eq!(
-            Row::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            Row::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             Row::test_instance(),
         );
     }
@@ -2395,7 +2396,7 @@ mod tests {
     pub fn test_custom_xml_row_from_xml() {
         let xml = CustomXmlRow::test_xml("customXmlRow");
         assert_eq!(
-            CustomXmlRow::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            CustomXmlRow::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             CustomXmlRow::test_instance(),
         );
     }
@@ -2426,7 +2427,7 @@ mod tests {
     pub fn test_sdt_content_row_from_xml() {
         let xml = SdtContentRow::test_xml("sdtContentRow");
         assert_eq!(
-            SdtContentRow::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            SdtContentRow::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             SdtContentRow::test_instance(),
         );
     }
@@ -2459,7 +2460,7 @@ mod tests {
     pub fn test_std_row_from_xml() {
         let xml = SdtRow::test_xml("sdtRow");
         assert_eq!(
-            SdtRow::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            SdtRow::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             SdtRow::test_instance(),
         );
     }
@@ -2484,7 +2485,7 @@ mod tests {
     pub fn test_height_from_xml() {
         let xml = Height::test_xml("height");
         assert_eq!(
-            Height::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            Height::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             Height::test_instance(),
         );
     }
@@ -2520,7 +2521,7 @@ mod tests {
     pub fn test_tbl_from_xml() {
         let xml = Tbl::test_xml("tbl");
         assert_eq!(
-            Tbl::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            Tbl::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             Tbl::test_instance(),
         );
     }

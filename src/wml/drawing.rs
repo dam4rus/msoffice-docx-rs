@@ -1094,6 +1094,7 @@ impl WordprocessingCanvas {
 mod tests {
     use super::*;
     use msoffice_shared::drawingml::core::{GraphicalObjectData, Hyperlink, Locking, ShapeLocking};
+    use std::str::FromStr;
 
     const TEST_LOCKING_ATTRIBUTES: &'static str = r#"noGrp="false" noSelect="false" noRot="false" noChangeAspect="false"
         noMove="false" noResize="false" noEditPoints="false" noAdjustHandles="false" noChangeArrowheads="false" noChangeShapeType="false""#;
@@ -1181,7 +1182,7 @@ mod tests {
     #[test]
     pub fn test_effect_extent_from_xml() {
         let xml = EffectExtent::test_xml("effectExtent");
-        let effect_extent = EffectExtent::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let effect_extent = EffectExtent::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(effect_extent, EffectExtent::test_instance());
     }
 
@@ -1250,7 +1251,7 @@ mod tests {
     pub fn test_inline_from_xml_element() {
         let xml = Inline::test_xml("inline");
         assert_eq!(
-            Inline::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            Inline::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             Inline::test_instance()
         );
     }
@@ -1280,7 +1281,7 @@ mod tests {
     pub fn test_wrap_path_from_xml() {
         let xml = WrapPath::test_xml("wrapPath");
 
-        let wrap_path = WrapPath::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let wrap_path = WrapPath::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(wrap_path, WrapPath::test_instance());
     }
 
@@ -1310,7 +1311,7 @@ mod tests {
     #[test]
     pub fn test_wrap_square_from_xml() {
         let xml = WrapSquare::test_xml("wrapSquare");
-        let wrap_square = WrapSquare::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let wrap_square = WrapSquare::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
 
         assert_eq!(wrap_square, WrapSquare::test_instance());
     }
@@ -1339,7 +1340,7 @@ mod tests {
     #[test]
     pub fn test_wrap_tight_from_xml() {
         let xml = WrapTight::test_xml("wrapTight");
-        let wrap_tight = WrapTight::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let wrap_tight = WrapTight::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(wrap_tight, WrapTight::test_instance());
     }
 
@@ -1367,7 +1368,7 @@ mod tests {
     #[test]
     pub fn test_wrap_through_from_xml() {
         let xml = WrapThrough::test_xml("wrapThrough");
-        let wrap_through = WrapThrough::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let wrap_through = WrapThrough::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(wrap_through, WrapThrough::test_instance());
     }
 
@@ -1394,7 +1395,7 @@ mod tests {
     #[test]
     pub fn test_wrap_top_bottom_from_xml() {
         let xml = WrapTopBottom::test_xml("wrapTopAndBottom");
-        let wrap_top_bottom = WrapTopBottom::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let wrap_top_bottom = WrapTopBottom::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(wrap_top_bottom, WrapTopBottom::test_instance());
     }
 
@@ -1408,28 +1409,28 @@ mod tests {
     #[test]
     pub fn test_wrap_type_square() {
         let xml = WrapSquare::test_xml("wrapSquare");
-        let wrap_type = WrapType::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let wrap_type = WrapType::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(wrap_type, WrapType::Square(WrapSquare::test_instance()));
     }
 
     #[test]
     pub fn test_wrap_type_tight() {
         let xml = WrapTight::test_xml("wrapTight");
-        let wrap_type = WrapType::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let wrap_type = WrapType::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(wrap_type, WrapType::Tight(WrapTight::test_instance()));
     }
 
     #[test]
     pub fn test_wrap_type_through() {
         let xml = WrapThrough::test_xml("wrapThrough");
-        let wrap_type = WrapType::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let wrap_type = WrapType::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(wrap_type, WrapType::Through(WrapThrough::test_instance()));
     }
 
     #[test]
     pub fn test_wrap_type_top_and_bottom() {
         let xml = WrapTopBottom::test_xml("wrapTopAndBottom");
-        let wrap_type = WrapType::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let wrap_type = WrapType::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(wrap_type, WrapType::TopAndBottom(WrapTopBottom::test_instance()));
     }
 
@@ -1470,14 +1471,14 @@ mod tests {
     #[test]
     pub fn test_pos_h_with_align_from_xml() {
         let xml = PosH::test_xml_with_align("posH");
-        let pos_h = PosH::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let pos_h = PosH::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(pos_h, PosH::test_instance_with_align());
     }
 
     #[test]
     pub fn test_pos_h_with_offset_from_xml() {
         let xml = PosH::test_xml_with_offset("posH");
-        let pos_h = PosH::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let pos_h = PosH::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(pos_h, PosH::test_instance_with_offset());
     }
 
@@ -1518,14 +1519,14 @@ mod tests {
     #[test]
     pub fn test_pos_v_with_align_from_xml() {
         let xml = PosV::test_xml_with_align("posV");
-        let pos_v = PosV::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let pos_v = PosV::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(pos_v, PosV::test_instance_with_align());
     }
 
     #[test]
     pub fn test_pos_v_with_offset_from_xml() {
         let xml = PosV::test_xml_with_offset("posV");
-        let pos_h = PosV::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let pos_h = PosV::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(pos_h, PosV::test_instance_with_offset());
     }
 
@@ -1580,7 +1581,7 @@ mod tests {
     #[test]
     pub fn test_anchor_from_xml() {
         let xml = Anchor::test_xml("anchor");
-        let anchor = Anchor::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let anchor = Anchor::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(anchor, Anchor::test_instance());
     }
 
@@ -1610,7 +1611,7 @@ mod tests {
     pub fn test_txbx_content_from_xml() {
         let xml = TxbxContent::test_xml("txbxContent");
         assert_eq!(
-            TxbxContent::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TxbxContent::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             TxbxContent::test_instance()
         );
     }
@@ -1638,7 +1639,7 @@ mod tests {
     pub fn test_textbox_info_from_xml() {
         let xml = TextboxInfo::test_xml("textboxInfo");
         assert_eq!(
-            TextboxInfo::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TextboxInfo::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             TextboxInfo::test_instance(),
         );
     }
@@ -1657,7 +1658,7 @@ mod tests {
     pub fn test_linked_textbox_information_from_xml() {
         let xml = LinkedTextboxInformation::test_xml("linkedTextboxInformation");
         assert_eq!(
-            LinkedTextboxInformation::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            LinkedTextboxInformation::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             LinkedTextboxInformation::test_instance(),
         );
     }
@@ -1698,7 +1699,7 @@ mod tests {
     pub fn test_wordprocessing_shape_from_xml() {
         let xml = WordprocessingShape::test_xml("wordprocessingShape");
         assert_eq!(
-            WordprocessingShape::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            WordprocessingShape::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             WordprocessingShape::test_instance(),
         );
     }
@@ -1732,7 +1733,7 @@ mod tests {
     pub fn test_graphic_frame_from_xml() {
         let xml = GraphicFrame::test_xml("graphicFrame");
         assert_eq!(
-            GraphicFrame::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            GraphicFrame::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             GraphicFrame::test_instance(),
         );
     }
@@ -1762,7 +1763,7 @@ mod tests {
     pub fn test_wordprocessing_content_part_from_xml() {
         let xml = WordprocessingContentPart::test_xml("wordprocessingContentPart");
         assert_eq!(
-            WordprocessingContentPart::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            WordprocessingContentPart::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             WordprocessingContentPart::test_instance(),
         );
     }
@@ -1796,7 +1797,7 @@ mod tests {
     pub fn test_wordprocessing_group_from_xml() {
         let xml = WordprocessingGroup::test_xml("wordprocessingGroup");
         assert_eq!(
-            WordprocessingGroup::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            WordprocessingGroup::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             WordprocessingGroup::test_instance(),
         );
     }
@@ -1827,7 +1828,7 @@ mod tests {
     pub fn test_wordprocessing_canvas_from_xml() {
         let xml = WordprocessingCanvas::test_xml("wordprocessingCanvas");
         assert_eq!(
-            WordprocessingCanvas::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            WordprocessingCanvas::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             WordprocessingCanvas::test_instance(),
         );
     }

@@ -6074,6 +6074,7 @@ impl Document {
 mod tests {
     use super::*;
     use msoffice_shared::sharedtypes::UniversalMeasureUnit;
+    use std::str::FromStr;
 
     #[test]
     pub fn test_parse_text_scale_percent() {
@@ -6119,7 +6120,7 @@ mod tests {
     #[test]
     pub fn test_signed_twips_measure_from_xml() {
         let xml = SignedTwipsMeasure::test_xml("signedTwipsMeasure");
-        let signed_twips_measure = SignedTwipsMeasure::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let signed_twips_measure = SignedTwipsMeasure::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(signed_twips_measure, SignedTwipsMeasure::test_instance());
     }
 
@@ -6150,7 +6151,7 @@ mod tests {
     #[test]
     pub fn test_hps_measure_from_xml() {
         let xml = HpsMeasure::test_xml("hpsMeasure");
-        let hps_measure = HpsMeasure::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let hps_measure = HpsMeasure::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(hps_measure, HpsMeasure::test_instance());
     }
 
@@ -6190,7 +6191,7 @@ mod tests {
     #[test]
     pub fn test_signed_hps_measure_from_xml() {
         let xml = SignedHpsMeasure::test_xml("signedHpsMeasure");
-        let hps_measure = SignedHpsMeasure::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let hps_measure = SignedHpsMeasure::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(hps_measure, SignedHpsMeasure::test_instance());
     }
 
@@ -6216,7 +6217,7 @@ mod tests {
     #[test]
     pub fn test_color_from_xml() {
         let xml = Color::test_xml("color");
-        let color = Color::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let color = Color::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(color, Color::test_instance());
     }
 
@@ -6238,7 +6239,7 @@ mod tests {
     #[test]
     pub fn test_proof_err_from_xml() {
         let xml = ProofErr::test_xml("proofErr");
-        let proof_err = ProofErr::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let proof_err = ProofErr::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(proof_err, ProofErr::test_instance());
     }
 
@@ -6261,7 +6262,7 @@ mod tests {
     #[test]
     pub fn test_perm_from_xml() {
         let xml = Perm::test_xml("perm");
-        let perm = Perm::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let perm = Perm::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(perm, Perm::test_instance());
     }
 
@@ -6285,7 +6286,7 @@ mod tests {
     #[test]
     pub fn test_perm_start_from_xml() {
         let xml = PermStart::test_xml("permStart");
-        let perm_start = PermStart::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let perm_start = PermStart::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(perm_start, PermStart::test_instance());
     }
 
@@ -6302,7 +6303,7 @@ mod tests {
     #[test]
     pub fn test_markup_from_xml() {
         let xml = Markup::test_xml("markup");
-        let markup = Markup::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let markup = Markup::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(markup, Markup::test_instance());
     }
 
@@ -6325,7 +6326,7 @@ mod tests {
     #[test]
     pub fn test_markup_range_from_xml() {
         let xml = MarkupRange::test_xml("markupRange");
-        let markup_range = MarkupRange::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let markup_range = MarkupRange::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(markup_range, MarkupRange::test_instance());
     }
 
@@ -6350,7 +6351,7 @@ mod tests {
     #[test]
     pub fn test_bookmark_range_from_xml() {
         let xml = BookmarkRange::test_xml("bookmarkRange");
-        let bookmark_range = BookmarkRange::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let bookmark_range = BookmarkRange::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(bookmark_range, BookmarkRange::test_instance());
     }
 
@@ -6374,7 +6375,7 @@ mod tests {
     #[test]
     fn test_bookmark_from_xml() {
         let xml = Bookmark::test_xml("bookmark");
-        let bookmark = Bookmark::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let bookmark = Bookmark::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(bookmark, Bookmark::test_instance());
     }
 
@@ -6396,7 +6397,7 @@ mod tests {
     #[test]
     fn test_move_bookmark_from_xml() {
         let xml = MoveBookmark::test_xml("moveBookmark");
-        let move_bookmark = MoveBookmark::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let move_bookmark = MoveBookmark::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(move_bookmark, MoveBookmark::test_instance());
     }
 
@@ -6423,7 +6424,7 @@ mod tests {
     #[test]
     fn test_track_change_from_xml() {
         let xml = TrackChange::test_xml("trackChange");
-        let track_change = TrackChange::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let track_change = TrackChange::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(track_change, TrackChange::test_instance());
     }
 
@@ -6447,7 +6448,7 @@ mod tests {
     #[test]
     pub fn test_attr_from_xml() {
         let xml = Attr::test_xml("attr");
-        let attr = Attr::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let attr = Attr::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(attr, Attr::test_instance());
     }
 
@@ -6474,7 +6475,7 @@ mod tests {
     #[test]
     pub fn test_custom_xml_pr_from_xml() {
         let xml = CustomXmlPr::test_xml("customXmlPr");
-        let custom_xml_pr = CustomXmlPr::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let custom_xml_pr = CustomXmlPr::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(custom_xml_pr, CustomXmlPr::test_instance());
     }
 
@@ -6516,7 +6517,7 @@ mod tests {
     #[test]
     pub fn test_simple_field_from_xml() {
         let xml = SimpleField::test_xml_recursive("simpleField");
-        let simple_field = SimpleField::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let simple_field = SimpleField::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(simple_field, SimpleField::test_instance_recursive());
     }
 
@@ -6554,7 +6555,7 @@ mod tests {
     #[test]
     pub fn test_hyperlink_from_xml() {
         let xml = Hyperlink::test_xml_recursive("hyperlink");
-        let hyperlink = Hyperlink::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let hyperlink = Hyperlink::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(hyperlink, Hyperlink::test_instance_recursive());
     }
 
@@ -6573,7 +6574,7 @@ mod tests {
     #[test]
     pub fn test_rel_from_xml() {
         let xml = Rel::test_xml("rel");
-        let rel = Rel::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let rel = Rel::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(rel, Rel::test_instance());
     }
 
@@ -6595,21 +6596,21 @@ mod tests {
     #[test]
     pub fn test_pcontent_simple_field_from_xml() {
         let xml = SimpleField::test_xml("fldSimple");
-        let pcontent = PContent::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let pcontent = PContent::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(pcontent, PContent::SimpleField(SimpleField::test_instance()));
     }
 
     #[test]
     pub fn test_pcontent_hyperlink_from_xml() {
         let xml = Hyperlink::test_xml("hyperlink");
-        let pcontent = PContent::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let pcontent = PContent::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(pcontent, PContent::Hyperlink(Hyperlink::test_instance()));
     }
 
     #[test]
     pub fn test_pcontent_subdocument_from_xml() {
         let xml = Rel::test_xml("subDoc");
-        let pcontent = PContent::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let pcontent = PContent::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(pcontent, PContent::SubDocument(Rel::test_instance()));
     }
 
@@ -6639,7 +6640,7 @@ mod tests {
     #[test]
     pub fn test_custom_xml_run_from_xml() {
         let xml = CustomXmlRun::test_xml("customXmlRun");
-        let custom_xml_run = CustomXmlRun::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let custom_xml_run = CustomXmlRun::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(custom_xml_run, CustomXmlRun::test_instance());
     }
 
@@ -6664,7 +6665,7 @@ mod tests {
     #[test]
     pub fn test_smart_tag_pr_from_xml() {
         let xml = SmartTagPr::test_xml("smartTagPr");
-        let smart_tag_pr = SmartTagPr::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let smart_tag_pr = SmartTagPr::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(smart_tag_pr, SmartTagPr::test_instance());
     }
 
@@ -6694,7 +6695,7 @@ mod tests {
     #[test]
     pub fn test_smart_tag_run_from_xml() {
         let xml = SmartTagRun::test_xml("smartTagRun");
-        let smart_tag_run = SmartTagRun::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let smart_tag_run = SmartTagRun::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(smart_tag_run, SmartTagRun::test_instance());
     }
 
@@ -6726,7 +6727,7 @@ mod tests {
     #[test]
     pub fn test_fonts_from_xml() {
         let xml = Fonts::test_xml("fonts");
-        let fonts = Fonts::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let fonts = Fonts::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(fonts, Fonts::test_instance());
     }
 
@@ -6753,7 +6754,7 @@ mod tests {
     #[test]
     pub fn test_underline_from_xml() {
         let xml = Underline::test_xml("underline");
-        let underline = Underline::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let underline = Underline::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(underline, Underline::test_instance());
     }
 
@@ -6789,7 +6790,7 @@ mod tests {
     #[test]
     pub fn test_border_from_xml() {
         let xml = Border::test_xml("border");
-        let border = Border::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let border = Border::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(border, Border::test_instance());
     }
 
@@ -6821,7 +6822,7 @@ mod tests {
     #[test]
     pub fn test_shd_from_xml() {
         let xml = Shd::test_xml("shd");
-        let shd = Shd::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let shd = Shd::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(shd, Shd::test_instance());
     }
 
@@ -6847,7 +6848,7 @@ mod tests {
     #[test]
     pub fn test_fit_text_from_xml() {
         let xml = FitText::test_xml("fitText");
-        let fit_text = FitText::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let fit_text = FitText::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(fit_text, FitText::test_instance());
     }
 
@@ -6871,7 +6872,7 @@ mod tests {
     #[test]
     pub fn test_language_from_xml() {
         let xml = Language::test_xml("language");
-        let language = Language::from_xml_element(&XmlNode::from_str(xml).unwrap());
+        let language = Language::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap());
         assert_eq!(language, Language::test_instance());
     }
 
@@ -6898,7 +6899,7 @@ mod tests {
     #[test]
     pub fn test_east_asian_layout_from_xml() {
         let xml = EastAsianLayout::test_xml("eastAsianLayout");
-        let east_asian_layout = EastAsianLayout::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let east_asian_layout = EastAsianLayout::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(east_asian_layout, EastAsianLayout::test_instance());
     }
 
@@ -6940,7 +6941,7 @@ mod tests {
     #[test]
     pub fn test_r_pr_original_from_xml() {
         let xml = RPrOriginal::test_xml("rPrOriginal");
-        let r_pr_original = RPrOriginal::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let r_pr_original = RPrOriginal::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(r_pr_original, RPrOriginal::test_instance());
     }
 
@@ -6966,7 +6967,7 @@ mod tests {
     #[test]
     pub fn test_r_pr_change_from_xml() {
         let xml = RPrChange::test_xml("rRpChange");
-        let r_pr_change = RPrChange::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let r_pr_change = RPrChange::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(r_pr_change, RPrChange::test_instance());
     }
 
@@ -6994,7 +6995,7 @@ mod tests {
     #[test]
     pub fn test_r_pr_from_xml() {
         let xml = RPr::test_xml("rPr");
-        let r_pr_content = RPr::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let r_pr_content = RPr::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(r_pr_content, RPr::test_instance());
     }
 
@@ -7017,7 +7018,7 @@ mod tests {
     #[test]
     pub fn test_sdt_list_item_from_xml() {
         let xml = SdtListItem::test_xml("sdtListItem");
-        let sdt_list_item = SdtListItem::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let sdt_list_item = SdtListItem::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(sdt_list_item, SdtListItem::test_instance());
     }
 
@@ -7045,7 +7046,7 @@ mod tests {
     #[test]
     pub fn test_sdt_combo_box_from_xml() {
         let xml = SdtComboBox::test_xml("sdtComboBox");
-        let sdt_combo_box = SdtComboBox::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let sdt_combo_box = SdtComboBox::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(sdt_combo_box, SdtComboBox::test_instance());
     }
 
@@ -7076,7 +7077,7 @@ mod tests {
     #[test]
     pub fn test_sdt_date_from_xml() {
         let xml = SdtDate::test_xml("sdtDate");
-        let sdt_date = SdtDate::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let sdt_date = SdtDate::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(sdt_date, SdtDate::test_instance());
     }
 
@@ -7104,7 +7105,7 @@ mod tests {
     #[test]
     pub fn test_sdt_doc_part_from_xml() {
         let xml = SdtDocPart::test_xml("sdtDocPart");
-        let sdt_doc_part = SdtDocPart::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let sdt_doc_part = SdtDocPart::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(sdt_doc_part, SdtDocPart::test_instance());
     }
 
@@ -7132,7 +7133,7 @@ mod tests {
     #[test]
     pub fn test_sdt_drop_down_list_from_xml() {
         let xml = SdtDropDownList::test_xml("sdtDropDownList");
-        let sdt_combo_box = SdtDropDownList::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let sdt_combo_box = SdtDropDownList::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(sdt_combo_box, SdtDropDownList::test_instance());
     }
 
@@ -7152,7 +7153,7 @@ mod tests {
     #[test]
     pub fn test_sdt_text_from_xml() {
         let xml = SdtText::test_xml("sdtText");
-        let sdt_text = SdtText::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap();
+        let sdt_text = SdtText::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(sdt_text, SdtText::test_instance());
     }
 
@@ -7163,23 +7164,23 @@ mod tests {
             SdtPrChoice::Equation,
         );
         assert_eq!(
-            SdtPrChoice::from_xml_element(&XmlNode::from_str(SdtComboBox::test_xml("comboBox")).unwrap()).unwrap(),
+            SdtPrChoice::from_xml_element(&XmlNode::from_str(SdtComboBox::test_xml("comboBox").as_str()).unwrap()).unwrap(),
             SdtPrChoice::ComboBox(SdtComboBox::test_instance()),
         );
         assert_eq!(
-            SdtPrChoice::from_xml_element(&XmlNode::from_str(SdtDate::test_xml("date")).unwrap()).unwrap(),
+            SdtPrChoice::from_xml_element(&XmlNode::from_str(SdtDate::test_xml("date").as_str()).unwrap()).unwrap(),
             SdtPrChoice::Date(SdtDate::test_instance()),
         );
         assert_eq!(
-            SdtPrChoice::from_xml_element(&XmlNode::from_str(SdtDocPart::test_xml("docPartObj")).unwrap()).unwrap(),
+            SdtPrChoice::from_xml_element(&XmlNode::from_str(SdtDocPart::test_xml("docPartObj").as_str()).unwrap()).unwrap(),
             SdtPrChoice::DocumentPartObject(SdtDocPart::test_instance()),
         );
         assert_eq!(
-            SdtPrChoice::from_xml_element(&XmlNode::from_str(SdtDocPart::test_xml("docPartList")).unwrap()).unwrap(),
+            SdtPrChoice::from_xml_element(&XmlNode::from_str(SdtDocPart::test_xml("docPartList").as_str()).unwrap()).unwrap(),
             SdtPrChoice::DocumentPartList(SdtDocPart::test_instance()),
         );
         assert_eq!(
-            SdtPrChoice::from_xml_element(&XmlNode::from_str(SdtDropDownList::test_xml("dropDownList")).unwrap())
+            SdtPrChoice::from_xml_element(&XmlNode::from_str(SdtDropDownList::test_xml("dropDownList").as_str()).unwrap())
                 .unwrap(),
             SdtPrChoice::DropDownList(SdtDropDownList::test_instance()),
         );
@@ -7192,7 +7193,7 @@ mod tests {
             SdtPrChoice::RichText,
         );
         assert_eq!(
-            SdtPrChoice::from_xml_element(&XmlNode::from_str(SdtText::test_xml("text")).unwrap()).unwrap(),
+            SdtPrChoice::from_xml_element(&XmlNode::from_str(SdtText::test_xml("text").as_str()).unwrap()).unwrap(),
             SdtPrChoice::Text(SdtText::test_instance()),
         );
         assert_eq!(
@@ -7230,7 +7231,7 @@ mod tests {
     pub fn test_placeholder_from_xml() {
         let xml = Placeholder::test_xml("placeholder");
         assert_eq!(
-            Placeholder::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            Placeholder::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             Placeholder::test_instance()
         );
     }
@@ -7256,7 +7257,7 @@ mod tests {
     pub fn test_data_binding_from_xml() {
         let xml = DataBinding::test_xml("dataBinding");
         assert_eq!(
-            DataBinding::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            DataBinding::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             DataBinding::test_instance()
         );
     }
@@ -7307,7 +7308,7 @@ mod tests {
     pub fn test_sdt_pr_from_xml() {
         let xml = SdtPr::test_xml("sdtPr");
         assert_eq!(
-            SdtPr::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            SdtPr::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             SdtPr::test_instance()
         );
     }
@@ -7335,7 +7336,7 @@ mod tests {
     pub fn test_std_end_pr_from_xml() {
         let xml = SdtEndPr::test_xml("sdtEndPr");
         assert_eq!(
-            SdtEndPr::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            SdtEndPr::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             SdtEndPr::test_instance(),
         );
     }
@@ -7366,7 +7367,7 @@ mod tests {
     pub fn test_sdt_content_run_from_xml() {
         let xml = SdtContentRun::test_xml("sdtContentRun");
         assert_eq!(
-            SdtContentRun::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            SdtContentRun::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             SdtContentRun::test_instance()
         );
     }
@@ -7399,7 +7400,7 @@ mod tests {
     pub fn test_sdt_run_from_xml() {
         let xml = SdtRun::test_xml("sdtRun");
         assert_eq!(
-            SdtRun::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            SdtRun::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             SdtRun::test_instance()
         );
     }
@@ -7427,7 +7428,7 @@ mod tests {
     pub fn test_dir_content_run_from_xml() {
         let xml = DirContentRun::test_xml("dirContentRun");
         assert_eq!(
-            DirContentRun::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            DirContentRun::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             DirContentRun::test_instance()
         );
     }
@@ -7455,7 +7456,7 @@ mod tests {
     pub fn test_bdo_content_run_from_xml() {
         let xml = DirContentRun::test_xml("bdoContentRun");
         assert_eq!(
-            DirContentRun::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            DirContentRun::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             DirContentRun::test_instance()
         );
     }
@@ -7480,7 +7481,7 @@ mod tests {
     pub fn test_br_from_xml() {
         let xml = Br::test_xml("br");
         assert_eq!(
-            Br::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            Br::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             Br::test_instance()
         );
     }
@@ -7505,7 +7506,7 @@ mod tests {
     pub fn test_text_from_xml() {
         let xml = Text::test_xml("text");
         assert_eq!(
-            Text::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            Text::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             Text::test_instance()
         );
     }
@@ -7530,7 +7531,7 @@ mod tests {
     pub fn test_sym_from_xml() {
         let xml = Sym::test_xml("sym");
         assert_eq!(
-            Sym::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            Sym::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             Sym::test_instance()
         );
     }
@@ -7557,7 +7558,7 @@ mod tests {
     pub fn test_control_from_xml() {
         let xml = Control::test_xml("control");
         assert_eq!(
-            Control::from_xml_element(&XmlNode::from_str(xml).unwrap()),
+            Control::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()),
             Control::test_instance()
         );
     }
@@ -7586,7 +7587,7 @@ mod tests {
     pub fn test_object_embed_from_xml() {
         let xml = ObjectEmbed::test_xml("objectEmbed");
         assert_eq!(
-            ObjectEmbed::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            ObjectEmbed::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             ObjectEmbed::test_instance()
         );
     }
@@ -7612,7 +7613,7 @@ mod tests {
     pub fn test_object_link_from_xml() {
         let xml = ObjectLink::test_xml("objectLink");
         assert_eq!(
-            ObjectLink::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            ObjectLink::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             ObjectLink::test_instance()
         );
     }
@@ -7642,7 +7643,7 @@ mod tests {
     pub fn test_drawing_from_xml() {
         let xml = Drawing::test_xml("drawing");
         assert_eq!(
-            Drawing::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            Drawing::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             Drawing::test_instance()
         );
     }
@@ -7677,7 +7678,7 @@ mod tests {
     pub fn test_object_from_xml() {
         let xml = Object::test_xml("object");
         assert_eq!(
-            Object::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            Object::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             Object::test_instance()
         );
     }
@@ -7702,7 +7703,7 @@ mod tests {
     pub fn test_ff_help_text_from_xml() {
         let xml = FFHelpText::test_xml("ffHelpText");
         assert_eq!(
-            FFHelpText::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            FFHelpText::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             FFHelpText::test_instance()
         );
     }
@@ -7727,7 +7728,7 @@ mod tests {
     pub fn test_ff_status_text_from_xml() {
         let xml = FFStatusText::test_xml("ffStatusText");
         assert_eq!(
-            FFStatusText::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            FFStatusText::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             FFStatusText::test_instance()
         );
     }
@@ -7771,7 +7772,7 @@ mod tests {
     pub fn test_ff_check_box_from_xml() {
         let xml = FFCheckBox::test_xml("ffCheckBox");
         assert_eq!(
-            FFCheckBox::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            FFCheckBox::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             FFCheckBox::test_instance()
         );
     }
@@ -7801,7 +7802,7 @@ mod tests {
     pub fn test_ff_ddlist_from_xml() {
         let xml = FFDDList::test_xml("ffDDList");
         assert_eq!(
-            FFDDList::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            FFDDList::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             FFDDList::test_instance()
         );
     }
@@ -7833,7 +7834,7 @@ mod tests {
     pub fn test_ff_text_input_from_xml() {
         let xml = FFTextInput::test_xml("ffTextInput");
         assert_eq!(
-            FFTextInput::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            FFTextInput::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             FFTextInput::test_instance(),
         );
     }
@@ -7862,7 +7863,7 @@ mod tests {
     pub fn test_fld_char_from_xml() {
         let xml = FldChar::test_xml("fldChar");
         assert_eq!(
-            FldChar::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            FldChar::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             FldChar::test_instance()
         );
     }
@@ -7898,7 +7899,7 @@ mod tests {
     pub fn test_ruby_pr_from_xml() {
         let xml = RubyPr::test_xml("rubyPr");
         assert_eq!(
-            RubyPr::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            RubyPr::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             RubyPr::test_instance()
         );
     }
@@ -7907,12 +7908,12 @@ mod tests {
     pub fn test_ruby_content_choice_from_xml() {
         let xml = R::test_xml("r");
         assert_eq!(
-            RubyContentChoice::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            RubyContentChoice::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             RubyContentChoice::Run(R::test_instance())
         );
         let xml = ProofErr::test_xml("proofErr");
         assert_eq!(
-            RubyContentChoice::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            RubyContentChoice::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             RubyContentChoice::RunLevelElement(RunLevelElts::ProofError(ProofErr::test_instance()))
         );
     }
@@ -7939,7 +7940,7 @@ mod tests {
     pub fn test_ruby_content_from_xml() {
         let xml = RubyContent::test_xml("rubyContent");
         assert_eq!(
-            RubyContent::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            RubyContent::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             RubyContent::test_instance()
         );
     }
@@ -7972,7 +7973,7 @@ mod tests {
     pub fn test_r_from_xml() {
         let xml = R::test_xml("r");
         assert_eq!(
-            R::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            R::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             R::test_instance()
         );
     }
@@ -8005,7 +8006,7 @@ mod tests {
     pub fn test_ruby_from_xml() {
         let xml = Ruby::test_xml("ruby");
         assert_eq!(
-            Ruby::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            Ruby::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             Ruby::test_instance()
         );
     }
@@ -8030,7 +8031,7 @@ mod tests {
     pub fn test_ftn_edn_ref_from_xml() {
         let xml = FtnEdnRef::test_xml("ftnEdnRef");
         assert_eq!(
-            FtnEdnRef::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            FtnEdnRef::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             FtnEdnRef::test_instance()
         );
     }
@@ -8057,7 +8058,7 @@ mod tests {
     pub fn test_p_tab_from_xml() {
         let xml = PTab::test_xml("pTab");
         assert_eq!(
-            PTab::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            PTab::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             PTab::test_instance()
         );
     }
@@ -8087,7 +8088,7 @@ mod tests {
     pub fn test_run_track_change_from_xml() {
         let xml = RunTrackChange::test_xml("runTrackChange");
         assert_eq!(
-            RunTrackChange::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            RunTrackChange::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             RunTrackChange::test_instance()
         );
     }
@@ -8118,7 +8119,7 @@ mod tests {
         let xml = CustomXmlBlock::test_xml("customXmlBlock");
         println!("{}", xml);
         assert_eq!(
-            CustomXmlBlock::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            CustomXmlBlock::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             CustomXmlBlock::test_instance()
         );
     }
@@ -8145,7 +8146,7 @@ mod tests {
     pub fn test_sdt_content_block_from_xml() {
         let xml = SdtContentBlock::test_xml("sdtContentBlock");
         assert_eq!(
-            SdtContentBlock::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            SdtContentBlock::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             SdtContentBlock::test_instance()
         );
     }
@@ -8178,7 +8179,7 @@ mod tests {
     pub fn test_sdt_block_from_xml() {
         let xml = SdtBlock::test_xml("sdtBlock");
         assert_eq!(
-            SdtBlock::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            SdtBlock::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             SdtBlock::test_instance()
         );
     }
@@ -8218,7 +8219,7 @@ mod tests {
     pub fn test_frame_pr_from_xml() {
         let xml = FramePr::test_xml("framePr");
         assert_eq!(
-            FramePr::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            FramePr::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             FramePr::test_instance()
         );
     }
@@ -8249,7 +8250,7 @@ mod tests {
     pub fn test_num_pr_from_xml() {
         let xml = NumPr::test_xml("numPr");
         assert_eq!(
-            NumPr::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            NumPr::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             NumPr::test_instance(),
         );
     }
@@ -8291,7 +8292,7 @@ mod tests {
     pub fn test_p_bdr_from_xml() {
         let xml = PBdr::test_xml("pBdr");
         assert_eq!(
-            PBdr::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            PBdr::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             PBdr::test_instance(),
         );
     }
@@ -8317,7 +8318,7 @@ mod tests {
     pub fn test_tab_stop_from_xml() {
         let xml = TabStop::test_xml("tabStop");
         assert_eq!(
-            TabStop::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TabStop::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             TabStop::test_instance(),
         );
     }
@@ -8343,7 +8344,7 @@ mod tests {
     pub fn test_tabs_from_xml() {
         let xml = Tabs::test_xml("tabs");
         assert_eq!(
-            Tabs::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            Tabs::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             Tabs::test_instance(),
         );
     }
@@ -8376,7 +8377,7 @@ mod tests {
     pub fn test_spacing_from_xml() {
         let xml = Spacing::test_xml("spacing");
         assert_eq!(
-            Spacing::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            Spacing::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             Spacing::test_instance(),
         );
     }
@@ -8413,7 +8414,7 @@ mod tests {
     pub fn test_ind_from_xml() {
         let xml = Ind::test_xml("ind");
         assert_eq!(
-            Ind::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            Ind::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             Ind::test_instance(),
         );
     }
@@ -8451,7 +8452,7 @@ mod tests {
     pub fn test_cnf_from_xml() {
         let xml = Cnf::test_xml("cnf");
         assert_eq!(
-            Cnf::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            Cnf::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             Cnf::test_instance(),
         );
     }
@@ -8556,7 +8557,7 @@ mod tests {
     pub fn test_p_pr_base_from_xml() {
         let xml = PPrBase::test_xml("pPrBase");
         assert_eq!(
-            PPrBase::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            PPrBase::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             PPrBase::test_instance(),
         );
     }
@@ -8586,7 +8587,7 @@ mod tests {
     pub fn test_p_pr_general_from_xml() {
         let xml = PPrGeneral::test_xml("pPrGeneral");
         assert_eq!(
-            PPrGeneral::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            PPrGeneral::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             PPrGeneral::test_instance(),
         );
     }
@@ -8620,7 +8621,7 @@ mod tests {
     pub fn test_para_r_pr_track_changes_from_xml() {
         let xml = format!("<node>{}</node>", ParaRPrTrackChanges::test_xml());
         assert_eq!(
-            ParaRPrTrackChanges::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            ParaRPrTrackChanges::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             Some(ParaRPrTrackChanges::test_instance()),
         );
     }
@@ -8650,7 +8651,7 @@ mod tests {
     pub fn test_para_r_pr_original_from_xml() {
         let xml = ParaRPrOriginal::test_xml("paraRPrOriginal");
         assert_eq!(
-            ParaRPrOriginal::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            ParaRPrOriginal::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             ParaRPrOriginal::test_instance(),
         );
     }
@@ -8678,7 +8679,7 @@ mod tests {
     pub fn test_para_r_change_from_xml() {
         let xml = ParaRPrChange::test_xml("paraRPrChange");
         assert_eq!(
-            ParaRPrChange::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            ParaRPrChange::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             ParaRPrChange::test_instance(),
         );
     }
@@ -8711,7 +8712,7 @@ mod tests {
     pub fn test_para_r_pr_from_xml() {
         let xml = ParaRPr::test_xml("paraRPr");
         assert_eq!(
-            ParaRPr::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            ParaRPr::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             ParaRPr::test_instance(),
         );
     }
@@ -8736,7 +8737,7 @@ mod tests {
     pub fn test_hdr_ftr_ref_from_xml() {
         let xml = HdrFtrRef::test_xml("hdrFtrRef");
         assert_eq!(
-            HdrFtrRef::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            HdrFtrRef::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             HdrFtrRef::test_instance(),
         );
     }
@@ -8761,7 +8762,7 @@ mod tests {
     pub fn test_num_fmt_from_xml() {
         let xml = NumFmt::test_xml("numFmt");
         assert_eq!(
-            NumFmt::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            NumFmt::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             NumFmt::test_instance(),
         );
     }
@@ -8787,7 +8788,7 @@ mod tests {
     pub fn test_ftn_edn_num_props_from_xml() {
         let xml = format!("<node>{}</node>", FtnEdnNumProps::test_xml());
         assert_eq!(
-            FtnEdnNumProps::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            FtnEdnNumProps::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             Some(FtnEdnNumProps::test_instance()),
         );
     }
@@ -8822,7 +8823,7 @@ mod tests {
     pub fn test_ftn_props_from_xml() {
         let xml = FtnProps::test_xml("ftnProps");
         assert_eq!(
-            FtnProps::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            FtnProps::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             FtnProps::test_instance(),
         );
     }
@@ -8859,7 +8860,7 @@ mod tests {
     pub fn test_edn_props_from_xml() {
         let xml = EdnProps::test_xml("endProps");
         assert_eq!(
-            EdnProps::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            EdnProps::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             EdnProps::test_instance(),
         );
     }
@@ -8886,7 +8887,7 @@ mod tests {
     pub fn test_page_sz_from_xml() {
         let xml = PageSz::test_xml("pageSz");
         assert_eq!(
-            PageSz::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            PageSz::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             PageSz::test_instance(),
         );
     }
@@ -8917,7 +8918,7 @@ mod tests {
     pub fn test_page_mar_from_xml() {
         let xml = PageMar::test_xml("pageMar");
         assert_eq!(
-            PageMar::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            PageMar::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             PageMar::test_instance(),
         );
     }
@@ -8942,7 +8943,7 @@ mod tests {
     pub fn test_paper_source_from_xml() {
         let xml = PaperSource::test_xml("paperSource");
         assert_eq!(
-            PaperSource::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            PaperSource::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             PaperSource::test_instance(),
         );
     }
@@ -8972,7 +8973,7 @@ mod tests {
     pub fn test_page_border_from_xml() {
         let xml = PageBorder::test_xml("pageBorder");
         assert_eq!(
-            PageBorder::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            PageBorder::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             PageBorder::test_instance(),
         );
     }
@@ -8999,7 +9000,7 @@ mod tests {
     pub fn test_top_page_border_from_xml() {
         let xml = TopPageBorder::test_xml("topPageBorder");
         assert_eq!(
-            TopPageBorder::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            TopPageBorder::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             TopPageBorder::test_instance(),
         );
     }
@@ -9026,7 +9027,7 @@ mod tests {
     pub fn test_bottom_page_border_from_xml() {
         let xml = BottomPageBorder::test_xml("bottomPageBorder");
         assert_eq!(
-            BottomPageBorder::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            BottomPageBorder::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             BottomPageBorder::test_instance(),
         );
     }
@@ -9065,7 +9066,7 @@ mod tests {
     pub fn test_page_borders_from_xml() {
         let xml = PageBorders::test_xml("pageBorders");
         assert_eq!(
-            PageBorders::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            PageBorders::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             PageBorders::test_instance(),
         );
     }
@@ -9092,7 +9093,7 @@ mod tests {
     pub fn test_line_number_from_xml() {
         let xml = LineNumber::test_xml("lineNumber");
         assert_eq!(
-            LineNumber::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            LineNumber::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             LineNumber::test_instance(),
         );
     }
@@ -9119,7 +9120,7 @@ mod tests {
     pub fn test_page_number_from_xml() {
         let xml = PageNumber::test_xml("pageNumber");
         assert_eq!(
-            PageNumber::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            PageNumber::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             PageNumber::test_instance(),
         );
     }
@@ -9144,7 +9145,7 @@ mod tests {
     pub fn test_column_from_xml() {
         let xml = Column::test_xml("column");
         assert_eq!(
-            Column::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            Column::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             Column::test_instance(),
         );
     }
@@ -9176,7 +9177,7 @@ mod tests {
     pub fn test_columns_from_xml() {
         let xml = Columns::test_xml("columns");
         assert_eq!(
-            Columns::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            Columns::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             Columns::test_instance(),
         );
     }
@@ -9202,7 +9203,7 @@ mod tests {
     pub fn test_doc_grid_from_xml() {
         let xml = DocGrid::test_xml("docGrid");
         assert_eq!(
-            DocGrid::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            DocGrid::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             DocGrid::test_instance(),
         );
     }
@@ -9271,7 +9272,7 @@ mod tests {
     pub fn test_sect_pr_contents_from_xml() {
         let xml = format!(r#"<node>{}</node>"#, SectPrContents::test_xml());
         assert_eq!(
-            SectPrContents::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            SectPrContents::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             Some(SectPrContents::test_instance()),
         );
     }
@@ -9294,7 +9295,7 @@ mod tests {
     pub fn test_sect_pr_attributes_from_xml() {
         let xml = format!(r#"<node {}></node>"#, SectPrAttributes::TEST_ATTRIBUTES);
         assert_eq!(
-            SectPrAttributes::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            SectPrAttributes::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             SectPrAttributes::test_instance(),
         );
     }
@@ -9323,7 +9324,7 @@ mod tests {
     pub fn test_sect_pr_base_from_xml() {
         let xml = SectPrBase::test_xml("sectPrBase");
         assert_eq!(
-            SectPrBase::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            SectPrBase::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             SectPrBase::test_instance(),
         );
     }
@@ -9352,7 +9353,7 @@ mod tests {
     pub fn test_sect_pr_change_from_xml() {
         let xml = SectPrChange::test_xml("sectPrChange");
         assert_eq!(
-            SectPrChange::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            SectPrChange::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             SectPrChange::test_instance(),
         );
     }
@@ -9392,7 +9393,7 @@ mod tests {
     pub fn test_sect_pr_from_xml() {
         let xml = SectPr::test_xml("sectPr");
         assert_eq!(
-            SectPr::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            SectPr::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             SectPr::test_instance(),
         );
     }
@@ -9421,7 +9422,7 @@ mod tests {
     pub fn test_p_pr_change_from_xml() {
         let xml = PPrChange::test_xml("pPrChange");
         assert_eq!(
-            PPrChange::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            PPrChange::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             PPrChange::test_instance(),
         );
     }
@@ -9457,7 +9458,7 @@ mod tests {
     pub fn test_p_pr_from_xml() {
         let xml = PPr::test_xml("pPr");
         assert_eq!(
-            PPr::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            PPr::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             PPr::test_instance(),
         );
     }
@@ -9491,7 +9492,7 @@ mod tests {
     pub fn test_p_from_xml() {
         let xml = P::test_xml("p");
         assert_eq!(
-            P::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            P::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             P::test_instance(),
         );
     }
@@ -9570,7 +9571,7 @@ mod tests {
     pub fn test_alt_chunk_pr_from_xml() {
         let xml = AltChunkPr::test_xml("altChunkPr");
         assert_eq!(
-            AltChunkPr::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            AltChunkPr::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             AltChunkPr::test_instance(),
         );
     }
@@ -9596,7 +9597,7 @@ mod tests {
     pub fn test_alt_chunk_from_xml() {
         let xml = AltChunk::test_xml("altChunk");
         assert_eq!(
-            AltChunk::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            AltChunk::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             AltChunk::test_instance(),
         );
     }
@@ -9627,7 +9628,7 @@ mod tests {
     pub fn test_background_from_xml() {
         let xml = Background::test_xml("background");
         assert_eq!(
-            Background::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            Background::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             Background::test_instance(),
         );
     }
@@ -9656,7 +9657,7 @@ mod tests {
     pub fn test_document_base_from_xml() {
         let xml = DocumentBase::test_xml("documentBase");
         assert_eq!(
-            DocumentBase::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            DocumentBase::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             DocumentBase::test_instance(),
         );
     }
@@ -9688,7 +9689,7 @@ mod tests {
     pub fn test_body_from_xml() {
         let xml = Body::test_xml("body");
         assert_eq!(
-            Body::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            Body::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             Body::test_instance(),
         );
     }
@@ -9719,7 +9720,7 @@ mod tests {
     pub fn test_document_from_xml() {
         let xml = Document::test_xml("document");
         assert_eq!(
-            Document::from_xml_element(&XmlNode::from_str(xml).unwrap()).unwrap(),
+            Document::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap(),
             Document::test_instance(),
         );
     }
