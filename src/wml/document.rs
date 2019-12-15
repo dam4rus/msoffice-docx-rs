@@ -6120,7 +6120,8 @@ mod tests {
     #[test]
     pub fn test_signed_twips_measure_from_xml() {
         let xml = SignedTwipsMeasure::test_xml("signedTwipsMeasure");
-        let signed_twips_measure = SignedTwipsMeasure::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
+        let signed_twips_measure =
+            SignedTwipsMeasure::from_xml_element(&XmlNode::from_str(xml.as_str()).unwrap()).unwrap();
         assert_eq!(signed_twips_measure, SignedTwipsMeasure::test_instance());
     }
 
@@ -7164,7 +7165,8 @@ mod tests {
             SdtPrChoice::Equation,
         );
         assert_eq!(
-            SdtPrChoice::from_xml_element(&XmlNode::from_str(SdtComboBox::test_xml("comboBox").as_str()).unwrap()).unwrap(),
+            SdtPrChoice::from_xml_element(&XmlNode::from_str(SdtComboBox::test_xml("comboBox").as_str()).unwrap())
+                .unwrap(),
             SdtPrChoice::ComboBox(SdtComboBox::test_instance()),
         );
         assert_eq!(
@@ -7172,16 +7174,20 @@ mod tests {
             SdtPrChoice::Date(SdtDate::test_instance()),
         );
         assert_eq!(
-            SdtPrChoice::from_xml_element(&XmlNode::from_str(SdtDocPart::test_xml("docPartObj").as_str()).unwrap()).unwrap(),
+            SdtPrChoice::from_xml_element(&XmlNode::from_str(SdtDocPart::test_xml("docPartObj").as_str()).unwrap())
+                .unwrap(),
             SdtPrChoice::DocumentPartObject(SdtDocPart::test_instance()),
         );
         assert_eq!(
-            SdtPrChoice::from_xml_element(&XmlNode::from_str(SdtDocPart::test_xml("docPartList").as_str()).unwrap()).unwrap(),
+            SdtPrChoice::from_xml_element(&XmlNode::from_str(SdtDocPart::test_xml("docPartList").as_str()).unwrap())
+                .unwrap(),
             SdtPrChoice::DocumentPartList(SdtDocPart::test_instance()),
         );
         assert_eq!(
-            SdtPrChoice::from_xml_element(&XmlNode::from_str(SdtDropDownList::test_xml("dropDownList").as_str()).unwrap())
-                .unwrap(),
+            SdtPrChoice::from_xml_element(
+                &XmlNode::from_str(SdtDropDownList::test_xml("dropDownList").as_str()).unwrap()
+            )
+            .unwrap(),
             SdtPrChoice::DropDownList(SdtDropDownList::test_instance()),
         );
         assert_eq!(
