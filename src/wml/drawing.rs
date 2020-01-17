@@ -151,7 +151,11 @@ pub struct WrapPath {
 
 impl WrapPath {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
-        let edited = xml_node.attributes.get("edited").map(|value| value.parse()).transpose()?;
+        let edited = xml_node
+            .attributes
+            .get("edited")
+            .map(|value| value.parse())
+            .transpose()?;
 
         let mut start = None;
         let mut line_to = Vec::new();
