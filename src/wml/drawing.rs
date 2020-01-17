@@ -151,7 +151,7 @@ pub struct WrapPath {
 
 impl WrapPath {
     pub fn from_xml_element(xml_node: &XmlNode) -> Result<Self> {
-        let edited = xml_node.attribute("edited").map(|value| value.parse()).transpose()?;
+        let edited = xml_node.attributes.get("edited").map(|value| value.parse()).transpose()?;
 
         let mut start = None;
         let mut line_to = Vec::new();
@@ -166,14 +166,14 @@ impl WrapPath {
 
         let start = start.ok_or_else(|| MissingChildNodeError::new(xml_node.name.clone(), "start"))?;
         match line_to.len() {
-            occurs if occurs < 2 => Err(Box::new(LimitViolationError::new(
+            occurs if occurs >= 2 => Ok(Self { start, line_to, edited }),
+            occurs => Err(Box::new(LimitViolationError::new(
                 xml_node.name.clone(),
                 "lineTo",
                 2,
                 MaxOccurs::Unbounded,
                 occurs as u32,
             ))),
-            _ => Ok(Self { start, line_to, edited }),
         }
     }
 }
